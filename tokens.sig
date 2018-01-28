@@ -17,6 +17,7 @@ val FOR:  linenum * linenum -> token
 val WHILE:  linenum * linenum -> token
 val ELSE:  linenum * linenum -> token
 val THEN:  linenum * linenum -> token
+
 val IF:  linenum * linenum -> token
 val ARRAY:  linenum * linenum -> token
 val ASSIGN:  linenum * linenum -> token
@@ -32,6 +33,7 @@ val DIVIDE:  linenum * linenum -> token
 val TIMES:  linenum * linenum -> token
 val MINUS:  linenum * linenum -> token
 val PLUS:  linenum * linenum -> token
+
 val DOT:  linenum * linenum -> token
 val RBRACE:  linenum * linenum -> token
 val LBRACE:  linenum * linenum -> token
