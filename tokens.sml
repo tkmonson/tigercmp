@@ -4,6 +4,7 @@ struct
 
 type linenum = int
 type token = string
+
 fun TYPE(i,j) = "TYPE   " ^ Int.toString(i)
 fun VAR(i,j) = "VAR   " ^ Int.toString(i)
 fun FUNCTION(i,j) = "FUNCTION   " ^ Int.toString(i)
@@ -19,6 +20,7 @@ fun FOR(i,j) = "FOR   " ^ Int.toString(i)
 fun WHILE(i,j) = "WHILE   " ^ Int.toString(i)
 fun ELSE(i,j) = "ELSE   " ^ Int.toString(i)
 fun THEN(i,j) = "THEN   " ^ Int.toString(i)
+
 fun IF(i,j) = "IF   " ^ Int.toString(i)
 fun ARRAY(i,j) = "ARRAY   " ^ Int.toString(i)
 fun ASSIGN(i,j) = "ASSIGN   " ^ Int.toString(i)
