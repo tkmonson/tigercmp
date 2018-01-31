@@ -53,9 +53,10 @@ fun eof() = let val pos = hd(!linePos) in Tokens.EOF(pos,pos) end
 <INITIAL> ";" => (Tokens.SEMICOLON(yypos,yypos+1));
 <INITIAL> ":" => (Tokens.COLON(yypos,yypos+1));
 <INITIAL> "," => (Tokens.COMMA(yypos,yypos+1));
-<INITIAL> "," => (Tokens.COMMA(yypos,yypos+1));
-
-<INITIAL> "$" => (Tokens.EOF(yypos,yypos+1));
+<INITIAL> [\"][ -~\n\t\^c\ddd\"\\\ \]*[\"] => Tokens.STRING(yytext,yypos,yypos+size(yytext));
+<INITIAL> [0-9]+ => (Tokens.INT(Int.fromString(yytext),yypos,yypos+size(yytext)))
+<INITIAL> [a-zA-Z][a-zA-Z0-9_]*  => Tokens.ID(yytext,yypos,yypos+size(yytext)); 
+<INITIAL> "\Z" => (Tokens.EOF(yypos,yypos+2));
 
 
 <INITIAL> "/*" => (commentDepth := 1; YYBEGIN COMMENT; continue());
