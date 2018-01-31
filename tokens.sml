@@ -36,6 +36,7 @@ fun DIVIDE(i,j) = "DIVIDE   " ^ Int.toString(i)
 fun TIMES(i,j) = "TIMES   " ^ Int.toString(i)
 fun MINUS(i,j) = "MINUS   " ^ Int.toString(i)
 fun PLUS(i,j) = "PLUS   " ^ Int.toString(i)
+					
 fun DOT(i,j) = "DOT   " ^ Int.toString(i)
 fun RBRACE(i,j) = "RBRACE   " ^ Int.toString(i)
 fun LBRACE(i,j) = "LBRACE   " ^ Int.toString(i)

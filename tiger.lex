@@ -13,9 +13,8 @@ fun eof() = let val pos = hd(!linePos) in Tokens.EOF(pos,pos) end
 %%
 
 <INITIAL> \n	=> (lineNum := !lineNum+1; linePos := yypos :: !linePos; continue());
-<INITIAL> ","	=> (Tokens.COMMA(yypos,yypos+1));
-<INITIAL> var  	=> (Tokens.VAR(yypos,yypos+3));
 <INITIAL> type => (Tokens.TYPE(yypos, yypos+4));
+<INITIAL> var  	=> (Tokens.VAR(yypos,yypos+3));
 <INITIAL> function => (Tokens.FUNCTION(yypos, yypos+8));
 <INITIAL> break => (Tokens.BREAK(yypos, yypos+5));
 <INITIAL> of => (Tokens.OF(yypos, yypos+2));
@@ -44,6 +43,21 @@ fun eof() = let val pos = hd(!linePos) in Tokens.EOF(pos,pos) end
 <INITIAL> "*" => (Tokens.TIMES(yypos,yypos+1));
 <INITIAL> "-" => (Tokens.MINUS(yypos,yypos+1));
 <INITIAL> "+" => (Tokens.PLUS(yypos,yypos+1));
+<INITIAL> "." => (Tokens.DOT(yypos,yypos+1));
+<INITIAL> "]" => (Tokens.RBRACE(yypos,yypos+1));
+<INITIAL> "[" => (Tokens.LBRACE(yypos,yypos+1));
+<INITIAL> "}" => (Tokens.RBRACK(yypos,yypos+1));
+<INITIAL> "{" => (Tokens.LBRACK(yypos,yypos+1));
+<INITIAL> ")" => (Tokens.RPAREN(yypos,yypos+1));
+<INITIAL> "(" => (Tokens.LPAREN(yypos,yypos+1));
+<INITIAL> ";" => (Tokens.SEMICOLON(yypos,yypos+1));
+<INITIAL> ":" => (Tokens.COLON(yypos,yypos+1));
+<INITIAL> "," => (Tokens.COMMA(yypos,yypos+1));
+<INITIAL> "," => (Tokens.COMMA(yypos,yypos+1));
+
+<INITIAL> "$" => (Tokens.EOF(yypos,yypos+1));
+
+
 <INITIAL> "/*" => (commentDepth := 1; YYBEGIN COMMENT; continue());
 
 <COMMENT> [^/*]* => (continue());
