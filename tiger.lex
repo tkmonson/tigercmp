@@ -4,6 +4,8 @@ type lexresult = Tokens.token
 val lineNum = ErrorMsg.lineNum
 val linePos = ErrorMsg.linePos
 val commentDepth = ref 0
+val stringStart = ref 0
+val stringBuffer = "" : string
 fun err(p1,p2) = ErrorMsg.error p1
 
 fun eof() = let val pos = hd(!linePos) in Tokens.EOF(pos,pos) end
@@ -55,8 +57,14 @@ fun eof() = let val pos = hd(!linePos) in Tokens.EOF(pos,pos) end
 <INITIAL> "," => (Tokens.COMMA(yypos,yypos+1));
 
 <INITIAL> [0-9]+ => (Tokens.INT(case Int.fromString(yytext) of SOME y => y | NONE => ~1, yypos,yypos+size(yytext)));
-<INITIAL> \"[ -~\ \\n\t\^c\ddd\"\\]*\" => (Tokens.STRING(yytext,yypos,yypos+size(yytext)));
+
+<INITIAL> \" => (YYBEGIN STRING; stringStart := yypos; continue());
+<STRING> [ -~\ \\n\t\^c\ddd\"\\]* => (stringBuffer ^ yytext; continue());
+<STRING> \\[\f\n\t\ \\13]*\\ => (continue());
+<STRING> \" => (YYBEGIN INITIAL; Tokens.STRING(stringBuffer,!stringStart,yypos+1); stringStart :=0; stringBuffer = "");
+
 <INITIAL> [A-Za-z][A-Za-z0-9_]* => (Tokens.ID(yytext,yypos,yypos+size(yytext)));
+
 
 <INITIAL> "/*" => (commentDepth := 1; YYBEGIN COMMENT; continue());
 <COMMENT> [^/*]* => (continue());
