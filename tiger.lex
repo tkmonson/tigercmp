@@ -53,13 +53,12 @@ fun eof() = let val pos = hd(!linePos) in Tokens.EOF(pos,pos) end
 <INITIAL> ";" => (Tokens.SEMICOLON(yypos,yypos+1));
 <INITIAL> ":" => (Tokens.COLON(yypos,yypos+1));
 <INITIAL> "," => (Tokens.COMMA(yypos,yypos+1));
-<INITIAL> \"[ -~\n\t\^c\ddd\"\\\ \]*\" => Tokens.STRING(yytext,yypos,yypos+size(yytext));
-<INITIAL> [0-9]+ => (Tokens.INT(Int.fromString(yytext),yypos,yypos+size(yytext)))
-<INITIAL> \b(?!(?:type|var|function|break|of|end|in|nil|let|do|to|for|while|else|then|if|array)\b)[A-Za-z][A-Za-z0-9_]*\b => Tokens.ID(yytext,yypos,yypos+size(yytext));
-/*<INITAL> "EOF"*/
+
+<INITIAL> [0-9]+ => (Tokens.INT(case Int.fromString(yytext) of SOME y => y | NONE => ~1, yypos,yypos+size(yytext)));
+<INITIAL> \"[ -~\ \\n\t\^c\ddd\"\\]*\" => (Tokens.STRING(yytext,yypos,yypos+size(yytext)));
+<INITIAL> [A-Za-z][A-Za-z0-9_]* => (Tokens.ID(yytext,yypos,yypos+size(yytext)));
 
 <INITIAL> "/*" => (commentDepth := 1; YYBEGIN COMMENT; continue());
-
 <COMMENT> [^/*]* => (continue());
 <COMMENT> "/*" => ( commentDepth := !commentDepth+1; continue());
 <COMMENT> "*/" => (commentDepth := !commentDepth-1; if !commentDepth=0
