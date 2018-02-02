@@ -1,1 +1,11 @@
-12345 1 ID1 if8 if "harder \n string" "easy string" 
+"harder \n string with \t tabs and \\ slashes and \" quotes and \064 letters and \
+    \ space and \^C and shit"
+also stuff on a line brea
+/* nested /* comment
+               */ here */
+"hi\
+\            \
+\ hi \
+\"
+
+"started a string

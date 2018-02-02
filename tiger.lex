@@ -5,13 +5,15 @@ val lineNum = ErrorMsg.lineNum
 val linePos = ErrorMsg.linePos
 val commentDepth = ref 0
 val stringStart = ref 0
-val stringBuffer = "" : string
-fun err(p1,p2) = ErrorMsg.error p1
-
-fun eof() = let val pos = hd(!linePos) in Tokens.EOF(pos,pos) end
+val stringBuffer = ref ""
+val inStringMode = ref false
+fun err(p1,p2) = ErrorMsg.error p1;
+fun checkComment pos = if !commentDepth <> 0 then ErrorMsg.error pos ("Unclosed comment at EOF") else ();
+fun checkString pos = if !inStringMode then ErrorMsg.error pos ("Unclosed string at EOF") else ();
+fun eof() = let val pos = hd(!linePos) val dummy1 = checkComment pos val dummy2 = checkString pos in Tokens.EOF(pos,pos) end;
 
 %%
-%s COMMENT;
+%s COMMENT STRING;
 %%
 
 <INITIAL> \n	=> (lineNum := !lineNum+1; linePos := yypos :: !linePos; continue());
@@ -55,18 +57,24 @@ fun eof() = let val pos = hd(!linePos) in Tokens.EOF(pos,pos) end
 <INITIAL> ";" => (Tokens.SEMICOLON(yypos,yypos+1));
 <INITIAL> ":" => (Tokens.COLON(yypos,yypos+1));
 <INITIAL> "," => (Tokens.COMMA(yypos,yypos+1));
-
 <INITIAL> [0-9]+ => (Tokens.INT(case Int.fromString(yytext) of SOME y => y | NONE => ~1, yypos,yypos+size(yytext)));
-
-<INITIAL> \" => (YYBEGIN STRING; stringStart := yypos; continue());
-<STRING> [ -~\ \\n\t\^c\ddd\"\\]* => (stringBuffer ^ yytext; continue());
-<STRING> \\[\f\n\t\ \\13]*\\ => (continue());
-<STRING> \" => (YYBEGIN INITIAL; Tokens.STRING(stringBuffer,!stringStart,yypos+1); stringStart :=0; stringBuffer = "");
-
 <INITIAL> [A-Za-z][A-Za-z0-9_]* => (Tokens.ID(yytext,yypos,yypos+size(yytext)));
-
-
 <INITIAL> "/*" => (commentDepth := 1; YYBEGIN COMMENT; continue());
+
+<INITIAL> \" => (YYBEGIN STRING; stringStart :=0; stringBuffer := ""; inStringMode := true; stringStart := yypos; continue());
+
+<STRING> \" => (inStringMode := false; YYBEGIN INITIAL; Tokens.STRING(!stringBuffer,!stringStart,yypos+1));
+<STRING> [ !#-\[\]-~]* => (stringBuffer := !stringBuffer ^ yytext; continue());
+<STRING> \\[\f\n\t\r\ ]+\\ => (continue());
+<STRING> \\n => (stringBuffer := !stringBuffer ^ "\n"; continue());
+<STRING> \\t => (stringBuffer := !stringBuffer ^ "\t"; continue());
+<STRING> \\\\ => (stringBuffer := !stringBuffer ^ "\\"; continue());
+<STRING> \\\" => (stringBuffer := !stringBuffer ^ "\""; continue());
+<STRING> \\[0-9]{3} => (stringBuffer := !stringBuffer ^ str(Char.chr(case Int.fromString(String.extract (yytext,1,NONE)) of SOME y => y | NONE => ~1)); continue());
+<STRING> \\\^[A-Z\[\\\]\^_\?] => (stringBuffer := !stringBuffer ^ str(case Char.fromString(yytext) of SOME y => y | NONE => #"a"); continue());
+<STRING> \n => (ErrorMsg.error yypos ("Illegal line break in string literal"); continue());
+<STRING> .*\Z => (ErrorMsg.error yypos ("Unclosed string at EOF"); continue());
+
 <COMMENT> [^/*]* => (continue());
 <COMMENT> "/*" => ( commentDepth := !commentDepth+1; continue());
 <COMMENT> "*/" => (commentDepth := !commentDepth-1; if !commentDepth=0
@@ -74,6 +82,5 @@ fun eof() = let val pos = hd(!linePos) in Tokens.EOF(pos,pos) end
 <COMMENT> "/" => (continue());
 <COMMENT> "*" => (continue());
 
-
-[" "\t]+ => (continue());
+<INITIAL> [\f\n\t\r\ ]+ => (continue());
 .       => (ErrorMsg.error yypos ("illegal character " ^ yytext); continue());
