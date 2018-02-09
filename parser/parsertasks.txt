@@ -1,0 +1,17 @@
+
+exp	→
+
+ANITA
+lvalue
+|	negation
+|	funcall
+
+SAUMYA
+|	arrCreate
+|	recCreate
+|	assign
+
+TOMMY
+|	while
+|	for
+|	break
