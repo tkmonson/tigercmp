@@ -1,0 +1,3 @@
+- double check if then precedence
+- declist is sketchy af
+- comma left associative???
