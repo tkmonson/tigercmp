@@ -30,7 +30,7 @@
 %value INT (1)
 %value STRING ("")
 
-%nonassoc NIL
+%nonassoc SEMICOLON
 %nonassoc EQ NEQ LT LE GT GE
 %left PLUS MINUS
 %left TIMES DIVIDE
@@ -42,13 +42,12 @@
  *  to replace the two dummy productions below with an actual grammar.
  *)
 
-program	: exp				()
+program	: exp			()
 
-
-exp: exp exp			()
+exp: LPAREN exp RPAREN			()
+exp: exp SEMICOLON exp			()
 exp: INT          ()
 exp: STRING       ()
-exp: NIL          ()
 exp: exp PLUS exp ()
 exp: exp MINUS exp ()
 exp: exp TIMES exp ()

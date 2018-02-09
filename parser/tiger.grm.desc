@@ -1,38 +1,3 @@
-33 shift/reduce conflicts
-
-error:  state 5: shift/reduce conflict (shift NIL, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift GE, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift GT, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift LE, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift LT, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift NEQ, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift EQ, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift DIVIDE, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift TIMES, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift MINUS, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift PLUS, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift STRING, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift INT, reduce by rule 1)
-error:  state 16: shift/reduce conflict (shift STRING, reduce by rule 14)
-error:  state 16: shift/reduce conflict (shift INT, reduce by rule 14)
-error:  state 17: shift/reduce conflict (shift STRING, reduce by rule 13)
-error:  state 17: shift/reduce conflict (shift INT, reduce by rule 13)
-error:  state 18: shift/reduce conflict (shift STRING, reduce by rule 12)
-error:  state 18: shift/reduce conflict (shift INT, reduce by rule 12)
-error:  state 19: shift/reduce conflict (shift STRING, reduce by rule 11)
-error:  state 19: shift/reduce conflict (shift INT, reduce by rule 11)
-error:  state 20: shift/reduce conflict (shift STRING, reduce by rule 10)
-error:  state 20: shift/reduce conflict (shift INT, reduce by rule 10)
-error:  state 21: shift/reduce conflict (shift STRING, reduce by rule 9)
-error:  state 21: shift/reduce conflict (shift INT, reduce by rule 9)
-error:  state 22: shift/reduce conflict (shift STRING, reduce by rule 8)
-error:  state 22: shift/reduce conflict (shift INT, reduce by rule 8)
-error:  state 23: shift/reduce conflict (shift STRING, reduce by rule 7)
-error:  state 23: shift/reduce conflict (shift INT, reduce by rule 7)
-error:  state 24: shift/reduce conflict (shift STRING, reduce by rule 6)
-error:  state 24: shift/reduce conflict (shift INT, reduce by rule 6)
-error:  state 25: shift/reduce conflict (shift STRING, reduce by rule 5)
-error:  state 25: shift/reduce conflict (shift INT, reduce by rule 5)
 
 state 0:
 
@@ -40,17 +5,17 @@ state 0:
 
 	INT	shift 4
 	STRING	shift 3
-	NIL	shift 2
+	LPAREN	shift 2
 
 	exp	goto 1
-	program	goto 26
+	program	goto 29
 
 	.	error
 
 
 state 1:
 
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp . TIMES exp 
@@ -63,69 +28,200 @@ state 1:
 	exp : exp . GE exp 
 	program : exp .  (reduce by rule 0)
 
-	INT	shift 4
-	STRING	shift 3
-	PLUS	shift 15
-	MINUS	shift 14
-	TIMES	shift 13
-	DIVIDE	shift 12
-	EQ	shift 11
-	NEQ	shift 10
-	LT	shift 9
-	LE	shift 8
-	GT	shift 7
-	GE	shift 6
-	NIL	shift 2
+	SEMICOLON	shift 15
+	PLUS	shift 14
+	MINUS	shift 13
+	TIMES	shift 12
+	DIVIDE	shift 11
+	EQ	shift 10
+	NEQ	shift 9
+	LT	shift 8
+	LE	shift 7
+	GT	shift 6
+	GE	shift 5
 
-	exp	goto 5
 
 	.	reduce by rule 0
 
 
 state 2:
 
-	exp : NIL .  (reduce by rule 4)
+	exp : LPAREN . exp RPAREN 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 16
+
+	.	error
+
+
+state 3:
+
+	exp : STRING .  (reduce by rule 4)
 
 
 
 	.	reduce by rule 4
 
 
-state 3:
+state 4:
 
-	exp : STRING .  (reduce by rule 3)
+	exp : INT .  (reduce by rule 3)
 
 
 
 	.	reduce by rule 3
 
 
-state 4:
-
-	exp : INT .  (reduce by rule 2)
-
-
-
-	.	reduce by rule 2
-
-error:  state 5: shift/reduce conflict (shift NIL, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift GE, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift GT, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift LE, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift LT, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift NEQ, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift EQ, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift DIVIDE, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift TIMES, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift MINUS, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift PLUS, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift STRING, reduce by rule 1)
-error:  state 5: shift/reduce conflict (shift INT, reduce by rule 1)
-
 state 5:
 
-	exp : exp . exp 
-	exp : exp exp .  (reduce by rule 1)
+	exp : exp GE . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 17
+
+	.	error
+
+
+state 6:
+
+	exp : exp GT . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 18
+
+	.	error
+
+
+state 7:
+
+	exp : exp LE . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 19
+
+	.	error
+
+
+state 8:
+
+	exp : exp LT . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 20
+
+	.	error
+
+
+state 9:
+
+	exp : exp NEQ . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 21
+
+	.	error
+
+
+state 10:
+
+	exp : exp EQ . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 22
+
+	.	error
+
+
+state 11:
+
+	exp : exp DIVIDE . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 23
+
+	.	error
+
+
+state 12:
+
+	exp : exp TIMES . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 24
+
+	.	error
+
+
+state 13:
+
+	exp : exp MINUS . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 25
+
+	.	error
+
+
+state 14:
+
+	exp : exp PLUS . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 26
+
+	.	error
+
+
+state 15:
+
+	exp : exp SEMICOLON . exp 
+
+	INT	shift 4
+	STRING	shift 3
+	LPAREN	shift 2
+
+	exp	goto 27
+
+	.	error
+
+
+state 16:
+
+	exp : LPAREN exp . RPAREN 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp . TIMES exp 
@@ -137,160 +233,26 @@ state 5:
 	exp : exp . GT exp 
 	exp : exp . GE exp 
 
-	INT	shift 4
-	STRING	shift 3
-	PLUS	shift 15
-	MINUS	shift 14
-	TIMES	shift 13
-	DIVIDE	shift 12
-	EQ	shift 11
-	NEQ	shift 10
-	LT	shift 9
-	LE	shift 8
-	GT	shift 7
-	GE	shift 6
-	NIL	shift 2
+	SEMICOLON	shift 15
+	RPAREN	shift 28
+	PLUS	shift 14
+	MINUS	shift 13
+	TIMES	shift 12
+	DIVIDE	shift 11
+	EQ	shift 10
+	NEQ	shift 9
+	LT	shift 8
+	LE	shift 7
+	GT	shift 6
+	GE	shift 5
 
-	exp	goto 5
-
-	.	reduce by rule 1
-
-
-state 6:
-
-	exp : exp GE . exp 
-
-	INT	shift 4
-	STRING	shift 3
-	NIL	shift 2
-
-	exp	goto 16
 
 	.	error
 
 
-state 7:
+state 17:
 
-	exp : exp GT . exp 
-
-	INT	shift 4
-	STRING	shift 3
-	NIL	shift 2
-
-	exp	goto 17
-
-	.	error
-
-
-state 8:
-
-	exp : exp LE . exp 
-
-	INT	shift 4
-	STRING	shift 3
-	NIL	shift 2
-
-	exp	goto 18
-
-	.	error
-
-
-state 9:
-
-	exp : exp LT . exp 
-
-	INT	shift 4
-	STRING	shift 3
-	NIL	shift 2
-
-	exp	goto 19
-
-	.	error
-
-
-state 10:
-
-	exp : exp NEQ . exp 
-
-	INT	shift 4
-	STRING	shift 3
-	NIL	shift 2
-
-	exp	goto 20
-
-	.	error
-
-
-state 11:
-
-	exp : exp EQ . exp 
-
-	INT	shift 4
-	STRING	shift 3
-	NIL	shift 2
-
-	exp	goto 21
-
-	.	error
-
-
-state 12:
-
-	exp : exp DIVIDE . exp 
-
-	INT	shift 4
-	STRING	shift 3
-	NIL	shift 2
-
-	exp	goto 22
-
-	.	error
-
-
-state 13:
-
-	exp : exp TIMES . exp 
-
-	INT	shift 4
-	STRING	shift 3
-	NIL	shift 2
-
-	exp	goto 23
-
-	.	error
-
-
-state 14:
-
-	exp : exp MINUS . exp 
-
-	INT	shift 4
-	STRING	shift 3
-	NIL	shift 2
-
-	exp	goto 24
-
-	.	error
-
-
-state 15:
-
-	exp : exp PLUS . exp 
-
-	INT	shift 4
-	STRING	shift 3
-	NIL	shift 2
-
-	exp	goto 25
-
-	.	error
-
-error:  state 16: shift/reduce conflict (shift STRING, reduce by rule 14)
-error:  state 16: shift/reduce conflict (shift INT, reduce by rule 14)
-
-state 16:
-
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp . TIMES exp 
@@ -304,24 +266,20 @@ state 16:
 	exp : exp GE exp .  (reduce by rule 14)
 
 	EOF	reduce by rule 14
-	INT	shift 4
-	STRING	shift 3
-	PLUS	shift 15
-	MINUS	shift 14
-	TIMES	shift 13
-	DIVIDE	shift 12
-	NIL	reduce by rule 14
+	SEMICOLON	reduce by rule 14
+	RPAREN	reduce by rule 14
+	PLUS	shift 14
+	MINUS	shift 13
+	TIMES	shift 12
+	DIVIDE	shift 11
 
-	exp	goto 5
 
 	.	error
 
-error:  state 17: shift/reduce conflict (shift STRING, reduce by rule 13)
-error:  state 17: shift/reduce conflict (shift INT, reduce by rule 13)
 
-state 17:
+state 18:
 
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp . TIMES exp 
@@ -335,24 +293,20 @@ state 17:
 	exp : exp . GE exp 
 
 	EOF	reduce by rule 13
-	INT	shift 4
-	STRING	shift 3
-	PLUS	shift 15
-	MINUS	shift 14
-	TIMES	shift 13
-	DIVIDE	shift 12
-	NIL	reduce by rule 13
+	SEMICOLON	reduce by rule 13
+	RPAREN	reduce by rule 13
+	PLUS	shift 14
+	MINUS	shift 13
+	TIMES	shift 12
+	DIVIDE	shift 11
 
-	exp	goto 5
 
 	.	error
 
-error:  state 18: shift/reduce conflict (shift STRING, reduce by rule 12)
-error:  state 18: shift/reduce conflict (shift INT, reduce by rule 12)
 
-state 18:
+state 19:
 
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp . TIMES exp 
@@ -366,24 +320,20 @@ state 18:
 	exp : exp . GE exp 
 
 	EOF	reduce by rule 12
-	INT	shift 4
-	STRING	shift 3
-	PLUS	shift 15
-	MINUS	shift 14
-	TIMES	shift 13
-	DIVIDE	shift 12
-	NIL	reduce by rule 12
+	SEMICOLON	reduce by rule 12
+	RPAREN	reduce by rule 12
+	PLUS	shift 14
+	MINUS	shift 13
+	TIMES	shift 12
+	DIVIDE	shift 11
 
-	exp	goto 5
 
 	.	error
 
-error:  state 19: shift/reduce conflict (shift STRING, reduce by rule 11)
-error:  state 19: shift/reduce conflict (shift INT, reduce by rule 11)
 
-state 19:
+state 20:
 
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp . TIMES exp 
@@ -397,24 +347,20 @@ state 19:
 	exp : exp . GE exp 
 
 	EOF	reduce by rule 11
-	INT	shift 4
-	STRING	shift 3
-	PLUS	shift 15
-	MINUS	shift 14
-	TIMES	shift 13
-	DIVIDE	shift 12
-	NIL	reduce by rule 11
+	SEMICOLON	reduce by rule 11
+	RPAREN	reduce by rule 11
+	PLUS	shift 14
+	MINUS	shift 13
+	TIMES	shift 12
+	DIVIDE	shift 11
 
-	exp	goto 5
 
 	.	error
 
-error:  state 20: shift/reduce conflict (shift STRING, reduce by rule 10)
-error:  state 20: shift/reduce conflict (shift INT, reduce by rule 10)
 
-state 20:
+state 21:
 
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp . TIMES exp 
@@ -428,24 +374,20 @@ state 20:
 	exp : exp . GE exp 
 
 	EOF	reduce by rule 10
-	INT	shift 4
-	STRING	shift 3
-	PLUS	shift 15
-	MINUS	shift 14
-	TIMES	shift 13
-	DIVIDE	shift 12
-	NIL	reduce by rule 10
+	SEMICOLON	reduce by rule 10
+	RPAREN	reduce by rule 10
+	PLUS	shift 14
+	MINUS	shift 13
+	TIMES	shift 12
+	DIVIDE	shift 11
 
-	exp	goto 5
 
 	.	error
 
-error:  state 21: shift/reduce conflict (shift STRING, reduce by rule 9)
-error:  state 21: shift/reduce conflict (shift INT, reduce by rule 9)
 
-state 21:
+state 22:
 
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp . TIMES exp 
@@ -459,24 +401,20 @@ state 21:
 	exp : exp . GE exp 
 
 	EOF	reduce by rule 9
-	INT	shift 4
-	STRING	shift 3
-	PLUS	shift 15
-	MINUS	shift 14
-	TIMES	shift 13
-	DIVIDE	shift 12
-	NIL	reduce by rule 9
+	SEMICOLON	reduce by rule 9
+	RPAREN	reduce by rule 9
+	PLUS	shift 14
+	MINUS	shift 13
+	TIMES	shift 12
+	DIVIDE	shift 11
 
-	exp	goto 5
 
 	.	error
 
-error:  state 22: shift/reduce conflict (shift STRING, reduce by rule 8)
-error:  state 22: shift/reduce conflict (shift INT, reduce by rule 8)
 
-state 22:
+state 23:
 
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp . TIMES exp 
@@ -489,19 +427,14 @@ state 22:
 	exp : exp . GT exp 
 	exp : exp . GE exp 
 
-	INT	shift 4
-	STRING	shift 3
 
-	exp	goto 5
 
 	.	reduce by rule 8
 
-error:  state 23: shift/reduce conflict (shift STRING, reduce by rule 7)
-error:  state 23: shift/reduce conflict (shift INT, reduce by rule 7)
 
-state 23:
+state 24:
 
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp . TIMES exp 
@@ -514,19 +447,14 @@ state 23:
 	exp : exp . GT exp 
 	exp : exp . GE exp 
 
-	INT	shift 4
-	STRING	shift 3
 
-	exp	goto 5
 
 	.	reduce by rule 7
 
-error:  state 24: shift/reduce conflict (shift STRING, reduce by rule 6)
-error:  state 24: shift/reduce conflict (shift INT, reduce by rule 6)
 
-state 24:
+state 25:
 
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp . MINUS exp 
 	exp : exp MINUS exp .  (reduce by rule 6)
@@ -539,21 +467,16 @@ state 24:
 	exp : exp . GT exp 
 	exp : exp . GE exp 
 
-	INT	shift 4
-	STRING	shift 3
-	TIMES	shift 13
-	DIVIDE	shift 12
+	TIMES	shift 12
+	DIVIDE	shift 11
 
-	exp	goto 5
 
 	.	reduce by rule 6
 
-error:  state 25: shift/reduce conflict (shift STRING, reduce by rule 5)
-error:  state 25: shift/reduce conflict (shift INT, reduce by rule 5)
 
-state 25:
+state 26:
 
-	exp : exp . exp 
+	exp : exp . SEMICOLON exp 
 	exp : exp . PLUS exp 
 	exp : exp PLUS exp .  (reduce by rule 5)
 	exp : exp . MINUS exp 
@@ -566,17 +489,55 @@ state 25:
 	exp : exp . GT exp 
 	exp : exp . GE exp 
 
-	INT	shift 4
-	STRING	shift 3
-	TIMES	shift 13
-	DIVIDE	shift 12
+	TIMES	shift 12
+	DIVIDE	shift 11
 
-	exp	goto 5
 
 	.	reduce by rule 5
 
 
-state 26:
+state 27:
+
+	exp : exp . SEMICOLON exp 
+	exp : exp SEMICOLON exp .  (reduce by rule 2)
+	exp : exp . PLUS exp 
+	exp : exp . MINUS exp 
+	exp : exp . TIMES exp 
+	exp : exp . DIVIDE exp 
+	exp : exp . EQ exp 
+	exp : exp . NEQ exp 
+	exp : exp . LT exp 
+	exp : exp . LE exp 
+	exp : exp . GT exp 
+	exp : exp . GE exp 
+
+	EOF	reduce by rule 2
+	RPAREN	reduce by rule 2
+	PLUS	shift 14
+	MINUS	shift 13
+	TIMES	shift 12
+	DIVIDE	shift 11
+	EQ	shift 10
+	NEQ	shift 9
+	LT	shift 8
+	LE	shift 7
+	GT	shift 6
+	GE	shift 5
+
+
+	.	error
+
+
+state 28:
+
+	exp : LPAREN exp RPAREN .  (reduce by rule 1)
+
+
+
+	.	reduce by rule 1
+
+
+state 29:
 
 
 	EOF	accept
@@ -584,5 +545,5 @@ state 26:
 
 	.	error
 
-90 of 147 action table entries left after compaction
-24 goto table entries
+85 of 151 action table entries left after compaction
+14 goto table entries
