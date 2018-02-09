@@ -66,9 +66,16 @@ exp: IF exp THEN exp ()
 exp: IF exp THEN exp ELSE exp ()
 exp: NIL ()
 exp: let ()
+<<<<<<< HEAD
 exp: arrCreate ()
 exp: recCreate ()
 exp: assign ()
+=======
+exp: BREAK ()
+exp: WHILE exp DO exp ()
+exp: FOR ID ASSIGN exp TO exp DO exp ()
+
+>>>>>>> a5fd43305eec4ed9e6665ac71fb275a14104dfd8
 
 let: LET dec IN exp END ()
 dec: tydec ()
