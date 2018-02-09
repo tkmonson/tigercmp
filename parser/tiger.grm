@@ -65,6 +65,10 @@ exp: IF exp THEN exp ()
 exp: IF exp THEN exp ELSE exp ()
 exp: NIL ()
 exp: let ()
+exp: BREAK ()
+exp: WHILE exp DO exp ()
+exp: FOR ID ASSIGN exp TO exp DO exp ()
+	 
 
 let: LET dec IN exp END ()
 dec: tydec ()
@@ -88,3 +92,4 @@ fundec: FUNCTION ID LPAREN fieldec RPAREN COLON tyid EQ exp ()
 fundec: FUNCTION ID LPAREN RPAREN COLON tyid EQ exp ()
 fundec: FUNCTION ID LPAREN fieldec RPAREN EQ exp ()
 fundec: FUNCTION ID LPAREN RPAREN EQ exp ()
+
