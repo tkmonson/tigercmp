@@ -11,8 +11,8 @@
   | BREAK | NIL
   | FUNCTION | VAR | TYPE
 
-%nonterm  exp | program | fundec | dec | tydec | vardec | ty | tyid | arrty | recty | fieldec | let | arrCreate | field
-| recCreate
+%nonterm  exp | program | fundec | dec | tydec | vardec | ty | arrty | recty | fieldec | let | arrCreate | field
+| recCreate | lvalue | decList | assign
 
 %pos int
 %verbose
@@ -73,33 +73,40 @@ exp: field ()
 exp: BREAK ()
 exp: WHILE exp DO exp ()
 exp: FOR ID ASSIGN exp TO exp DO exp ()
+exp: lvalue ()
 
-
-let: LET dec IN exp END ()
 dec: tydec ()
 dec: vardec ()
 dec: fundec ()
+decList: dec dec ()
+decList: decList dec ()
 
-tyid: ID ()
-tydec: TYPE tyid EQ ty ()
-ty: tyid ()
+tydec: TYPE ID EQ ty ()
+ty: ID ()
 ty: arrty ()
 ty: recty ()
-arrty: ARRAY OF tyid ()
+arrty: ARRAY OF ID ()
 recty: LBRACE fieldec RBRACE  ()
 fieldec: fieldec COMMA fieldec ()
-fieldec: ID COLON tyid ()
+fieldec: ID COLON ID ()
 
-vardec: VAR ID COLON tyid ASSIGN exp ()
+vardec: VAR ID COLON ID ASSIGN exp ()
 vardec: VAR ID ASSIGN exp ()
 
-fundec: FUNCTION ID LPAREN fieldec RPAREN COLON tyid EQ exp ()
-fundec: FUNCTION ID LPAREN RPAREN COLON tyid EQ exp ()
+fundec: FUNCTION ID LPAREN fieldec RPAREN COLON ID EQ exp ()
+fundec: FUNCTION ID LPAREN RPAREN COLON ID EQ exp ()
 fundec: FUNCTION ID LPAREN fieldec RPAREN EQ exp ()
 fundec: FUNCTION ID LPAREN RPAREN EQ exp ()
 
 field: ID EQ exp ()
-field: field COMMA field
-arrCreate: tyid LBRACK exp RBRACK OF exp ()
-recCreate: tyid LBRACE field RBRACE
-assign: lvalue ASSIGN exp
+field: field COMMA field ()
+arrCreate: ID LBRACK exp RBRACK OF exp ()
+recCreate: ID LBRACE field RBRACE ()
+assign: lvalue ASSIGN exp ()
+
+let: LET dec IN exp END ()
+let: LET decList IN exp END ()
+
+lvalue: ID ()
+lvalue: lvalue LBRACK exp RBRACK ()
+lvalue: lvalue DOT ID ()
