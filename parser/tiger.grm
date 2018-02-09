@@ -30,6 +30,8 @@
 %value INT (1)
 %value STRING ("")
 
+%nonassoc ELSE 
+%nonassoc THEN
 %nonassoc SEMICOLON
 %nonassoc EQ NEQ LT LE GT GE
 %left PLUS MINUS
@@ -58,3 +60,6 @@ exp: exp LT exp ()
 exp: exp LE exp ()
 exp: exp GT exp ()
 exp: exp GE exp ()
+exp: IF exp THEN exp ()
+exp: IF exp THEN exp ELSE exp ()
+exp: NIL ()
