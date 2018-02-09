@@ -11,7 +11,8 @@
   | BREAK | NIL
   | FUNCTION | VAR | TYPE
 
-%nonterm  exp | program | fundec | dec | tydec | vardec | ty | tyid | arrty | recty | fieldec | let
+%nonterm  exp | program | fundec | dec | tydec | vardec | ty | tyid | arrty | recty | fieldec | let | arrCreate | field
+| recCreate
 
 %pos int
 %verbose
@@ -65,6 +66,9 @@ exp: IF exp THEN exp ()
 exp: IF exp THEN exp ELSE exp ()
 exp: NIL ()
 exp: let ()
+exp: arrCreate ()
+exp: recCreate ()
+exp: assign ()
 
 let: LET dec IN exp END ()
 dec: tydec ()
@@ -88,3 +92,9 @@ fundec: FUNCTION ID LPAREN fieldec RPAREN COLON tyid EQ exp ()
 fundec: FUNCTION ID LPAREN RPAREN COLON tyid EQ exp ()
 fundec: FUNCTION ID LPAREN fieldec RPAREN EQ exp ()
 fundec: FUNCTION ID LPAREN RPAREN EQ exp ()
+
+field: ID EQ exp ()
+field: field COMMA field
+arrCreate: tyid LBRACK exp RBRACK OF exp ()
+recCreate: tyid LBRACE field RBRACE
+assign: lvalue ASSIGN exp
