@@ -11,7 +11,7 @@
   | BREAK | NIL
   | FUNCTION | VAR | TYPE
 
-%nonterm  exp | program
+%nonterm  exp | program | fundec | dec | tydec | vardec | ty | tyid | arrty | recty | fieldec | let
 
 %pos int
 %verbose
@@ -30,7 +30,8 @@
 %value INT (1)
 %value STRING ("")
 
-%nonassoc ELSE 
+%left COMMA
+%nonassoc ELSE
 %nonassoc THEN
 %nonassoc SEMICOLON
 %nonassoc EQ NEQ LT LE GT GE
@@ -63,3 +64,27 @@ exp: exp GE exp ()
 exp: IF exp THEN exp ()
 exp: IF exp THEN exp ELSE exp ()
 exp: NIL ()
+exp: let ()
+
+let: LET dec IN exp END ()
+dec: tydec ()
+dec: vardec ()
+dec: fundec ()
+
+tyid: ID ()
+tydec: TYPE tyid EQ ty ()
+ty: tyid ()
+ty: arrty ()
+ty: recty ()
+arrty: ARRAY OF tyid ()
+recty: LBRACE fieldec RBRACE  ()
+fieldec: fieldec COMMA fieldec ()
+fieldec: ID COLON tyid ()
+
+vardec: VAR ID COLON tyid ASSIGN exp ()
+vardec: VAR ID ASSIGN exp ()
+
+fundec: FUNCTION ID LPAREN fieldec RPAREN COLON tyid EQ exp ()
+fundec: FUNCTION ID LPAREN RPAREN COLON tyid EQ exp ()
+fundec: FUNCTION ID LPAREN fieldec RPAREN EQ exp ()
+fundec: FUNCTION ID LPAREN RPAREN EQ exp ()
