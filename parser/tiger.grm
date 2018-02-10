@@ -12,7 +12,7 @@
   | FUNCTION | VAR | TYPE
 
 %nonterm  exp | program | fundec | dec | tydec | vardec | ty | arrty | recty | fieldec | let | arrCreate | field
-| recCreate | lvalue | decList | assign | expSeq
+| recCreate | lvalue | decList | assign | expSeq | ltail
 
 %pos int
 %verbose
@@ -112,6 +112,7 @@ assign: lvalue ASSIGN exp ()
 let: LET dec IN exp END ()
 let: LET decList IN exp END ()
 
-lvalue: ID ()
-lvalue: lvalue LBRACK exp RBRACK ()
-lvalue: lvalue DOT ID ()
+lvalue: ID ltail ()
+ltail: LBRACK exp RBRACK ()
+ltail: DOT ID ()
+ltail: ()
