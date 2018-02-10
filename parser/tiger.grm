@@ -12,7 +12,7 @@
   | FUNCTION | VAR | TYPE
 
 %nonterm  exp | program | fundec | dec | tydec | vardec | ty | arrty | recty | fieldec | let | arrCreate | field
-| recCreate | lvalue | decList | assign | expSeq | ltail
+| recCreate | lvalue | decList | assign | expSeq | ltail | funcall | funArgs
 
 %pos int
 %verbose
@@ -54,6 +54,7 @@ exp: LPAREN exp RPAREN			()
 exp: LPAREN expSeq RPAREN			()
 expSeq: exp SEMICOLON exp			()
 expSeq: expSeq SEMICOLON exp ()
+
 exp: INT          ()
 exp: STRING       ()
 exp: exp PLUS exp ()
@@ -78,7 +79,7 @@ exp: BREAK ()
 exp: WHILE exp DO exp ()
 exp: FOR ID ASSIGN exp TO exp DO exp ()
 exp: lvalue ()
-exp: ID LPAREN exp RPAREN ()
+exp: funcall ()
 exp: MINUS exp %prec UMINUS ()
 
 dec: tydec ()
@@ -112,6 +113,11 @@ assign: lvalue ASSIGN exp ()
 
 let: LET dec IN exp END ()
 let: LET decList IN exp END ()
+
+funcall: ID LPAREN exp RPAREN ()
+funcall: ID LPAREN funArgs RPAREN ()
+funArgs: exp COMMA exp ()
+funArgs: funArgs COMMA exp ()
 
 lvalue: ID ltail ()
 ltail: LBRACK exp RBRACK ()
