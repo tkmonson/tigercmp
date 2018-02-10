@@ -5,7 +5,7 @@
   | INT of int | STRING of string
   | COMMA | COLON | SEMICOLON | LPAREN | RPAREN | LBRACK | RBRACK
   | LBRACE | RBRACE | DOT
-  | PLUS | MINUS | TIMES | DIVIDE | EQ | NEQ | LT | LE | GT | GE
+  | PLUS | MINUS | UMINUS | TIMES | DIVIDE | EQ | NEQ | LT | LE | GT | GE
   | AND | OR | ASSIGN
   | ARRAY | IF | THEN | ELSE | WHILE | FOR | TO | DO | LET | IN | END | OF
   | BREAK | NIL
@@ -39,6 +39,7 @@
 %nonassoc EQ NEQ LT LE GT GE
 %left PLUS MINUS
 %left TIMES DIVIDE
+%left UMINUS
 
 %%
 
@@ -77,8 +78,8 @@ exp: BREAK ()
 exp: WHILE exp DO exp ()
 exp: FOR ID ASSIGN exp TO exp DO exp ()
 exp: lvalue ()
-exp: MINUS exp ()
 exp: ID LPAREN exp RPAREN ()
+exp: MINUS exp %prec UMINUS ()
 
 dec: tydec ()
 dec: vardec ()
