@@ -1,9 +1,13 @@
 Group is
 
-tiger.lex
+absyn.sml
 errormsg.sml
-parsetest.sml
+table.sig
+table.sml
+symbol.sml
+tiger.lex
 tiger.grm
+parsetest.sml (*Change this to parse.sml once you have semantic values for all of the grammar rules?*)
 $/smlnj-lib.cm
 $/ml-yacc-lib.cm
 $/basis.cm

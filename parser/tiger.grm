@@ -12,7 +12,7 @@
   | FUNCTION | VAR | TYPE
 
 %nonterm  exp | program | fundec | dec | tydec | vardec | ty | arrty | recty | fieldec | let | arrCreate | field
-| recCreate | lvalue | decList | assign
+| recCreate | lvalue | decList | assign | expSeq
 
 %pos int
 %verbose
@@ -31,6 +31,7 @@
 %value INT (1)
 %value STRING ("")
 
+%nonassoc ASSIGN DO OF
 %left COMMA
 %nonassoc ELSE
 %nonassoc THEN
@@ -49,7 +50,9 @@
 program	: exp			()
 
 exp: LPAREN exp RPAREN			()
-exp: exp SEMICOLON exp			()
+exp: LPAREN expSeq RPAREN			()
+expSeq: exp SEMICOLON exp			()
+expSeq: expSeq SEMICOLON exp ()
 exp: INT          ()
 exp: STRING       ()
 exp: exp PLUS exp ()
@@ -65,11 +68,11 @@ exp: exp GE exp ()
 exp: IF exp THEN exp ()
 exp: IF exp THEN exp ELSE exp ()
 exp: NIL ()
+exp: LPAREN RPAREN ()
 exp: let ()
 exp: arrCreate ()
 exp: recCreate ()
 exp: assign ()
-exp: field ()
 exp: BREAK ()
 exp: WHILE exp DO exp ()
 exp: FOR ID ASSIGN exp TO exp DO exp ()

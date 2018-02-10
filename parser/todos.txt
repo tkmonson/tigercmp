@@ -1,3 +1,25 @@
 - double check if then precedence
 - declist is sketchy af
 - comma left associative???
+
+
+
+
+Semantic Value Questions:
+
+Q1: How do you access a value returned from a previous semantic action?
+For example, the grammar rule
+
+decList: dec dec (dec1:dec2)
+
+returns a list of decs.
+
+
+In the grammar rule
+
+decList: decList dec
+
+I'd like to access the dec list associated with the decList, so that I could do decList:dec
+
+
+Q2: How to group fundec, typedec? 
