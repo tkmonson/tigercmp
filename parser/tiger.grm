@@ -74,6 +74,8 @@ exp: BREAK ()
 exp: WHILE exp DO exp ()
 exp: FOR ID ASSIGN exp TO exp DO exp ()
 exp: lvalue ()
+exp: MINUS exp ()
+exp: ID LPAREN exp RPAREN ()
 
 dec: tydec ()
 dec: vardec ()
