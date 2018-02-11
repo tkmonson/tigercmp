@@ -1,6 +1,8 @@
 - double check if then precedence
 - declist is sketchy af
 - comma left associative???
+- sequences in arguments for funcall
+- mutually recursive tydec and fundec
 
 
 Ask Aditya:
