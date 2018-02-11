@@ -1,3 +1,5 @@
+structure A = Absyn
+
 %%
 %term
     EOF
@@ -11,8 +13,10 @@
   | BREAK | NIL
   | FUNCTION | VAR | TYPE
 
-%nonterm  exp | program | fundec | dec | tydec | vardec | ty | arrty | recty | fieldec | let | arrCreate | field
-| recCreate | lvalue | decList | assign | expSeq | ltail | funcall | funArgs
+%nonterm  exp of A.exp | program | fundec | dec of A.dec | tydec
+| vardec | ty of A.ty | arrty | recty | fieldec | let | arrCreate
+| field | recCreate | lvalue | decList | assign | expSeq
+| ltail | funcall | funArgs
 
 %pos int
 %verbose
@@ -49,27 +53,27 @@
  *  to replace the two dummy productions below with an actual grammar.
  *)
 
-program	: exp			()
+program	: exp			(exp1)
 
-exp: LPAREN exp RPAREN			()
-exp: LPAREN expSeq RPAREN			()
-expSeq: exp SEMICOLON exp			()
-expSeq: expSeq SEMICOLON exp ()
+exp: LPAREN exp RPAREN			(exp1)
+exp: LPAREN expSeq RPAREN			(A.SeqExp expSeq1)
+expSeq: exp SEMICOLON exp			((exp1,exp1left)::(exp2,exp2left)::[])
+expSeq: expSeq SEMICOLON exp ((exp1,exp1left)::(expSeq1))
 
-exp: INT          ()
-exp: STRING       ()
-exp: exp PLUS exp ()
-exp: exp MINUS exp ()
-exp: exp TIMES exp ()
-exp: exp DIVIDE exp ()
+exp: INT          (A.IntExp(INT))
+exp: STRING       (A.StringExp(STRING, string1left))
+exp: exp PLUS exp ((A.OpExp exp1 A.PlusOp exp1left:pos exp2))
+exp: exp MINUS exp (A.OpExp exp1 A.MinusOp exp1left:pos exp2)
+exp: exp TIMES exp (A.OpExp exp1 A.TimesOp exp1left:pos exp2)
+exp: exp DIVIDE exp (A.OpExp exp1 A.DivideOp exp1left:pos exp2)
 exp: exp AND exp ()
 exp: exp OR exp ()
-exp: exp EQ exp ()
-exp: exp NEQ exp ()
-exp: exp LT exp ()
-exp: exp LE exp ()
-exp: exp GT exp ()
-exp: exp GE exp ()
+exp: exp EQ exp (A.OpExp exp1 A.EqOp exp1left:pos exp2)
+exp: exp NEQ exp (A.OpExp exp1 A.NeqOp exp1left:pos exp2)
+exp: exp LT exp (A.OpExp exp1 A.LtOp exp1left:pos exp2)
+exp: exp LE exp (A.OpExp exp1 A.LeOp exp1left:pos exp2)
+exp: exp GT exp (A.OpExp exp1 A.GtOp exp1left:pos exp2)
+exp: exp GE exp (A.OpExp exp1 A.GeOp exp1left:pos exp2)
 exp: IF exp THEN exp ()
 exp: IF exp THEN exp ELSE exp ()
 exp: NIL ()
@@ -84,6 +88,7 @@ exp: FOR ID ASSIGN exp TO exp DO exp ()
 exp: lvalue ()
 exp: funcall ()
 exp: MINUS exp %prec UMINUS ()
+
 assign: lvalue ASSIGN exp ()
 
 dec: tydec ()
