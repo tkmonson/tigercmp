@@ -1,6 +1,8 @@
 - double check if then precedence
 - declist is sketchy af
 - comma left associative???
+- sequences in arguments for funcall
+- mutually recursive tydec and fundec
 
 
 
@@ -22,4 +24,4 @@ decList: decList dec
 I'd like to access the dec list associated with the decList, so that I could do decList:dec
 
 
-Q2: How to group fundec, typedec? 
+Q2: How to group fundec, typedec?
