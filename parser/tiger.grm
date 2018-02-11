@@ -36,6 +36,7 @@
 %nonassoc ELSE
 %nonassoc THEN
 %nonassoc SEMICOLON
+%nonassoc AND OR
 %nonassoc EQ NEQ LT LE GT GE
 %left PLUS MINUS
 %left TIMES DIVIDE
@@ -61,6 +62,8 @@ exp: exp PLUS exp ()
 exp: exp MINUS exp ()
 exp: exp TIMES exp ()
 exp: exp DIVIDE exp ()
+exp: exp AND exp ()
+exp: exp OR exp ()
 exp: exp EQ exp ()
 exp: exp NEQ exp ()
 exp: exp LT exp ()
@@ -81,6 +84,7 @@ exp: FOR ID ASSIGN exp TO exp DO exp ()
 exp: lvalue ()
 exp: funcall ()
 exp: MINUS exp %prec UMINUS ()
+assign: lvalue ASSIGN exp ()
 
 dec: tydec ()
 dec: vardec ()
@@ -94,11 +98,13 @@ ty: arrty ()
 ty: recty ()
 arrty: ARRAY OF ID ()
 recty: LBRACE fieldec RBRACE  ()
-fieldec: fieldec COMMA fieldec ()
-fieldec: ID COLON ID ()
+recty: LBRACE RBRACE ()
 
 vardec: VAR ID COLON ID ASSIGN exp ()
 vardec: VAR ID ASSIGN exp ()
+
+fieldec: fieldec COMMA fieldec ()
+fieldec: ID COLON ID ()
 
 fundec: FUNCTION ID LPAREN fieldec RPAREN COLON ID EQ exp ()
 fundec: FUNCTION ID LPAREN RPAREN COLON ID EQ exp ()
@@ -108,12 +114,18 @@ fundec: FUNCTION ID LPAREN RPAREN EQ exp ()
 field: ID EQ exp ()
 field: field COMMA field ()
 arrCreate: ID LBRACK exp RBRACK OF exp ()
+recCreate: ID LBRACE RBRACE ()
 recCreate: ID LBRACE field RBRACE ()
-assign: lvalue ASSIGN exp ()
 
 let: LET dec IN exp END ()
-let: LET decList IN exp END ()
+let: LET dec IN END ()
+let: LET dec IN expSeq END ()
 
+let: LET decList IN exp END ()
+let: LET decList IN END ()
+let: LET decList IN expSeq END ()
+
+funcall: ID LPAREN RPAREN ()
 funcall: ID LPAREN exp RPAREN ()
 funcall: ID LPAREN funArgs RPAREN ()
 funArgs: exp COMMA exp ()
