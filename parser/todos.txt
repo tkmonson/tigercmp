@@ -3,6 +3,12 @@
 - comma left associative???
 
 
+Ask Aditya:
+-Why doesn't OpExp constructor read multiple arguments?
+-unbound type constructor exp2
+-Order of arguments to OpExp differs between compiler errors and absyn.sml
+-let val binding thing...something is type unit that is supposed to be type Absyn.exp
+
 
 
 Semantic Value Questions:
@@ -22,4 +28,4 @@ decList: decList dec
 I'd like to access the dec list associated with the decList, so that I could do decList:dec
 
 
-Q2: How to group fundec, typedec? 
+Q2: How to group fundec, typedec?
