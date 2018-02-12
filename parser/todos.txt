@@ -1,3 +1,10 @@
+Todos:
+-Double check Grammar
+-Finish semantic actions
+-Figure out how to do grouping for mutually recursive declarations
+
+
+Grammar sketchiness:
 - double check if then precedence
 - declist is sketchy af
 - comma left associative???
@@ -5,29 +12,5 @@
 - mutually recursive tydec and fundec
 
 
-Ask Aditya:
--Why doesn't OpExp constructor read multiple arguments?
--unbound type constructor exp2
--Order of arguments to OpExp differs between compiler errors and absyn.sml
--let val binding thing...something is type unit that is supposed to be type Absyn.exp
-
-
-
-Semantic Value Questions:
-
-Q1: How do you access a value returned from a previous semantic action?
-For example, the grammar rule
-
-decList: dec dec (dec1:dec2)
-
-returns a list of decs.
-
-
-In the grammar rule
-
-decList: decList dec
-
-I'd like to access the dec list associated with the decList, so that I could do decList:dec
-
-
-Q2: How to group fundec, typedec?
+Absyn Sketchiness:
+- exp: () returns A.NilExp
