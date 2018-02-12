@@ -6,8 +6,8 @@ table.sig
 table.sml
 symbol.sml
 tiger.lex
-tiger.grm
-parsetest.sml (*Change this to parse.sml once you have semantic values for all of the grammar rules?*)
+tiger2.grm
+parse.sml (*Change this to parse.sml once you have semantic values for all of the grammar rules?*)
 $/smlnj-lib.cm
 $/ml-yacc-lib.cm
 $/basis.cm

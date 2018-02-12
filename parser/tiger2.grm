@@ -15,7 +15,7 @@ structure A = Absyn
 
 %nonterm  exp of A.exp | expList of (A.exp * pos) list | program of A.exp | fundec | dec | tydec
 | vardec | ty | arrty | recty | fieldec | let | arrCreate
-| field | recCreate | lvalue of (A.var) | decList
+| field | recCreate | lvalue | decList
 | ltail | funcall | funArgs
 
 %pos int
@@ -78,63 +78,6 @@ exp: IF exp THEN exp (A.IfExp{test=exp1, then'=exp2, else'=NONE, pos=exp1left})
 exp: IF exp THEN exp ELSE exp (A.IfExp{test=exp1, then'=exp2, else'=SOME(exp3), pos=exp1left})
 exp: NIL (A.NilExp)
 exp: LPAREN RPAREN (A.NilExp)
-exp: lvalue ASSIGN exp (A.AssignExp{var=lvalue1, exp=exp1, pos=lvalue1left})
 exp: BREAK (A.BreakExp BREAKleft)
 exp: WHILE exp DO exp (A.WhileExp{test=exp1, body=exp2,pos=exp1left})
 exp: MINUS exp %prec UMINUS (A.OpExp{left=(A.IntExp 0), oper=A.MinusOp, right=exp1, pos=exp1left})
-exp: lvalue (A.var lvalue1)
-exp: let ()
-exp: arrCreate ()
-exp: recCreate ()
-exp: FOR ID ASSIGN exp TO exp DO exp ()
-exp: funcall ()
-
-dec: tydec ()
-dec: vardec ()
-dec: fundec ()
-decList: dec dec ()
-decList: decList dec ()
-
-tydec: TYPE ID EQ ty ()
-ty: ID ()
-ty: arrty ()
-ty: recty ()
-arrty: ARRAY OF ID ()
-recty: LBRACE fieldec RBRACE  ()
-recty: LBRACE RBRACE ()
-
-vardec: VAR ID COLON ID ASSIGN exp ()
-vardec: VAR ID ASSIGN exp ()
-
-fieldec: fieldec COMMA fieldec ()
-fieldec: ID COLON ID ()
-
-fundec: FUNCTION ID LPAREN fieldec RPAREN COLON ID EQ exp ()
-fundec: FUNCTION ID LPAREN RPAREN COLON ID EQ exp ()
-fundec: FUNCTION ID LPAREN fieldec RPAREN EQ exp ()
-fundec: FUNCTION ID LPAREN RPAREN EQ exp ()
-
-field: ID EQ exp ()
-field: field COMMA field ()
-arrCreate: ID LBRACK exp RBRACK OF exp ()
-recCreate: ID LBRACE RBRACE ()
-recCreate: ID LBRACE field RBRACE ()
-
-let: LET dec IN exp END ()
-let: LET dec IN END ()
-let: LET dec IN expList END ()
-
-let: LET decList IN exp END ()
-let: LET decList IN END ()
-let: LET decList IN expList END ()
-
-funcall: ID LPAREN RPAREN ()
-funcall: ID LPAREN exp RPAREN ()
-funcall: ID LPAREN funArgs RPAREN ()
-funArgs: exp COMMA exp ()
-funArgs: funArgs COMMA exp ()
-
-lvalue: ID ltail ()
-ltail: LBRACK exp RBRACK ()
-ltail: DOT ID ()
-ltail: ()
