@@ -53,7 +53,7 @@ structure A = Absyn
  *  to replace the two dummy productions below with an actual grammar.
  *)
 
-program	: exp			(exp1)
+program	: exp			(PrintAbsyn.print (TextIO.stdOut, exp1); exp1)
 
 exp: LPAREN exp RPAREN			(exp1)
 exp: LPAREN expList RPAREN			(A.SeqExp expList1)
