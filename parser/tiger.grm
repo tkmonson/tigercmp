@@ -14,9 +14,10 @@ structure A = Absyn
   | FUNCTION | VAR | TYPE
 
 %nonterm  exp of A.exp | expList of (A.exp * pos) list | program of A.exp | fundec | dec | tydec
-| vardec | ty | arrty | recty | fieldec | let | arrCreate
+| vardec | ty | arrty | recty | fieldec | let
 | field | recCreate | lvalue of (A.var) | decList
-| ltail | funcall | funArgs
+| ltail | funcall | funArgs | typeDecList of A.TypeDec | tytail of A.TypeDec option
+| funDecList of A.FunctionDec| ftail of A.fundec option
 
 %pos int
 %verbose
@@ -83,15 +84,20 @@ exp: BREAK (A.BreakExp BREAKleft)
 exp: WHILE exp DO exp (A.WhileExp{test=exp1, body=exp2,pos=exp1left})
 exp: MINUS exp %prec UMINUS (A.OpExp{left=(A.IntExp 0), oper=A.MinusOp, right=exp1, pos=exp1left})
 exp: lvalue (A.var lvalue1)
-exp: let ()
-exp: arrCreate ()
+exp: ID LBRACK exp RBRACK OF exp (A.ArrayExp {typ=ID1, size=exp1, init=exp2, pos=IDleft})
 exp: recCreate ()
-exp: FOR ID ASSIGN exp TO exp DO exp ()
-exp: funcall ()
+exp: funcall (funcall1)
 
-dec: tydec ()
+exp: let ()
+exp: FOR ID ASSIGN exp TO exp DO exp ()
+
+dec: typeDecList ()
+dec: funDecList ()
 dec: vardec ()
-dec: fundec ()
+
+typeDecList:  ()
+funDecList: ()
+
 decList: dec dec ()
 decList: decList dec ()
 
@@ -116,25 +122,22 @@ fundec: FUNCTION ID LPAREN RPAREN EQ exp ()
 
 field: ID EQ exp ()
 field: field COMMA field ()
-arrCreate: ID LBRACK exp RBRACK OF exp ()
 recCreate: ID LBRACE RBRACE ()
 recCreate: ID LBRACE field RBRACE ()
 
 let: LET dec IN exp END ()
 let: LET dec IN END ()
-let: LET dec IN expList END ()
 
 let: LET decList IN exp END ()
 let: LET decList IN END ()
-let: LET decList IN expList END ()
 
-funcall: ID LPAREN RPAREN ()
-funcall: ID LPAREN exp RPAREN ()
-funcall: ID LPAREN funArgs RPAREN ()
+funcall: ID LPAREN RPAREN (A.CallExp{func=ID, args=[], pos=IDleft})
+funcall: ID LPAREN exp RPAREN (A.CallExp{func=ID, args=exp::[], pos=IDleft})
+funcall: ID LPAREN funArgs RPAREN (A.CallExp{func=ID, args=funArgs,pos=IDleft})
 funArgs: exp COMMA exp ()
 funArgs: funArgs COMMA exp ()
 
 lvalue: ID ltail ()
-ltail: LBRACK exp RBRACK ()
-ltail: DOT ID ()
+ltail: LBRACK exp RBRACK ltail ()
+ltail: DOT ID ltail()
 ltail: ()

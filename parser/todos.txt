@@ -5,29 +5,9 @@
 - mutually recursive tydec and fundec
 
 
-Ask Aditya:
--Why doesn't OpExp constructor read multiple arguments?
--unbound type constructor exp2
--Order of arguments to OpExp differs between compiler errors and absyn.sml
--let val binding thing...something is type unit that is supposed to be type Absyn.exp
-
-
-
-Semantic Value Questions:
-
-Q1: How do you access a value returned from a previous semantic action?
-For example, the grammar rule
-
-decList: dec dec (dec1:dec2)
-
-returns a list of decs.
-
-
-In the grammar rule
-
-decList: decList dec
-
-I'd like to access the dec list associated with the decList, so that I could do decList:dec
-
-
-Q2: How to group fundec, typedec?
+Questions for Drew:
+-Grammar sketchiness
+-How to group fundecs and tydecs? Since they're not delimited by anything, it's hard
+to create lists of them. Also, any solution would have to work with nested let statements.
+-Some record types in Absyn.sml take an argument called escape. What is that?
+-Double-check our implementation of lvalue grammar
