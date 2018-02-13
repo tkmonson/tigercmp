@@ -1,13 +1,10 @@
+Grammar Sketchiness:
 - double check if then precedence
-- declist is sketchy af
-- comma left associative???
-- sequences in arguments for funcall
-- mutually recursive tydec and fundec
+- comma made left associative to avoid S/R conflicts in fieldec/funargs
+-Need to double-check lvalues
 
 
 Questions for Drew:
 -Grammar sketchiness
 -How to group fundecs and tydecs? Since they're not delimited by anything, it's hard
-to create lists of them. Also, any solution would have to work with nested let statements.
--Some record types in Absyn.sml take an argument called escape. What is that?
--Double-check our implementation of lvalue grammar
+to create lists of them without getting shift/reduce conflicts.

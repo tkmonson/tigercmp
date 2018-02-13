@@ -88,8 +88,16 @@ exp: ID LBRACK exp RBRACK OF exp (A.ArrayExp {typ=ID1, size=exp1, init=exp2, pos
 exp: recCreate ()
 exp: funcall (funcall1)
 
-exp: let ()
 exp: FOR ID ASSIGN exp TO exp DO exp ()
+exp: let ()
+
+let: LET dec IN exp END ()
+let: LET dec IN END ()
+let: LET decList IN exp END ()
+let: LET decList IN END ()
+
+decList: dec dec ()
+decList: decList dec ()
 
 dec: typeDecList ()
 dec: funDecList ()
@@ -97,9 +105,6 @@ dec: vardec ()
 
 typeDecList:  ()
 funDecList: ()
-
-decList: dec dec ()
-decList: decList dec ()
 
 tydec: TYPE ID EQ ty ()
 ty: ID ()
@@ -124,12 +129,6 @@ field: ID EQ exp ()
 field: field COMMA field ()
 recCreate: ID LBRACE RBRACE ()
 recCreate: ID LBRACE field RBRACE ()
-
-let: LET dec IN exp END ()
-let: LET dec IN END ()
-
-let: LET decList IN exp END ()
-let: LET decList IN END ()
 
 funcall: ID LPAREN RPAREN (A.CallExp{func=ID, args=[], pos=IDleft})
 funcall: ID LPAREN exp RPAREN (A.CallExp{func=ID, args=exp::[], pos=IDleft})
