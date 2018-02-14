@@ -1,16 +1,13 @@
-Todos:
--Double check Grammar
--Finish semantic actions
--Figure out how to do grouping for mutually recursive declarations
-
-
-Grammar sketchiness:
+Grammar Sketchiness:
 - double check if then precedence
-- declist is sketchy af
-- comma left associative???
-- sequences in arguments for funcall
-- mutually recursive tydec and fundec
+- comma made left associative to avoid S/R conflicts in fieldec/funargs
+-Need to double-check lvalues
+
+function dec in absyn tree
+functiondec mutually recursive list, fundec is one function same for types
 
 
-Absyn Sketchiness:
-- exp: () returns A.NilExp
+Questions for Drew:
+-Grammar sketchiness
+-How to group fundecs and tydecs? Since they're not delimited by anything, it's hard
+to create lists of them without getting shift/reduce conflicts.
