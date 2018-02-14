@@ -110,10 +110,10 @@ dec: tyDec                              ()
    | funDec                             ()
    | vardec                             ()
 
-decList: dec decList                    ()
-       |                                ()
+decList: dec decList                    (fn )
+       |                                (fn d:A.dec => d::[])
 
-tyDec: TYPE ID EQ ty                    ()
+tyDec: TYPE ID EQ ty                    ((A.TypeDec {name: Symbol.symbol ID1, ty:ty1,pos:ID1left})::[])
 
 ty: ID                                  ()
   | arrty                               ()
@@ -124,8 +124,8 @@ arrty: ARRAY OF ID                      ()
 recty: LBRACE fieldDec RBRACE           ()
      | LBRACE RBRACE                    ()
 
-vardec: VAR ID COLON ID ASSIGN exp      ()
-      | VAR ID ASSIGN exp               ()
+vardec: VAR ID COLON ID ASSIGN exp      (A.VarDec {name: Symbol.symbol ID1, typ: SOME (Symbol.symbol ID2, ID2left), init: exp1, pos:ID1LEFT, escape: false})
+      | VAR ID ASSIGN exp               (A.VarDec {name: Symbol.symbol ID1, typ: NONE, init: exp1, pos:ID1left, escape: false})
 
 fieldDec: fieldDec COMMA fieldDec       ()
         | ID COLON ID                   ()
