@@ -23,13 +23,13 @@ structure A = Absyn
        | expTail      of (A.exp*pos) -> (A.exp*pos) list
        | dec          of A.dec
        | decList      of A.dec list
-       | tyDec        of A.dec list
+       | typeDec      of A.dec
        | ty           of A.ty
        | arrty        of A.ty
        | recty        of A.ty
-       | vardec       of A.dec
+       | varDec       of A.dec
        | fieldDec     of A.field
-       | funDec       of A.dec list
+       | functionDec  of A.dec
        | field        of A.field
        | flist        of (A.symbol*A.exp*pos) list
        | flistTail    of (A.symbol*A.exp*pos) -> (A.symbol*A.exp*pos) list
@@ -37,6 +37,8 @@ structure A = Absyn
        | funArgsTail  of A.exp -> A.exp list
        | lvalue       of A.var
        | ltail        of A.var -> A.var
+       | fieldList     of A.field list
+       | fieldListTail of A.field -> A.field list
 
 %pos int
 %verbose
@@ -98,60 +100,54 @@ exp: INT                                (A.IntExp INT)
    | BREAK                              (A.BreakExp BREAKleft)
    | WHILE exp DO exp                   (A.WhileExp{test=exp1, body=exp2,pos=exp1left})
    | MINUS exp %prec UMINUS             (A.OpExp{left=(A.IntExp 0), oper=A.MinusOp, right=exp1, pos=exp1left})
-   | lvalue                             (A.var lvalue1)
-   | ID LBRACK exp RBRACK OF exp        (A.ArrayExp {typ=ID1, size=exp1, init=exp2, pos=IDleft})
-   | ID LBRACE flist RBRACE             () (* recCreate  *)
-   | ID LPAREN funArgs RPAREN           (A.CallExp{func=ID, args=funArgs,pos=IDleft}) (* funCall *)
-   | FOR ID ASSIGN exp TO exp DO exp    ()
-   | LET decList IN exp END             ()
-   | LET decList IN END                 ()
+   | ID LBRACK exp RBRACK OF exp        (A.ArrayExp {typ=Symbol.symbol ID1, size=exp1, init=exp2, pos=IDleft})
+   | ID LBRACE flist RBRACE             (A.RecordExp {fields= flist1, typ= Symbol.symbol ID1, pos=ID1left}) (* recCreate  *)
+   | ID LPAREN funArgs RPAREN           (A.CallExp{func=Symbol.symbol ID, args=funArgs,pos=IDleft:pos}) (* funCall *)
+   | FOR ID ASSIGN exp TO exp DO exp    (A.ForExp {var=Symbol.symbol ID, escape=ref false, lo=exp1,hi=exp2,body=exp3,pos=FORleft:pos})
+   | LET decList IN exp END             (A.LetExp {decs=decList, body=exp, pos=LETleft:pos})
+   | lvalue                             (A.VarExp lvalue1)
 
-dec: tyDec                              ()
-   | funDec                             ()
-   | vardec                             ()
+dec: typeDec                            (typeDec1)
+   | functionDec                        (functionDec1)
+   | varDec                             (varDec1)
 
-decList: dec decList                    (fn )
-       |                                (fn d:A.dec => d::[])
+decList: dec decList                    (dec1 :: decList1)
+       |                                ([])
 
-tyDec: TYPE ID EQ ty                    ((A.TypeDec {name: Symbol.symbol ID1, ty:ty1,pos:ID1left})::[])
+typeDec: TYPE ID EQ ty                  (A.TypeDec ({name= Symbol.symbol ID1, ty=ty1, pos=ID1left:pos}::[]))
 
-ty: ID                                  ()
-  | arrty                               ()
-  | recty                               ()
+ty: ID                                  (A.NameTy (Symbol.symbol ID1, ID1left))
+  | ARRAY OF ID                         (A.ArrayTy (Symbol.symbol ID1, ID1left:pos))
+  | LBRACE fieldList RBRACE             (A.RecordTy fieldList1)
+  | LBRACE RBRACE                       (A.RecordTy [])
 
-arrty: ARRAY OF ID                      ()
+varDec: VAR ID COLON ID ASSIGN exp      (A.VarDec {name= Symbol.symbol ID1, typ= SOME (Symbol.symbol ID2, ID2left), init= exp1, pos=ID1left, escape= ref false})
+      | VAR ID ASSIGN exp               (A.VarDec {name= Symbol.symbol ID1, typ= NONE, init= exp1, pos=ID1left, escape= ref false})
 
-recty: LBRACE fieldDec RBRACE           ()
-     | LBRACE RBRACE                    ()
+fieldList: ID COLON ID fieldListTail              (fieldListTail1 {name=Symbol.symbol ID1, typ=Symbol.symbol ID2, pos=ID1left, escape=ref false})
+fieldListTail: COMMA ID COLON ID fieldListTail    (fn f:A.field => f::fieldListTail1 {name=Symbol.symbol ID1, typ=Symbol.symbol ID2, pos=ID1left, escape=ref false})
+             |                                    (fn f:A.field => f::[])
 
-vardec: VAR ID COLON ID ASSIGN exp      (A.VarDec {name: Symbol.symbol ID1, typ: SOME (Symbol.symbol ID2, ID2left), init: exp1, pos:ID1LEFT, escape: false})
-      | VAR ID ASSIGN exp               (A.VarDec {name: Symbol.symbol ID1, typ: NONE, init: exp1, pos:ID1left, escape: false})
+functionDec: FUNCTION ID LPAREN fieldList RPAREN COLON ID EQ exp   (A.FunctionDec({name=Symbol.symbol ID1, params=fieldList, result=SOME (Symbol.symbol ID2, ID2left:pos), body=exp1, pos=ID1left}::[]))
+           | FUNCTION ID LPAREN RPAREN COLON ID EQ exp            (A.FunctionDec({name=Symbol.symbol ID1, params=[], result=SOME (Symbol.symbol ID2, ID2left:pos), body=exp1, pos=ID1left}::[]))
+           | FUNCTION ID LPAREN fieldList RPAREN EQ exp            (A.FunctionDec({name=Symbol.symbol ID1, params=fieldList, result=NONE, body=exp1, pos=ID1left}::[]))
+           | FUNCTION ID LPAREN RPAREN EQ exp                     (A.FunctionDec({name=Symbol.symbol ID1, params=[], result=NONE, body=exp1, pos=ID1left}::[]))
 
-fieldDec: fieldDec COMMA fieldDec       ()
-        | ID COLON ID                   ()
 
-funDec: FUNCTION ID LPAREN fieldDec RPAREN COLON ID EQ exp   ()
-      | FUNCTION ID LPAREN RPAREN COLON ID EQ exp            ()
-      | FUNCTION ID LPAREN fieldDec RPAREN EQ exp            ()
-      | FUNCTION ID LPAREN RPAREN EQ exp                     ()
+flist: ID EQ exp flistTail                        (flistTail1 (Symbol.symbol ID1, exp1, ID1left:pos))
+      |                                           ([])
 
-field: ID EQ exp                                             ()
-     | field COMMA field                                     ()
+flistTail: COMMA ID EQ exp flistTail              (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::flistTail1(Symbol.symbol ID1, exp1, ID1left:pos))
+         |                                        (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::[])
 
-flist: ID EQ exp flistTail                                   (flistTail1 (Symbol.symbol ID1, exp1, ID1left:pos))
-     |                                                       (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::[])
+funArgs: exp funArgsTail                          (exp::funArgsTail)
+       |                                          ([])
 
-flistTail: COMMA ID EQ exp flistTail                         (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::flistTail1(Symbol.symbol ID1, exp1, ID1left:pos))
-         |                                                   (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::[])
+funArgsTail: COMMA exp funArgsTail                (exp::funArgsTail)
+           |                                      ([])
 
-funArgs: exp funArgsTail                                     (funArgsTail1 exp1)
-       |                                                     ([])
+lvalue: ID ltail                                  (ltail1 (A.SimpleVar (Symbol.symbol ID1, ID1left)))
 
-funArgsTail: COMMA exp funArgsTail                           (fn e:A.exp => e::funArgsTail1 exp1)
-           |                                                 (fn e:A.exp => e::[])
-
-lvalue: ID ltail                                             (ltail1 (A.SimpleVar (Symbol.symbol ID1, ID1left)))
-
-ltail: LBRACK exp RBRACK ltail                               (fn x:A.var => ltail1 (A.SubscriptVar(x, exp1, exp1left)))
-     | DOT ID ltail                                          (fn x:A.var => ltail1 (A.FieldVar(x, Symbol.symbol ID1, ID1left)))
-     |                                                       (fn x => x)
+ltail: LBRACK exp RBRACK ltail                    (fn x:A.var => ltail1 (A.SubscriptVar(x, exp1, exp1left)))
+     | DOT ID ltail                               (fn x:A.var => ltail1 (A.FieldVar(x, Symbol.symbol ID1, ID1left)))
+     |                                            (fn x => x)
