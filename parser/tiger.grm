@@ -16,8 +16,8 @@ structure A = Absyn
 %nonterm  exp of A.exp | expList of (A.exp * pos) list | program of A.exp | fundec | dec | tydec
 | vardec | ty | arrty | recty | fieldec | let
 | field | recCreate | lvalue of (A.var) | decList
-| ltail | funcall | funArgs | typeDecList of A.TypeDec | tytail of A.TypeDec option
-| funDecList of A.FunctionDec| ftail of A.fundec option
+| ltail | funcall | funArgs | typeDec of A.TypeDec | tytail of A.TypeDec option
+| funDec of A.FunctionDec| ftail of A.fundec option
 
 %pos int
 %verbose
@@ -37,7 +37,7 @@ structure A = Absyn
 %value STRING ("")
 
 %nonassoc ASSIGN DO OF
-%left COMMA
+(* %left COMMA *)
 %nonassoc ELSE
 %nonassoc THEN
 %nonassoc SEMICOLON
@@ -91,20 +91,18 @@ exp: funcall (funcall1)
 exp: FOR ID ASSIGN exp TO exp DO exp ()
 exp: let ()
 
-let: LET dec IN exp END ()
-let: LET dec IN END ()
+
 let: LET decList IN exp END ()
 let: LET decList IN END ()
 
-decList: dec dec ()
-decList: decList dec ()
+decList: ()
+decList: dec decList  ()
 
-dec: typeDecList ()
-dec: funDecList ()
+dec: typeDec  ()
+dec: funDec ()
 dec: vardec ()
 
-typeDecList:  ()
-funDecList: ()
+
 
 tydec: TYPE ID EQ ty ()
 ty: ID ()
@@ -127,8 +125,13 @@ fundec: FUNCTION ID LPAREN RPAREN EQ exp ()
 
 field: ID EQ exp ()
 field: field COMMA field ()
-recCreate: ID LBRACE RBRACE ()
-recCreate: ID LBRACE field RBRACE ()
+
+flist: ID EQ exp flistTail()
+| ()
+flistTail: COMMA ID EQ exp flistTail()
+         | ()    
+
+recCreate: ID LBRACE flist RBRACE ()
 
 funcall: ID LPAREN RPAREN (A.CallExp{func=ID, args=[], pos=IDleft})
 funcall: ID LPAREN exp RPAREN (A.CallExp{func=ID, args=exp::[], pos=IDleft})

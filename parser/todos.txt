@@ -3,6 +3,9 @@ Grammar Sketchiness:
 - comma made left associative to avoid S/R conflicts in fieldec/funargs
 -Need to double-check lvalues
 
+function dec in absyn tree 
+functiondec mutually recursive list, fundec is one function same for types
+
 
 Questions for Drew:
 -Grammar sketchiness
