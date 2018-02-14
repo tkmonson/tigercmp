@@ -33,7 +33,7 @@ structure A = Absyn
          | funArgs      of A.exp list
          | funArgsTail  of A.exp list
          | lvalue       of A.var
-         | ltail        of A.var
+         | ltail        of A.var -> A.var
 
 %pos int
 %verbose
@@ -101,6 +101,7 @@ exp: MINUS exp %prec UMINUS (A.OpExp{left=(A.IntExp 0), oper=A.MinusOp, right=ex
 exp: ID LBRACE flist RBRACE  (A.RecordExp {fields= flist1, typ= Symbol.symbol ID1, pos=ID1left})
 exp: LET decList IN exp END             (A.LetExp {decs=decList, body=exp, pos=LETleft:pos})
 exp: FOR ID ASSIGN exp TO exp DO exp    (A.ForExp {var=Symbol.symbol ID, escape=ref false, lo=exp1,hi=exp2,body=exp3,pos=FORleft:pos})
+| lvalue ASSIGN exp                  (A.AssignExp{var=lvalue1, exp=exp1, pos=lvalue1left})
 
 flist: ID EQ exp flistTail (flistTail1 (Symbol.symbol ID1, exp1, ID1left:pos))
 flist: ([])
@@ -132,3 +133,9 @@ functionDec: FUNCTION ID LPAREN fieldList RPAREN COLON ID EQ exp   (A.FunctionDe
            | FUNCTION ID LPAREN RPAREN COLON ID EQ exp            (A.FunctionDec({name=Symbol.symbol ID1, params=[], result=SOME (Symbol.symbol ID2, ID2left:pos), body=exp1, pos=ID1left}::[]))
            | FUNCTION ID LPAREN fieldList RPAREN EQ exp            (A.FunctionDec({name=Symbol.symbol ID1, params=fieldList, result=NONE, body=exp1, pos=ID1left}::[]))
            | FUNCTION ID LPAREN RPAREN EQ exp                     (A.FunctionDec({name=Symbol.symbol ID1, params=[], result=NONE, body=exp1, pos=ID1left}::[]))
+
+lvalue: ID ltail                                             (ltail1 (A.SimpleVar (Symbol.symbol ID1, ID1left)))
+
+ltail: LBRACK exp RBRACK ltail                               (fn x:A.var => ltail1 (A.SubscriptVar(x, exp1, exp1left)))
+     | DOT ID ltail                                          (fn x:A.var => ltail1 (A.FieldVar(x, Symbol.symbol ID1, ID1left)))
+     |                                                       (fn x => x)
