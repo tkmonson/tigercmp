@@ -16,10 +16,11 @@ structure A = Absyn
 (* Each nonterm needs to match a datatype in Absyn,
    every nonterm of type A.exp is unnecessary and can be put under the exp nonterm (except program and exp),
    THESE NEED TO BE CHECKED FOR ACCURACY *)
-	 
-%nonterm program      of A.exp 
+
+%nonterm program      of A.exp
        | exp          of A.exp
-       | expList      of (A.exp * pos) list
+       | expList      of (A.exp*pos) list
+       | expTail      of (A.exp*pos) -> (A.exp*pos) list
        | dec          of A.dec
        | decList      of A.dec list
        | tyDec        of A.dec list
@@ -30,11 +31,11 @@ structure A = Absyn
        | fieldDec     of A.field
        | funDec       of A.dec list
        | field        of A.field
-       | flist        of A.field list
-       | flistTail    of A.field list
+       | flist        of (A.symbol*A.exp*pos) list
+       | flistTail    of (A.symbol*A.exp*pos) -> (A.symbol*A.exp*pos) list
        | funArgs      of A.exp list
-       | funArgsTail  of A.exp list 
-       | lvalue       of A.var 
+       | funArgsTail  of A.exp list
+       | lvalue       of A.var
        | ltail        of A.var
 
 %pos int
@@ -66,13 +67,14 @@ structure A = Absyn
 
 %%
 
-program: exp			        (exp1)
+program: exp			        (PrintAbsyn.print (TextIO.stdOut, exp1); exp1)
 
 exp: LPAREN exp RPAREN		        (exp1)
    | LPAREN expList RPAREN	        (A.SeqExp expList1)
-	 
-expList: exp SEMICOLON exp	        ((exp1,exp1left:pos)::(exp2,exp2left:pos)::[])
-       | expList SEMICOLON exp          ((exp1,exp1left:pos)::(expList1))
+
+expList: exp SEMICOLON exp expTail			(expTail1 (exp1, exp1left:pos))
+expTail: SEMICOLON exp expTail (fn (e:A.exp, pos:pos) => (e, pos)::expTail1 (exp1, exp1left))
+   | (fn (e:A.exp, pos:pos) => (e, pos)::[])
 
 exp: INT                                (A.IntExp INT)
    | STRING                             (A.StringExp(STRING, STRINGleft))
@@ -107,18 +109,18 @@ exp: INT                                (A.IntExp INT)
 dec: tyDec                              ()
    | funDec                             ()
    | vardec                             ()
-	 
+
 decList: dec decList                    ()
        |                                ()
 
 tyDec: TYPE ID EQ ty                    ()
-	    
+
 ty: ID                                  ()
   | arrty                               ()
   | recty                               ()
-					
+
 arrty: ARRAY OF ID                      ()
-	     
+
 recty: LBRACE fieldDec RBRACE           ()
      | LBRACE RBRACE                    ()
 
@@ -136,22 +138,22 @@ funDec: FUNCTION ID LPAREN fieldDec RPAREN COLON ID EQ exp   ()
 field: ID EQ exp                                             ()
      | field COMMA field                                     ()
 
-flist: ID EQ exp flistTail                                   ()
-     |                                                       ()
-					    
-flistTail: COMMA ID EQ exp flistTail                         ()
-         |                                                   ()    
-	    
+flist: ID EQ exp flistTail                                   (flistTail1 (Symbol.symbol ID1, exp1, ID1left:pos))
+     |                                                       (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::[])
+
+flistTail: COMMA ID EQ exp flistTail                         ((fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::flistTail1(Symbol.symbol ID1, exp1, ID1left:pos))
+         |                                                   (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::[])
+
 funArgs: exp funArgsTail                                     (exp::funArgsTail)
        |                                                     ()
 
 funArgsTail: COMMA exp funArgsTail                           (exp::funArgsTail)
            |                                                 ()
-								 
+
 lvalue: ID ltail                                             (A.SimpleVar(symbol ID, IDleft)::ltail)
 
 (* This is the function notation Drew was talking about, idk... *)
-	   
+
 ltail: LBRACK exp RBRACK ltail                               (fn x => A.SubscriptVar(x, exp, IDleft))
      | DOT ID ltail                                          (fn x => A.FieldVar(x, symbol ID, IDleft))
      |                                                       ()
