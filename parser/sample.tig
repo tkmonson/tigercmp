@@ -1,3 +1,18 @@
-1+1
-2+2
-"This is a string!"
+let
+var N :=8
+function dummy(c:int, d:int) =
+  c*d
+
+type any = {any:string}
+type intArray = array of int
+type list = {first:int, next:list}
+type temp = int
+
+var mArray := intArray [N] of 9
+var mList := list {first=N, next=nil}
+
+function dummy2(c:int, d:int)=
+  c := d.temp[1]
+in
+  dummy(1,mArray[4])
+end
