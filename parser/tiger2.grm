@@ -13,10 +13,14 @@ structure A = Absyn
   | BREAK | NIL
   | FUNCTION | VAR | TYPE
 
-%nonterm  exp of A.exp | expList of (A.exp * pos) list | program of A.exp | fundec | dec | tydec
+%nonterm  exp of A.exp | expList of (A.exp*pos) list
+| expTail of (A.exp*pos) -> (A.exp*pos) list
+| program of A.exp | fundec | dec | tydec
 | vardec | ty | arrty | recty | fieldec | let | arrCreate
 | field | recCreate | lvalue | decList
 | ltail | funcall | funArgs
+| flist of (A.symbol*A.exp*pos) list
+| flistTail of (A.symbol*A.exp*pos) -> (A.symbol*A.exp*pos) list
 
 %pos int
 %verbose
@@ -36,7 +40,6 @@ structure A = Absyn
 %value STRING ("")
 
 %nonassoc ASSIGN DO OF
-%left COMMA
 %nonassoc ELSE
 %nonassoc THEN
 %nonassoc SEMICOLON
@@ -44,7 +47,7 @@ structure A = Absyn
 %nonassoc EQ NEQ LT LE GT GE
 %left PLUS MINUS
 %left TIMES DIVIDE
-%left UMINUS
+%nonassoc UMINUS
 
 %%
 
@@ -57,8 +60,9 @@ program	: exp			(PrintAbsyn.print (TextIO.stdOut, exp1); exp1)
 
 exp: LPAREN exp RPAREN			(exp1)
 exp: LPAREN expList RPAREN			(A.SeqExp expList1)
-expList: exp SEMICOLON exp			((exp1,exp1left:pos)::(exp2,exp2left:pos)::[])
-expList: expList SEMICOLON exp ((exp1,exp1left:pos)::(expList1))
+expList: exp SEMICOLON exp expTail			(expTail1 (exp1, exp1left:pos))
+expTail: SEMICOLON exp expTail (fn (e:A.exp, pos:pos) => (e, pos)::expTail1 (exp1, exp1left))
+expTail: (fn (e:A.exp, pos:pos) => (e, pos)::[])
 
 exp: INT          (A.IntExp INT)
 exp: STRING       (A.StringExp(STRING, STRINGleft))
@@ -81,3 +85,8 @@ exp: LPAREN RPAREN (A.NilExp)
 exp: BREAK (A.BreakExp BREAKleft)
 exp: WHILE exp DO exp (A.WhileExp{test=exp1, body=exp2,pos=exp1left})
 exp: MINUS exp %prec UMINUS (A.OpExp{left=(A.IntExp 0), oper=A.MinusOp, right=exp1, pos=exp1left})
+
+flist: ID EQ exp flistTail (flistTail1 ((ID1, ID1left:int), exp1, ID1left:pos))
+flist: ([])
+flistTail: COMMA ID EQ exp flistTail (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::flistTail1((ID1,ID1eft:int), exp1, ID1left:pos))
+flistTail: (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::[])
