@@ -34,7 +34,7 @@ structure A = Absyn
        | flist        of (A.symbol*A.exp*pos) list
        | flistTail    of (A.symbol*A.exp*pos) -> (A.symbol*A.exp*pos) list
        | funArgs      of A.exp list
-       | funArgsTail  of A.exp list
+       | funArgsTail  of A.exp -> A.exp list
        | lvalue       of A.var
        | ltail        of A.var -> A.var
 
@@ -144,11 +144,11 @@ flist: ID EQ exp flistTail                                   (flistTail1 (Symbol
 flistTail: COMMA ID EQ exp flistTail                         (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::flistTail1(Symbol.symbol ID1, exp1, ID1left:pos))
          |                                                   (fn (s:A.symbol, e:A.exp, pos) => (s,e,pos)::[])
 
-funArgs: exp funArgsTail                                     (exp::funArgsTail)
-       |                                                     ()
+funArgs: exp funArgsTail                                     (funArgsTail1 exp1)
+       |                                                     ([])
 
-funArgsTail: COMMA exp funArgsTail                           (exp::funArgsTail)
-           |                                                 ()
+funArgsTail: COMMA exp funArgsTail                           (fn e:A.exp => e::funArgsTail1 exp1)
+           |                                                 (fn e:A.exp => e::[])
 
 lvalue: ID ltail                                             (ltail1 (A.SimpleVar (Symbol.symbol ID1, ID1left)))
 

@@ -31,7 +31,7 @@ structure A = Absyn
          | flist        of (A.symbol*A.exp*pos) list
          | flistTail    of (A.symbol*A.exp*pos) -> (A.symbol*A.exp*pos) list
          | funArgs      of A.exp list
-         | funArgsTail  of A.exp list
+         | funArgsTail  of A.exp -> A.exp list
          | lvalue       of A.var
          | ltail        of A.var -> A.var
 
@@ -133,6 +133,12 @@ functionDec: FUNCTION ID LPAREN fieldList RPAREN COLON ID EQ exp   (A.FunctionDe
            | FUNCTION ID LPAREN RPAREN COLON ID EQ exp            (A.FunctionDec({name=Symbol.symbol ID1, params=[], result=SOME (Symbol.symbol ID2, ID2left:pos), body=exp1, pos=ID1left}::[]))
            | FUNCTION ID LPAREN fieldList RPAREN EQ exp            (A.FunctionDec({name=Symbol.symbol ID1, params=fieldList, result=NONE, body=exp1, pos=ID1left}::[]))
            | FUNCTION ID LPAREN RPAREN EQ exp                     (A.FunctionDec({name=Symbol.symbol ID1, params=[], result=NONE, body=exp1, pos=ID1left}::[]))
+
+funArgs: exp funArgsTail                                     (funArgsTail1 exp1)
+       |                                                     ([])
+
+funArgsTail: COMMA exp funArgsTail                           (fn e:A.exp => e::funArgsTail1 exp1)
+           |                                                 (fn e:A.exp => e::[])
 
 lvalue: ID ltail                                             (ltail1 (A.SimpleVar (Symbol.symbol ID1, ID1left)))
 
