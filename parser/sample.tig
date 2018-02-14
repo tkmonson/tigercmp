@@ -1,3 +1,7 @@
-1+1
-2+2
-"This is a string!"
+let
+var N :=8
+function dummy(c:int, d:int) =
+  if 1<2 then 3 else 4
+in
+(1)
+end
