@@ -53,8 +53,8 @@ structure A = Absyn
 %value STRING ("")
 
 %nonassoc ASSIGN DO OF
-%nonassoc ELSE
 %nonassoc THEN
+%nonassoc ELSE
 %nonassoc SEMICOLON
 %nonassoc AND OR
 %nonassoc EQ NEQ LT LE GT GE
@@ -102,6 +102,9 @@ exp: ID LBRACE flist RBRACE  (A.RecordExp {fields= flist1, typ= Symbol.symbol ID
 exp: LET decList IN exp END             (A.LetExp {decs=decList, body=exp, pos=LETleft:pos})
 exp: FOR ID ASSIGN exp TO exp DO exp    (A.ForExp {var=Symbol.symbol ID, escape=ref false, lo=exp1,hi=exp2,body=exp3,pos=FORleft:pos})
 | lvalue ASSIGN exp                  (A.AssignExp{var=lvalue1, exp=exp1, pos=lvalue1left})
+| lvalue                              (A.VarExp lvalue1)
+| ID LPAREN funArgs RPAREN           (A.CallExp{func=Symbol.symbol ID, args=funArgs,pos=IDleft:pos}) (* funCall *)
+| ID LBRACK exp RBRACK OF exp        (A.ArrayExp {typ=Symbol.symbol ID1, size=exp1, init=exp2, pos=IDleft})
 
 flist: ID EQ exp flistTail (flistTail1 (Symbol.symbol ID1, exp1, ID1left:pos))
 flist: ([])
@@ -139,3 +142,9 @@ lvalue: ID ltail                                             (ltail1 (A.SimpleVa
 ltail: LBRACK exp RBRACK ltail                               (fn x:A.var => ltail1 (A.SubscriptVar(x, exp1, exp1left)))
      | DOT ID ltail                                          (fn x:A.var => ltail1 (A.FieldVar(x, Symbol.symbol ID1, ID1left)))
      |                                                       (fn x => x)
+
+funArgs: exp funArgsTail                                    (exp::funArgsTail)
+       |                                                    ([])
+
+funArgsTail: COMMA exp funArgsTail                          (exp::funArgsTail)
+          |                                                 ([])
