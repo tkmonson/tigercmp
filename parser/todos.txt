@@ -15,7 +15,6 @@ to create lists of them without getting shift/reduce conflicts.
 
 
 THINGS THAT DONT WORK:
--If/then/else
 -Still need to group decs
 
 THINGS THAT HAVE BEEN TESTED AND APPEAR TO WORK:
@@ -30,3 +29,4 @@ THINGS THAT HAVE BEEN TESTED AND APPEAR TO WORK:
 -Function calls with many arguments
 -Array initialization
 -Record initialization
+-If/then/else

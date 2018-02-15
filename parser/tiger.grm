@@ -57,11 +57,10 @@ structure A = Absyn
 %value STRING ("")
 
 %nonassoc ASSIGN DO OF
-(* %left COMMA *)
-%nonassoc ELSE
 %nonassoc THEN
+%nonassoc ELSE
 %nonassoc SEMICOLON
-%nonassoc AND OR
+%left AND OR
 %nonassoc EQ NEQ LT LE GT GE
 %left PLUS MINUS
 %left TIMES DIVIDE
