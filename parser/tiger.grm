@@ -34,7 +34,7 @@ structure A = Absyn
        | flist        of (A.symbol*A.exp*pos) list
        | flistTail    of (A.symbol*A.exp*pos) -> (A.symbol*A.exp*pos) list
        | funArgs      of A.exp list
-       | funArgsTail  of A.exp -> A.exp list
+       | funArgsTail  of A.exp list
        | lvalue       of A.var
        | ltail        of A.var -> A.var
        | fieldList     of A.field list
@@ -57,9 +57,8 @@ structure A = Absyn
 %value STRING ("")
 
 %nonassoc ASSIGN DO OF
-(* %left COMMA *)
-%nonassoc ELSE
 %nonassoc THEN
+%nonassoc ELSE
 %nonassoc SEMICOLON
 %nonassoc AND OR
 %nonassoc EQ NEQ LT LE GT GE
@@ -95,7 +94,7 @@ exp: INT                                (A.IntExp INT)
    | IF exp THEN exp                    (A.IfExp{test=exp1, then'=exp2, else'=NONE, pos=exp1left})
    | IF exp THEN exp ELSE exp           (A.IfExp{test=exp1, then'=exp2, else'=SOME(exp3), pos=exp1left})
    | NIL                                (A.NilExp)
-   | LPAREN RPAREN                      (A.NilExp)
+   | LPAREN RPAREN                      (A.SeqExp [])
    | lvalue ASSIGN exp                  (A.AssignExp{var=lvalue1, exp=exp1, pos=lvalue1left})
    | BREAK                              (A.BreakExp BREAKleft)
    | WHILE exp DO exp                   (A.WhileExp{test=exp1, body=exp2,pos=exp1left})
