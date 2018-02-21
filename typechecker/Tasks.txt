@@ -1,0 +1,19 @@
+Typechecker tasks:
+
+-Deal with escape variables??
+-Create Environment structure (textbook page 114)
+-Write 4 mutually recursive functions:
+  -TransExp
+    -trexp = helper to translate expressions
+    -trvar = helper to lookup variables in venv
+  -TransDecs
+  -TransTy  = to turn type expressions in ASTs into types from types.SML
+  -TransVar = to typecheck variables when trvar is out of scope
+  -checkInt helper
+
+
+  let
+  ...
+  let
+  in exp
+  in exp
