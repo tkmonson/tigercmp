@@ -1,9 +1,22 @@
 structure A = Absyn
 
-fun transProg exp = transExp exp; ()
+(*A dummy Translate structure to use for this step*)
+structure Translate = struct type exp = unit end
 
+(*A defintion of expty that uses the dummy Translate for now*)
+type expty = {exp: Translate.exp, ty:Types.ty}
+
+(*Top level function: Calls side-effecting function transExp, and then returns unit*)
+fun transProg exp = transExp (Env.base_venv, Env.base_tenv) exp; ()
+
+(*
+* transExp is side-effecting: It prints error messages, and returns trexp
+* transExp: (venv*tenv) -> (A.exp -> expty)
+* trexp: A.exp -> expty
+* trvar: A.var -> expty
+*)
 fun transExp (venv, tenv) =
-  let fun trexp (e: A.exp) = ()
+  let fun trexp (e: A.exp) = {exp=(), ty=Types.INT}
   and trvar (v:A.var) = ()
   in
   trexp
@@ -48,4 +61,4 @@ fun processTypeDecBody (tenv, t(tlist{name: symbol, ty: ty, pos: pos}):A.TypeDec
 (*Turn ty record from absyn into ty.RECORD from types.sml*)
 
 (***Property of Saums****)
-fun transVar (vent, tent, v:A.var) = ()
+fun transVar (venv, tenv, v:A.var) = ()

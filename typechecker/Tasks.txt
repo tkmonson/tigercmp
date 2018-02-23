@@ -1,7 +1,7 @@
 Typechecker tasks:
 
 -Deal with escape variables??
--Create Environment structure (textbook page 114)
+-Create Environment structure (textbook page 114): DONE
 -Write 4 mutually recursive functions:
   -TransExp
     -trexp = helper to translate expressions

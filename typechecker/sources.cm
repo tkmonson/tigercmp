@@ -1,14 +1,26 @@
 Group is
 
-prabsyn.sml
-absyn.sml
 errormsg.sml
+
+(*For symbols and environments*)
+types.sml
 table.sig
 table.sml
 symbol.sml
+Environment.sml
+
+(*For ASTs*)
+prabsyn.sml
+absyn.sml
+
+(*Loading lexer*)
 tiger.lex
+
+(*Loading parser*)
 tiger.grm
-parse.sml (*Change this to parse.sml once you have semantic values for all of the grammar rules?*)
+parse.sml
+
+(*SML libraries*)
 $/smlnj-lib.cm
 $/ml-yacc-lib.cm
 $/basis.cm
