@@ -1,4 +1,7 @@
 structure A = Absyn
+structure S = Symbol
+structure E = Environment
+structure T = Types
 
 (*A dummy Translate structure to use for this step*)
 structure Translate = struct type exp = unit end
@@ -7,7 +10,7 @@ structure Translate = struct type exp = unit end
 type expty = {exp: Translate.exp, ty:Types.ty}
 
 (*Top level function: Calls side-effecting function transExp, and then returns unit*)
-fun transProg exp = transExp (Env.base_venv, Env.base_tenv) exp; ()
+fun transProg exp = transExp (E.base_venv, E.base_tenv) exp; ()
 
 (*
 * transExp is side-effecting: It prints error messages, and returns trexp
@@ -50,15 +53,42 @@ fun transTy (tenv, t:A.ty) = ()
 
 (*Somewhere processes body, revisit helper function needs*)
 
-fun processTypeDecHead (tenv, t(tlist{name: symbol, ty: ty, pos: pos}):A.TypeDec) = ()
+fun processTypeDecHead (tenv, []) = tenv
+  | processTypeDecHead (tenv, ({n, t, p}::l):A.TypeDec) = S.enter (tenv, n, translateTypeDec t)
 (*for each tydec*)
 
 (*take header, represent as ty, add to tenv'*)
 
+(*Converts a Absyn.ty to a Types.ty*)
+ fun translateTypeDec t:A.ty
 
 (***Thnk about functional implementation of name***)
 fun processTypeDecBody (tenv, t(tlist{name: symbol, ty: ty, pos: pos}):A.TypeDec) = ()
 (*Turn ty record from absyn into ty.RECORD from types.sml*)
 
 (***Property of Saums****)
-fun transVar (venv, tenv, v:A.var) = ()
+(*  venv*tenv*A.var -> Types.ty *)
+(*Tells you the type of a variable*)
+fun transVar (venv, tenv, A.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType (transVar v))
+  | transVar (venv, tenv, A.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType (transVar v, s))
+  | transVar (venv, tenv, A.SimpleVar(s,p)) = actualType (tenv, S.look (venv, s))
+
+(* tenv*Types.ty -> Types.ty*)
+(*For named types, this function looks up the "actual" type*)
+(*TODO: Add error message to this in NONE case*)
+fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) = (case Symbol.look (tenv, s) of
+                                                               SOME x => actualType (tenv, x)
+                                                             | NONE => Types.UNIT)
+  | actualType (tenv:Types.ty Symbol.table, t:Types.ty) = t
+
+(*Types.ty -> Types.ty*)
+(*Simple helper that tells you the type of object stored in an array*)
+(*TODO: Error message when argument is not of type Types.ARRAY*)
+fun lookupArrayType Types.ARRAY (ty, u) = ty
+  | lookupArrayType a:Types.ty = Types.UNIT
+
+fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (flist, s)
+  | lookupFieldType (a:Types.ty, s) = Types.UNIT
+
+  fun traverseFieldList ([], s:S.symbol) = Types.UNIT
+    | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
