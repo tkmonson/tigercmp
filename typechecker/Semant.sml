@@ -53,11 +53,21 @@ fun transTy (tenv, t:A.ty) = ()
 
 (*Somewhere processes body, revisit helper function needs*)
 
-fun processTypeDecHead (tenv, []) = tenv
-  | processTypeDecHead (tenv, ({n, t, p}::l):A.TypeDec) = S.enter (tenv, n, translateTypeDec t)
-(*for each tydec*)
-
 (*take header, represent as ty, add to tenv'*)
+fun processTypeDecHead (tenv, []) = tenv
+  | processTypeDecHead (tenv, ({n, t, p}::l):A.TypeDec) = A.NameTy(s,pos) => (S.enter (tenv, n, Types.NAME(n, ref NONE), l)
+
+(*Question for TA: Can we have a TypeDec like
+
+type a = {l:list}
+type list = ...
+
+In this case, our existing code would break
+
+*)
+fun recTyFromFlist (tenv, []) = []
+    | recTyFromFlist (tenv, {n, e, t, p}:A.field::l) = (n, S.look tenv)::recTyFromFlist(l)
+
 
 (*Converts a Absyn.ty to a Types.ty*)
  fun translateTypeDec t:A.ty
@@ -65,6 +75,10 @@ fun processTypeDecHead (tenv, []) = tenv
 (***Thnk about functional implementation of name***)
 fun processTypeDecBody (tenv, t(tlist{name: symbol, ty: ty, pos: pos}):A.TypeDec) = ()
 (*Turn ty record from absyn into ty.RECORD from types.sml*)
+case t of
+    A.NameTy(s,pos) => (S.enter (tenv, n, Types.NAME(n, ref NONE), l)
+    A.RecordTy(flist) => (S.enter (tenv, n, Types.RECORD ([], ref ()), l)
+    A.ArrayTy(s,pos) => (S.enter (tenv, n, Types.ARRAY(T.UNIT, ref ()), l)
 
 (***Property of Saums****)
 (*  venv*tenv*A.var -> Types.ty *)
