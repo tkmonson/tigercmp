@@ -25,7 +25,57 @@ fun transExp (venv, tenv) =
   trexp
   end
 
-fun transDecs (venv, tenv, d:A.dec list) = ()
+fun transDec (venv, tenv, A.VarDec{}) =
+
+    
+  | transDec (venv, tenv, A.TypeDec) =
+
+
+    
+(* 1. Check return type
+   2. Check param types
+   3. No duplicate params
+   4. Check body types*)
+  | transDec (venv, tenv, f(fundecs):A.FunctionDec)  =
+    let
+	fun transfun () = 
+ 	    let
+		val rt =
+		    case result of
+		      NONE => T.UNIT
+		    | SOME =>
+		        (case S.look(tenv,typ) of
+			   SOME t => t
+		         | NONE   => error)
+
+		fun transparam(param:A.field) =
+		    case S.look(tenv, typ) of
+		      SOME t => {name=name, ty=t}
+		      NONE   => error
+
+		val params' = map transparam params				  
+		    
+	    in
+
+	    end
+    in
+	let
+	    val
+	    fun transbody () =
+		let
+		    
+		in
+		    
+		end
+		    
+
+	in
+
+	end
+    end
+	
+		
+	
   (*For each item in d*)
     (*Pattern match on the 3 different types of A.dec*)
     (*CASE:
