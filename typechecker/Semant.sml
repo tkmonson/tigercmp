@@ -30,8 +30,20 @@ fun transDecs (venv, tenv, d:A.dec list) = ()
     (*Pattern match on the 3 different types of A.dec*)
     (*CASE:
           vardec: augment venv with new variable)
-          FunctionDec: Call helper processFunDec that augments environments and then typecheck functions with the augmented envs
-          TypeDec: Call helper processTypeDec that augments environments and then typecheck with the augmented envs *)
+          FunctionDec: Call helper processFunDecHead that adds headers to venv
+                       Call helper processFunDecBody to fill out fields in venv
+                       - allows for recursive functions
+                      typecheck functions with final venvs
+                      - handle arguments
+                      - calls transExp on body
+          TypeDec: Call helper processTypeDecHead that adds headers to tenv
+                       Call helper processTypeDecBody to fill out fields in tenv
+                       - allows for recursive functions
+                       - three cases:
+                        * name
+                        * record - process fields with recTyFromFlist
+                        * array
+                      typecheck functions with final tenvs *)
 
 fun processFunDecHead (venv, tenv, f(flist):A.FunctionDec) =
 (*for each in flist*)
@@ -55,7 +67,7 @@ fun transTy (tenv, t:A.ty) = ()
 
 (*take header, represent as ty, add to tenv'*)
 fun processTypeDecHead (tenv, []) = tenv
-  | processTypeDecHead (tenv, ({n, t, p}::l):A.TypeDec) = A.NameTy(s,pos) => (S.enter (tenv, n, Types.NAME(n, ref NONE), l)
+  | processTypeDecHead (tenv, ({n, t, p}::l):A.TypeDec) = (S.enter (tenv, n, Types.NAME(n, ref NONE), l)
 
 (*Question for TA: Can we have a TypeDec like
 
