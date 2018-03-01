@@ -31,6 +31,7 @@ fun transExp (venv, tenv) =
   trexp
   end
 
+<<<<<<< HEAD
 fun transDec (venv, tenv, A.VarDec{}) =
 
     
@@ -95,12 +96,27 @@ fun transDec (venv, tenv, A.VarDec{}) =
 	
 		
 	
+=======
+fun transDecs (venv, tenv, d:A.dec list) = ()
+>>>>>>> 59f22271dacba712bee24488abd2e2acaa585f44
   (*For each item in d*)
     (*Pattern match on the 3 different types of A.dec*)
     (*CASE:
           vardec: augment venv with new variable)
-          FunctionDec: Call helper processFunDec that augments environments and then typecheck functions with the augmented envs
-          TypeDec: Call helper processTypeDec that augments environments and then typecheck with the augmented envs *)
+          FunctionDec: Call helper processFunDecHead that adds headers to venv
+                       Call helper processFunDecBody to fill out fields in venv
+                       - allows for recursive functions
+                      typecheck functions with final venvs
+                      - handle arguments
+                      - calls transExp on body
+          TypeDec: Call helper processTypeDecHead that adds headers to tenv
+                       Call helper processTypeDecBody to fill out fields in tenv
+                       - allows for recursive functions
+                       - three cases:
+                        * name
+                        * record - process fields with recTyFromFlist
+                        * array
+                      typecheck functions with final tenvs *)
 
 fun processFunDecHead (venv, tenv, f(flist):A.FunctionDec) =
 (*for each in flist*)
@@ -116,30 +132,44 @@ fun processFunDecBody (venv, tenv, f(flist):A.FunctionDec) =
 
 
 (***Explained on page 120***)
-(***Property of Anita****)
 fun transTy (tenv, t:A.ty) = ()
 (*call processTypeDecHead, add 'tenv to tenv*)
 
 (*Somewhere processes body, revisit helper function needs*)
 
-fun processTypeDecHead (tenv, []) = tenv
-  | processTypeDecHead (tenv, ({n, t, p}::l):A.TypeDec) = S.enter (tenv, n, translateTypeDec t)
-(*for each tydec*)
-
 (*take header, represent as ty, add to tenv'*)
+fun processTypeDecHead (tenv, []) = tenv
+  | processTypeDecHead (tenv, ({n, t, p}::l):A.TypeDec) = (S.enter (tenv, n, Types.NAME(n, ref NONE), l)
 
-(*Converts a Absyn.ty to a Types.ty*)
- fun translateTypeDec t:A.ty
+(*Creates (S.symbol * ty) list from field list*)
+fun recTyFromFlist (tenv, []) = []
+    | recTyFromFlist (tenv, {n, e, t, p}:A.field::l) = (n, S.look(tenv, n))::recTyFromFlist(l)
 
 (***Thnk about functional implementation of name***)
-fun processTypeDecBody (tenv, t(tlist{name: symbol, ty: ty, pos: pos}):A.TypeDec) = ()
+fun processTypeDecBody (tenv, {n, t, pos}::l:A.TypeDec) =
+let
+   val envTy = S.look(tenv, n)
+in
 (*Turn ty record from absyn into ty.RECORD from types.sml*)
+case t of
+    A.NameTy(s,pos) => #2(envTy) :=
+                       SOME NAME(n, S.look (tenv, s))
+    A.RecordTy(flist) => #2(envTy) :=
+                        SOME RECORD (recTyFromFlist flist, ref ())
+    A.ArrayTy(s,pos) => #2(envTy) :=
+                        SOME ARRAY(S.look (tevn, s), ref ())
 
+(***Property of Saums****)
+(*  venv*tenv*A.var -> Types.ty *)
+(*Tells you the type of a variable*)
+fun transVar (venv, tenv, A.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType (transVar v))
+  | transVar (venv, tenv, A.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType (transVar v, s))
+  | transVar (venv, tenv, A.SimpleVar(s,p)) = actualType (tenv, S.look (venv, s))
 
 (* tenv*Types.ty -> Types.ty*)
 (*For named types, this function looks up the "actual" type*)
 (*TODO: Add error message to this in NONE case*)
-fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) = (case S.look (tenv, s) of
+fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) = (case Symbol.look (tenv, s) of
                                                                SOME x => actualType (tenv, x)
                                                              | NONE => Types.UNIT)
   | actualType (tenv:Types.ty Symbol.table, t:Types.ty) = t
@@ -147,22 +177,11 @@ fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) = (case S.look (ten
 (*Types.ty -> Types.ty*)
 (*Simple helper that tells you the type of object stored in an array*)
 (*TODO: Error message when argument is not of type Types.ARRAY*)
-fun lookupArrayType (Types.ARRAY(ty, u)) = ty
-  | lookupArrayType (a:Types.ty) = Types.UNIT
+fun lookupArrayType Types.ARRAY (ty, u) = ty
+  | lookupArrayType a:Types.ty = Types.UNIT
 
-(*Types.ty -> Types.ty*)
-fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (fieldlist, s)
+fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (flist, s)
   | lookupFieldType (a:Types.ty, s) = Types.UNIT
 
-fun traverseFieldList ([], s:S.symbol) = Types.UNIT
-  | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
-
-
-  (***Property of Saums****)
-  (*  venv*tenv*A.var -> Types.ty *)
-  (*Tells you the type of a variable*)
-fun transVar (venv, tenv, A.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType (transVar (venv, tenv, v)))
-  | transVar (venv, tenv, A.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType ((transVar (venv, tenv, v)),s))
-  | transVar (venv, tenv, A.SimpleVar(s,p)) = actualType (tenv, case S.look (venv, s) of
-                                                                SOME x => x
-                                                                | NONE => Types.UNIT)
+  fun traverseFieldList ([], s:S.symbol) = Types.UNIT
+    | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
