@@ -10,20 +10,44 @@ structure Translate = struct type exp = unit end
 type expty = {exp: Translate.exp, ty:Types.ty}
 
 (*Top level function: Calls side-effecting function transExp, and then returns unit*)
+(**)
 fun transProg exp = transExp (E.base_venv, E.base_tenv) exp; ()
 
 (*
 * transExp is side-effecting: It prints error messages, and returns trexp
 * transExp: (venv*tenv) -> (A.exp -> expty)
 * trexp: A.exp -> expty
-* trvar: A.var -> expty
+* trvar: A.var -> T.ty
 *)
 fun transExp (venv, tenv) =
-  let fun trexp (e: A.exp) = {exp=(), ty=Types.INT}
-  and trvar (v:A.var) = ()
+  let fun trexp A.NilExp = {exp = (), ty = T.Nil}
+        | trexp A.IntExp(num) = {exp = (), ty = T.INT}
+        | trexp A.StringExp(s,p) = {exp = (), ty = T.STRING}
+        | trexp A.VarExp(v) = {exp = (), ty = trvar v}
+        | trexp A.OpExp{left=l, oper=o, right=r, pos=p} = (checkInt(trexp l, p); checkInt(trexp r, p); {exp = (), ty = T.INT})
+        | trexp A.LetExp{decs=d, body=b, pos=p} =
+                let val {venv', tenv'} = transDecs (venv, tenv, d)
+                in  transExp(venv', tenv') b
+        | trexp A.SeqExp(elist) = trseq elist
+        | trexp A.RecordExp{fields=flist, typ=t, pos=p} = (*Just lookup t and make sure it's a Types.RECORD*)
+        | trexp A.AssignExp{var=v,exp=e,pos=p} = (*if v is in venv then check it against e
+                                                  else add it to venv with type of e*)
+
+        (*Below this is property of ANITA. No trespassing.*)                                          
+        | trexp A.IfExp {test=t, then'=thencase, else'=elsecase, pos=p} = (*Check that t is an int, thencase and elsecase have the same type*)
+        | trexp A.WhileExp{test=t, body=b, pos=p} =
+        | trexp A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p} =
+        | trexp A.ArrayExp{typ=t, size=s, init=i, pos=p} = (*Just lookup t and make sure it's a Types.ARRAY*)
+  and trvar v:A.var = (transVar (venv, tenv, v))
+  and trseq [] = {exp=(), ty=T.UNIT}
+    | trseq a::[] = trexp a
+    | trseq a::l::[] = (trexp a; trseq l) (*Call trexp on a for side effects*)
+  and checkInt({exp=e, ty=t}, pos) = if t = T.INT then () else (*Add error message here*)()
   in
   trexp
   end
+
+
 
 fun transDecs (venv, tenv, d:A.dec list) = ()
   (*For each item in d*)
@@ -70,9 +94,7 @@ fun processTypeDecBody (tenv, t(tlist{name: symbol, ty: ty, pos: pos}):A.TypeDec
 (* tenv*Types.ty -> Types.ty*)
 (*For named types, this function looks up the "actual" type*)
 (*TODO: Add error message to this in NONE case*)
-fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) = (case S.look (tenv, s) of
-                                                               SOME x => actualType (tenv, x)
-                                                             | NONE => Types.UNIT)
+fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) = actualType (tenv, t)
   | actualType (tenv:Types.ty Symbol.table, t:Types.ty) = t
 
 (*Types.ty -> Types.ty*)
