@@ -59,7 +59,6 @@ fun processFunDecBody (venv, tenv, f(flist):A.FunctionDec) =
 
 
 (***Explained on page 120***)
-(***Property of Anita****)
 fun transTy (tenv, t:A.ty) = ()
 (*call processTypeDecHead, add 'tenv to tenv*)
 
@@ -69,28 +68,23 @@ fun transTy (tenv, t:A.ty) = ()
 fun processTypeDecHead (tenv, []) = tenv
   | processTypeDecHead (tenv, ({n, t, p}::l):A.TypeDec) = (S.enter (tenv, n, Types.NAME(n, ref NONE), l)
 
-(*Question for TA: Can we have a TypeDec like
-
-type a = {l:list}
-type list = ...
-
-In this case, our existing code would break
-
-*)
+(*Creates (S.symbol * ty) list from field list*)
 fun recTyFromFlist (tenv, []) = []
-    | recTyFromFlist (tenv, {n, e, t, p}:A.field::l) = (n, S.look tenv)::recTyFromFlist(l)
-
-
-(*Converts a Absyn.ty to a Types.ty*)
- fun translateTypeDec t:A.ty
+    | recTyFromFlist (tenv, {n, e, t, p}:A.field::l) = (n, S.look(tenv, n))::recTyFromFlist(l)
 
 (***Thnk about functional implementation of name***)
-fun processTypeDecBody (tenv, t(tlist{name: symbol, ty: ty, pos: pos}):A.TypeDec) = ()
+fun processTypeDecBody (tenv, t(tlist{name: symbol, ty: ty, pos: pos}):A.TypeDec) =
+let
+   val envTy = S.look(tenv, n)
+in
 (*Turn ty record from absyn into ty.RECORD from types.sml*)
 case t of
-    A.NameTy(s,pos) => (S.enter (tenv, n, Types.NAME(n, ref NONE), l)
-    A.RecordTy(flist) => (S.enter (tenv, n, Types.RECORD ([], ref ()), l)
-    A.ArrayTy(s,pos) => (S.enter (tenv, n, Types.ARRAY(T.UNIT, ref ()), l)
+    A.NameTy(s,pos) => #2(envTy) :=
+                       (S.enter (tenv, n, Types.NAME(n, ref NONE), l)
+    A.RecordTy(flist) => #2(envTy) :=
+                         (S.enter (tenv, n, Types.RECORD (recTyFromFlist flist, ref ()), l)
+    A.ArrayTy(s,pos) => #2(envTy) :=
+                        (S.enter (tenv, n, Types.ARRAY((*recursively make tys*), ref ()), l)
 
 (***Property of Saums****)
 (*  venv*tenv*A.var -> Types.ty *)
