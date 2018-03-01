@@ -25,57 +25,7 @@ fun transExp (venv, tenv) =
   trexp
   end
 
-fun transDec (venv, tenv, A.VarDec{}) =
-
-    
-  | transDec (venv, tenv, A.TypeDec) =
-
-
-    
-(* 1. Check return type
-   2. Check param types
-   3. No duplicate params
-   4. Check body types*)
-  | transDec (venv, tenv, f(fundecs):A.FunctionDec)  =
-    let
-	fun transfun () = 
- 	    let
-		val rt =
-		    case result of
-		      NONE => T.UNIT
-		    | SOME =>
-		        (case S.look(tenv,typ) of
-			   SOME t => t
-		         | NONE   => error)
-
-		fun transparam(param:A.field) =
-		    case S.look(tenv, typ) of
-		      SOME t => {name=name, ty=t}
-		      NONE   => error
-
-		val params' = map transparam params				  
-		    
-	    in
-
-	    end
-    in
-	let
-	    val
-	    fun transbody () =
-		let
-		    
-		in
-		    
-		end
-		    
-
-	in
-
-	end
-    end
-	
-		
-	
+fun transDecs (venv, tenv, d:A.dec list) = ()
   (*For each item in d*)
     (*Pattern match on the 3 different types of A.dec*)
     (*CASE:
@@ -123,24 +73,30 @@ fun recTyFromFlist (tenv, []) = []
     | recTyFromFlist (tenv, {n, e, t, p}:A.field::l) = (n, S.look(tenv, n))::recTyFromFlist(l)
 
 (***Thnk about functional implementation of name***)
-fun processTypeDecBody (tenv, t(tlist{name: symbol, ty: ty, pos: pos}):A.TypeDec) =
+fun processTypeDecBody (tenv, {n, t, pos}::l:A.TypeDec) =
 let
    val envTy = S.look(tenv, n)
 in
 (*Turn ty record from absyn into ty.RECORD from types.sml*)
 case t of
     A.NameTy(s,pos) => #2(envTy) :=
-                       (S.enter (tenv, n, Types.NAME(n, ref NONE), l)
+                       SOME NAME(n, S.look (tenv, s))
     A.RecordTy(flist) => #2(envTy) :=
-                         (S.enter (tenv, n, Types.RECORD (recTyFromFlist flist, ref ()), l)
+                        SOME RECORD (recTyFromFlist flist, ref ())
     A.ArrayTy(s,pos) => #2(envTy) :=
-                        (S.enter (tenv, n, Types.ARRAY((*recursively make tys*), ref ()), l)
+                        SOME ARRAY(S.look (tevn, s), ref ())
 
+(***Property of Saums****)
+(*  venv*tenv*A.var -> Types.ty *)
+(*Tells you the type of a variable*)
+fun transVar (venv, tenv, A.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType (transVar v))
+  | transVar (venv, tenv, A.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType (transVar v, s))
+  | transVar (venv, tenv, A.SimpleVar(s,p)) = actualType (tenv, S.look (venv, s))
 
 (* tenv*Types.ty -> Types.ty*)
 (*For named types, this function looks up the "actual" type*)
 (*TODO: Add error message to this in NONE case*)
-fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) = (case S.look (tenv, s) of
+fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) = (case Symbol.look (tenv, s) of
                                                                SOME x => actualType (tenv, x)
                                                              | NONE => Types.UNIT)
   | actualType (tenv:Types.ty Symbol.table, t:Types.ty) = t
@@ -148,22 +104,11 @@ fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) = (case S.look (ten
 (*Types.ty -> Types.ty*)
 (*Simple helper that tells you the type of object stored in an array*)
 (*TODO: Error message when argument is not of type Types.ARRAY*)
-fun lookupArrayType (Types.ARRAY(ty, u)) = ty
-  | lookupArrayType (a:Types.ty) = Types.UNIT
+fun lookupArrayType Types.ARRAY (ty, u) = ty
+  | lookupArrayType a:Types.ty = Types.UNIT
 
-(*Types.ty -> Types.ty*)
-fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (fieldlist, s)
+fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (flist, s)
   | lookupFieldType (a:Types.ty, s) = Types.UNIT
 
-fun traverseFieldList ([], s:S.symbol) = Types.UNIT
-  | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
-
-
-  (***Property of Saums****)
-  (*  venv*tenv*A.var -> Types.ty *)
-  (*Tells you the type of a variable*)
-fun transVar (venv, tenv, A.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType (transVar (venv, tenv, v)))
-  | transVar (venv, tenv, A.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType ((transVar (venv, tenv, v)),s))
-  | transVar (venv, tenv, A.SimpleVar(s,p)) = actualType (tenv, case S.look (venv, s) of
-                                                                SOME x => x
-                                                                | NONE => Types.UNIT)
+  fun traverseFieldList ([], s:S.symbol) = Types.UNIT
+    | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
