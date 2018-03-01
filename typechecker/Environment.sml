@@ -22,7 +22,7 @@ struct
                     | FunEntry of {formals: ty list, result:ty}
 
   (*Basic type environment contains int and string*)
-  val base_tenv = S.enter(S.enter(S.empty, S.symbol "int", Types.INT), S.symbol "string", Types.STRING)
+  val base_tenv = S.enter(S.enter(S.enter(S.empty, S.symbol "int", Types.INT), S.symbol "string", Types.STRING),S.symbol "nil", Types.NIL)
 
   val v1 = S.enter(S.empty, S.symbol "print", FunEntry {formals=[Types.STRING], result=Types.UNIT});
   val v1 = S.enter(v1, S.symbol "flush", FunEntry {formals=[], result=Types.UNIT});
