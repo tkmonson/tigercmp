@@ -9,6 +9,12 @@ structure Translate = struct type exp = unit end
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
 
+fun checkdups (nil, nil) = ()
+  | checkdups (name::others, pos::poss) =
+    if (List.all (fn (x) = (name <> x)) others) then checkdup(others, poss)
+    else (* error: duplicate definition *)
+	
+
 (*Top level function: Calls side-effecting function transExp, and then returns unit*)
 fun transProg exp = transExp (E.base_venv, E.base_tenv) exp; ()
 
@@ -32,36 +38,49 @@ fun transDec (venv, tenv, A.VarDec{}) =
 
 
     
-(* 1. Check return type
+(* Function Declaration
+
+   1. Check return type
    2. Check param types
    3. No duplicate params
    4. Check body types*)
+    
   | transDec (venv, tenv, f(fundecs):A.FunctionDec)  =
     let
-	fun transfun () = 
+	(* Function Header Checking  *)
+	fun transfun ((* fundec *) {name, params, result, body, pos}, env) = 
  	    let
+		(* 1. Check return type *)
 		val rt =
 		    case result of
 		      NONE => T.UNIT
-		    | SOME =>
+		    | SOME (typ, pos) =>
 		        (case S.look(tenv,typ) of
-			   SOME t => t
-		         | NONE   => error)
+			   SOME typ => typ
+		         | NONE   => (*error typ not in tenv*))
 
-		fun transparam(param:A.field) =
+		(* 2. Check param types ??? *)
+		fun transparam(params:A.field) =
 		    case S.look(tenv, typ) of
-		      SOME t => {name=name, ty=t}
-		      NONE   => error
+		      SOME t => t
+		      NONE   => (* error *)
 
-		val params' = map transparam params				  
+		val params' = map transparam params
 		    
 	    in
-
+		(* 3. No duplicate params *)
+		checkdups(map name params, map pos params);
+		(* 4. Put function header into overall environment ???  *)
+		S.enter(env, name, E.FunEntry{params', rt});
 	    end
     in
 	let
-	    val
-	    fun transbody () =
+	    val venv' = foldl transfun venv fundecs
+	    (* Function Body Checking *)
+	    (* 1. Type checking
+               2. Enter VarEntry in venv
+               3. Check body *)
+	    fun transbody ((* fundec *) {name, params, result, body, pos},{tenv,venv}) =
 		let
 		    
 		in
