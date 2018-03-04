@@ -53,7 +53,7 @@ fun transExp (venv, tenv) =
   trexp
   end
 
-fun transDec (venv, tenv, A.VarDec{}) =
+fun transDec (venv, tenv, vd:A.VarDec) = transVarDec(tenv, venv, vd)
 
 
   | transDec (venv, tenv, A.TypeDec) =
@@ -96,7 +96,7 @@ fun transDec (venv, tenv, A.VarDec{}) =
 		S.enter(env, name, E.FunEntry{params', rt});
 	    end
     in
-	let
+
 	    val venv' = foldl transfun venv fundecs
 	    (* Function Body Checking *)
 	    (* 1. Type checking
@@ -176,29 +176,59 @@ case t of
     A.ArrayTy(s,pos) => #2(envTy) :=
                         SOME ARRAY(S.look (tevn, s), ref ())
 
-(***Property of Saums****)
-(*  venv*tenv*A.var -> Types.ty *)
-(*Tells you the type of a variable*)
-fun transVar (venv, tenv, A.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType (transVar v))
-  | transVar (venv, tenv, A.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType (transVar v, s))
-  | transVar (venv, tenv, A.SimpleVar(s,p)) = actualType (tenv, S.look (venv, s))
 
-(* tenv*Types.ty -> Types.ty*)
-(*For named types, this function looks up the "actual" type*)
-(*TODO: Add error message to this in NONE case*)
 
-fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) = (case Symbol.look (tenv, s) of
-                                                               SOME x => actualType (tenv, x)
-                                                             | NONE => Types.UNIT)
+(**SAUMYA**)
+
+
+(*tenv*Types.ty -> Types.ty*)
+(*TODO: Error message for case where the named type points to NONE*)
+fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) =
+  (let val storedTy = case !t of
+  SOME(x) => x
+  | NONE => T.UNIT
+  in
+  actualType storedTy
+  end)
+  | actualType (tenv:Types.ty Symbol.table, t:Types.ty) = t
 
 (*Types.ty -> Types.ty*)
 (*Simple helper that tells you the type of object stored in an array*)
 (*TODO: Error message when argument is not of type Types.ARRAY*)
-fun lookupArrayType Types.ARRAY (ty, u) = ty
-  | lookupArrayType a:Types.ty = Types.UNIT
+fun lookupArrayType (Types.ARRAY(ty, u)) = ty
+  | lookupArrayType (a:Types.ty) = Types.UNIT
 
-fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (flist, s)
+(*Types.ty*symbol -> Types.ty*)
+(*TODO: Error message when field list is empty, since that means that we didn't find that field*)
+fun traverseFieldList ([], s:S.symbol) = Types.UNIT
+  | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
+
+(*Types.ty*symbol -> Types.ty*)
+(*TODO: Error message for when we try and access a field of something that's not a record*)
+fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (fieldlist, s)
   | lookupFieldType (a:Types.ty, s) = Types.UNIT
 
-  fun traverseFieldList ([], s:S.symbol) = Types.UNIT
-    | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
+(*  venv*tenv*A.var -> Types.ty *)
+(*Tells you the type of a variable*)
+(*TODO: Error message for when we have a simplevar that's not in the venv*)
+fun transVar (venv, tenv, A.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType (transVar(venv, tenv, v)))
+  | transVar (venv, tenv, A.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType ((transVar (venv, tenv, v),s)))
+  | transVar (venv, tenv, A.SimpleVar(s,p)) = case S.look (venv, s) of
+                                              SOME x => actualType(tenv, x)
+                                            | NONE => T.UNIT
+
+(*Checks whether a is the same type as, or a subtype of, b*)
+fun isCompatible(a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
+
+(*TODO: Add error messages if types are not equal or if expected type doens't exist in tenv*)
+fun transVarDec(tenv:T.ty S.table, venv: E.enventry S.table, A.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
+      let val {a=exp, b=exptype} = transExp(tenv, venv) i
+          val venv' = S.enter(venv, varname, E.VarEntry{ty=exptype})
+          val venv'' = S.enter(venv, varname, E.VarEntry{ty=T.UNIT})
+      in
+         case vartype of
+         SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
+                    SOME(expectedtype) => if isCompatible(exptype,expectedtype) then venv' else venv''
+                  | NONE => venv'')
+       | NONE => venv'
+      end
