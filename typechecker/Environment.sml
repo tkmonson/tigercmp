@@ -3,11 +3,10 @@ structure S = Symbol
 signature ENV =
 sig
   type access
-  type ty
-  datatype enventry = VarEntry of {ty:ty}
-                    | FunEntry of {formals: ty list, result:ty}
+  datatype enventry = VarEntry of {ty:Types.ty}
+                    | FunEntry of {formals: Types.ty list, result:Types.ty}
 
-  val base_tenv : ty S.table
+  val base_tenv : Types.ty S.table
   val base_venv : enventry S.table
 
 end
