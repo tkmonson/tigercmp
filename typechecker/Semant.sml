@@ -59,7 +59,6 @@ fun transDec (venv, tenv, vd:A.VarDec) = transVarDec(tenv, venv, vd)
   | transDec (venv, tenv, A.TypeDec) =
 
 
-
 (* Function Declaration
 
    1. Check return type
@@ -68,8 +67,9 @@ fun transDec (venv, tenv, vd:A.VarDec) = transVarDec(tenv, venv, vd)
    4. Check body types*)
 
   | transDec (venv, tenv, f(fundecs):A.FunctionDec)  =
+
     let
-	(* Function Header Checking  *)
+	(* Check the header *)
 	fun transfun ((* fundec *) {name, params, result, body, pos}, env) =
  	    let
 		(* 1. Check return type *)
@@ -78,42 +78,69 @@ fun transDec (venv, tenv, vd:A.VarDec) = transVarDec(tenv, venv, vd)
 		      NONE => T.UNIT
 		    | SOME (typ, pos) =>
 		        (case S.look(tenv,typ) of
-			   SOME typ => typ
-		         | NONE   => (*error typ not in tenv*))
+			   SOME t => t
+		         | NONE   => ((*error typ not in tenv*)))
 
-		(* 2. Check param types ??? *)
-		fun transparam(params:A.field) =
+		(* 2. Check param types *)
+		fun transparam({typ,...}:A.field) =
 		    case S.look(tenv, typ) of
 		      SOME t => t
-		      NONE   => (* error *)
-
+		    | NONE => ((* error *))
 		val params' = map transparam params
-
+				  
 	    in
-		(* 3. No duplicate params *)
+		(* 3. No duplicate params -- does map make sense here? *)
 		checkdups(map name params, map pos params);
-		(* 4. Put function header into overall environment ???  *)
-		S.enter(env, name, E.FunEntry{params', rt});
+		(* Put function header into environment *)
+		S.enter(env, name, E.FunEntry{formals = params', result = rt})
 	    end
+		
     in
-
+	(* 4. Check function body *)
+	let
 	    val venv' = foldl transfun venv fundecs
-	    (* Function Body Checking *)
-	    (* 1. Type checking
-               2. Enter VarEntry in venv
-               3. Check body *)
+
 	    fun transbody ((* fundec *) {name, params, result, body, pos},{tenv,venv}) =
 		let
+		    (* Check that an identifier in the function body is in the value env (in scope) *)
+		    val SOME(E.FunEntry{formals, result}) = S.look(venv',name)
 
+		    (* Check that an identifier actually has a valid type *)
+		    fun transparam({name, escape, typ, pos}, access) =
+			case S.look(tenv,typ) of
+			    SOME t => {access=access,name=name,ty=t}
+			  | NONE   => ((* ERROR - identifier in code has wrong type *))
+		    val params' = map transparam params
+				      
+
+		    (* Enter the first field in params' into venv'
+                       Update venv' identifier so it now includes that field
+                       Repeat for all fields in params'
+                       Result: all variables in the body are now in the value environment *)
+	            val venv'' = (foldl
+				      (fn ({access,name,ty},env) =>
+				         S.enter(env,name,E.VarEntry{access=access,ty=ty}))
+				       venv'
+				       params')
+				     
+		    (* Find the body's result type *)
+		    val {exp,ty} = transExp(venv'', tenv) body
 		in
-
+		    (* Check that the body's result type matches the header's result type *)
+		    if (result <> ty) then ((* type mismatch error *)) else ()
 		end
 
-
 	in
-
+	    (* Check that there are no identical function declarations *)
+	    checkdups(map name fundecs, map pos fundecs);
+            let
+		val {venv, tenv} = foldl transbody {tenv=tenv,venv=venv} fundecs
+	    in
+		{venv=venv, tenv=tenv}
+	    end
 	end
     end
+
 
 fun transDecs (venv, tenv, d:A.dec list) = ()
   (*For each item in d*)
@@ -149,32 +176,38 @@ fun processFunDecBody (venv, tenv, f(flist):A.FunctionDec) =
 
 
 (***Explained on page 120***)
-fun transTy (tenv, t:A.ty) = ()
-(*call processTypeDecHead, add 'tenv to tenv*)
-
-(*Somewhere processes body, revisit helper function needs*)
+fun transTy (tenv, t(tylist):A.TypeDec) =
+    processTypeDecBody (processTypeDecHead(tenv, tylist), tylist)
 
 (*take header, represent as ty, add to tenv'*)
 fun processTypeDecHead (tenv, []) = tenv
-  | processTypeDecHead (tenv, ({n, t, p}::l):A.TypeDec) = (S.enter (tenv, n, Types.NAME(n, ref NONE), l)
+  | processTypeDecHead (tenv, ({name=n, ty=t, pos=p}::l):A.TypeDec) = processTypeDecHead (S.enter (tenv, n, Types.NAME(n, ref NONE)), l)
 
 (*Creates (S.symbol * ty) list from field list*)
 fun recTyFromFlist (tenv, []) = []
-    | recTyFromFlist (tenv, {n, e, t, p}:A.field::l) = (n, S.look(tenv, n))::recTyFromFlist(l)
+    | recTyFromFlist (tenv, {name=n, escape=e, typ=t, pos=p}:A.field::l) = (n, tenvLookUp(tenv, n))::recTyFromFlist(l)
+
+fun processTypeDecBodies (tenv, []) = tenv
+    | processTypeDecBodies (tenv, a::l:A.TypeDec) = processTypeDecBodies (processTypeDecBody (tenv, a), l)
 
 (***Thnk about functional implementation of name***)
-fun processTypeDecBody (tenv, {n, t, pos}::l:A.TypeDec) =
+fun processTypeDecBody (tenv, {name=n, ty=t, pos=p}::l:A.TypeDec) =
 let
-   val envTy = S.look(tenv, n)
+   val envTy = tenvLookUp (tevn, n)
 in
 (*Turn ty record from absyn into ty.RECORD from types.sml*)
 case t of
     A.NameTy(s,pos) => #2(envTy) :=
-                       SOME NAME(n, S.look (tenv, s))
-    A.RecordTy(flist) => #2(envTy) :=
+                       SOME NAME(n, tenvLookUp(tenv, s))
+    | A.RecordTy(flist) => #2(envTy) :=
                         SOME RECORD (recTyFromFlist flist, ref ())
-    A.ArrayTy(s,pos) => #2(envTy) :=
-                        SOME ARRAY(S.look (tevn, s), ref ())
+    | A.ArrayTy(s,pos) => #2(envTy) :=
+                        SOME ARRAY(tenvLookUp(tevn, s), ref ())
+end
+
+fun tenvLookup (tenv, n) = case S.look(tenv, n) of
+                 SOME x => x
+                 | NONE => Types.UNIT
 
 
 
