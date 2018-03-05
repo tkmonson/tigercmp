@@ -59,7 +59,6 @@ fun transDec (venv, tenv, A.VarDec{}) =
   | transDec (venv, tenv, A.TypeDec) =
 
 
-
 (* Function Declaration
 
    1. Check return type
@@ -68,8 +67,9 @@ fun transDec (venv, tenv, A.VarDec{}) =
    4. Check body types*)
 
   | transDec (venv, tenv, f(fundecs):A.FunctionDec)  =
+
     let
-	(* Function Header Checking  *)
+	(* Check the header *)
 	fun transfun ((* fundec *) {name, params, result, body, pos}, env) =
  	    let
 		(* 1. Check return type *)
@@ -78,42 +78,69 @@ fun transDec (venv, tenv, A.VarDec{}) =
 		      NONE => T.UNIT
 		    | SOME (typ, pos) =>
 		        (case S.look(tenv,typ) of
-			   SOME typ => typ
-		         | NONE   => (*error typ not in tenv*))
+			   SOME t => t
+		         | NONE   => ((*error typ not in tenv*)))
 
-		(* 2. Check param types ??? *)
-		fun transparam(params:A.field) =
+		(* 2. Check param types *)
+		fun transparam({typ,...}:A.field) =
 		    case S.look(tenv, typ) of
 		      SOME t => t
-		      NONE   => (* error *)
-
+		    | NONE => ((* error *))
 		val params' = map transparam params
-
+				  
 	    in
-		(* 3. No duplicate params *)
+		(* 3. No duplicate params -- does map make sense here? *)
 		checkdups(map name params, map pos params);
-		(* 4. Put function header into overall environment ???  *)
-		S.enter(env, name, E.FunEntry{params', rt});
+		(* Put function header into environment *)
+		S.enter(env, name, E.FunEntry{formals = params', result = rt})
 	    end
+		
     in
+	(* 4. Check function body *)
 	let
 	    val venv' = foldl transfun venv fundecs
-	    (* Function Body Checking *)
-	    (* 1. Type checking
-               2. Enter VarEntry in venv
-               3. Check body *)
+
 	    fun transbody ((* fundec *) {name, params, result, body, pos},{tenv,venv}) =
 		let
+		    (* Check that an identifier in the function body is in the value env (in scope) *)
+		    val SOME(E.FunEntry{formals, result}) = S.look(venv',name)
 
+		    (* Check that an identifier actually has a valid type *)
+		    fun transparam({name, escape, typ, pos}, access) =
+			case S.look(tenv,typ) of
+			    SOME t => {access=access,name=name,ty=t}
+			  | NONE   => ((* ERROR - identifier in code has wrong type *))
+		    val params' = map transparam params
+				      
+
+		    (* Enter the first field in params' into venv'
+                       Update venv' identifier so it now includes that field
+                       Repeat for all fields in params'
+                       Result: all variables in the body are now in the value environment *)
+	            val venv'' = (foldl
+				      (fn ({access,name,ty},env) =>
+				         S.enter(env,name,E.VarEntry{access=access,ty=ty}))
+				       venv'
+				       params')
+				     
+		    (* Find the body's result type *)
+		    val {exp,ty} = transExp(venv'', tenv) body
 		in
-
+		    (* Check that the body's result type matches the header's result type *)
+		    if (result <> ty) then ((* type mismatch error *)) else ()
 		end
 
-
 	in
-
+	    (* Check that there are no identical function declarations *)
+	    checkdups(map name fundecs, map pos fundecs);
+            let
+		val {venv, tenv} = foldl transbody {tenv=tenv,venv=venv} fundecs
+	    in
+		{venv=venv, tenv=tenv}
+	    end
 	end
     end
+
 
 fun transDecs (venv, tenv, d:A.dec list) = ()
   (*For each item in d*)
