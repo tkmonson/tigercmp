@@ -1,0 +1,7 @@
+1) Implementation using top and bottom for exhaustive type checking
+2) Check for unit in all typechecks to prevent excessive error messages
+3) Make nil subtype of all records
+4) Error messages for everything
+  - Error produced, but not propagated (return type UNIT)
+5) Make sure we check type compatibility vs. actual type (example of unit vs. int)
+6) Cycles in type decs
