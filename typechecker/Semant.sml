@@ -48,7 +48,7 @@ fun transExp (venv, tenv) =
   and trseq [] = {exp=(), ty=T.UNIT}
     | trseq a::[] = trexp a
     | trseq a::l::[] = (trexp a; trseq l) (*Call trexp on a for side effects*)
-  and checkInt({exp=e, ty=t}, pos) = if t = T.INT then () else (*Add error message here*)()
+  and checkInt({exp=e, ty=t}, pos) = if isCompatible(trexp e, T.INT) then () else (*Add error message here*)()
   in
   trexp
   end
