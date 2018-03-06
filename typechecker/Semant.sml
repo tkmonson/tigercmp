@@ -142,8 +142,10 @@ fun processTypeDecBodies (tenv, []) = tenv
 (***Explained on page 120***)
 fun transTy (tenv, Absyn.TypeDec(tylist)) = processTypeDecBodies (processTypeDecHeads(tenv, tylist), tylist)
 
-fun getName ({name, escape, typ, pos}:A.field) = name
-fun getPos ({name, escape, typ, pos}:A.field) = pos
+fun getNameFromField ({name, escape, typ, pos}:A.field) = name
+fun getPosFromField  ({name, escape, typ, pos}:A.field) = pos
+fun getNameFromFunDec ({name, params, result, body, pos}:A.fundec) = name
+fun getPosFromFunDec  ({name, params, result, body, pos}:A.fundec) = pos							      
 
 fun processFunDecHead ((* fundec *) {name, params, result, body, pos}:A.fundec, (venv, tenv)) =
     let
@@ -161,7 +163,7 @@ fun processFunDecHead ((* fundec *) {name, params, result, body, pos}:A.fundec, 
 
     in
         (* 3. No duplicate params -- does map make sense here? *)
-        checkdups(map getName params, map getPos params);
+        checkdups(map getNameFromField params, map getPosFromField params);
 	(* Put function header into (value) environment *)
         (S.enter(venv, name, E.FunEntry{formals = params', result = rt}), tenv)
     end
@@ -196,8 +198,13 @@ fun processFunDecBody ((* fundec *) {name, params, result, body, pos}:A.fundec,(
         val {exp,ty} = transExp(venv, tenv) body
     in
         (* Check that the body's result type matches the header's result type *)
-        if isCompatible (ty,result) then () else ((*error*));
-	      (venv,tenv)
+        if
+	    isCompatible (ty, case result of SOME(rSym,rPos) => tenvLookUp (tenv, rSym)
+					   | NONE            => T.UNIT)
+	then ()
+
+	else ((*error*));
+	(venv,tenv)
     end
 
 
@@ -212,8 +219,8 @@ fun transDec (venv, tenv, Absyn.VarDec(vd)) = (transVarDec(tenv, venv, Absyn.Var
 	val (venv'',tenv'') = foldl processFunDecBody (venv',tenv') fundecs
     in
 	(* Check that there are no identical function headers *)
-	checkdups(map getName fundecs, map getPos fundecs);
-        {venv=venv'', tenv=tenv''}
+	checkdups(map getNameFromFunDec fundecs, map getPosFromFunDec fundecs);
+        (venv'', tenv'')
     end
 
 
