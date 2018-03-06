@@ -34,7 +34,9 @@ fun transExp (venv, tenv) =
         | trexp A.IntExp(num) = {exp = (), ty = T.INT}
         | trexp A.StringExp(s,p) = {exp = (), ty = T.STRING}
         | trexp A.VarExp(v) = {exp = (), ty = trvar v}
-        | trexp A.OpExp{left=l, oper=o, right=r, pos=p} = (checkInt(trexp l, p); checkInt(trexp r, p); {exp = (), ty = T.INT})
+        | trexp A.OpExp{left=l, oper=o, right=r, pos=p} = (checkInt(l, p);
+                                                          checkInt(r, p);
+                                                          {exp = (), ty = T.INT})
         | trexp A.LetExp{decs=d, body=b, pos=p} =
                 let val {venv', tenv'} = transDecs (venv, tenv, d)
                 in  transExp(venv', tenv') b
@@ -74,15 +76,22 @@ fun transExp (venv, tenv) =
                 | UNIT => (*TODO:Throw error, type does not exist*){exp = (), ty = T.UNIT}
             end)
 
-  and trvar v:A.var = (transVar (venv, tenv, v))
+  and trvar (v:A.var) = (transVar (venv, tenv, v))
   and trseq [] = {exp=(), ty=T.UNIT}
     | trseq a::[] = trexp a
     | trseq a::l::[] = (trexp a; trseq l) (*Call trexp on a for side effects*)
-  and checkInt({exp=e, ty=t}, pos) = if isCompatible(trexp e, T.INT) then () else (*Add error message here*)()
-  and checkBody b:A.exp = if trexp b <> T.UNIT then () else (*TODO: THROW ERROR*)()
+  and checkInt(e:A.exp, pos) =
+      let val {exp=_, ty=eTy} = trexp e
+      in
+          if isCompatible(eTy, T.INT) then () else (*Add error message here*)()
+      end
+  and checkBody (b:A.exp, pos) =
+      let val {exp=_, ty=bTy} = trexp b
+      in
+          if bTy <> T.UNIT then () else (*TODO: THROW ERROR*)()
+      end
   in
   trexp
-
   end
 
 (*Top level function: Calls side-effecting function transExp, and then returns unit*)
