@@ -142,74 +142,78 @@ fun processTypeDecBodies (tenv, []) = tenv
 (***Explained on page 120***)
 fun transTy (tenv, Absyn.TypeDec(tylist)) = processTypeDecBodies (processTypeDecHeads(tenv, tylist), tylist)
 
-fun processFunDecHead ((* fundec *) {name, params, result, body, pos}, env) =
+fun getName ({name, escape, typ, pos}:A.field) = name
+fun getPos ({name, escape, typ, pos}:A.field) = pos
+
+fun processFunDecHead ((* fundec *) {name, params, result, body, pos}:A.fundec, (venv, tenv)) =
     let
         (* 1. Check return type *)
 	val rt =
 	    case result of
-	         NONE => T.UNIT
-               | SOME (typ, pos) =>
-	              (case S.look(tenv,typ) of
-	                    SOME t => t
-		          | NONE   => ((*error typ not in tenv*)))
+	        NONE => T.UNIT
+        | SOME (typ, pos) => tenvLookUp(tenv, typ)
+
 
 	(* 2. Check param types *)
-        fun transparam ({typ,...}:Absyn.field) =
-            case S.look(tenv, typ) of
-                 SOME t => t
-               | NONE => ((* error *))
+        fun transparam ({typ,...}:Absyn.field) = tenvLookUp(tenv, typ)
+
         val params' = map transparam params
 
     in
         (* 3. No duplicate params -- does map make sense here? *)
-        checkdups(map name params, map pos params);
+        checkdups(map getName params, map getPos params);
 	(* Put function header into (value) environment *)
-        S.enter(env, name, Env.FunEntry{formals = params', result = rt})
+        (S.enter(venv, name, E.FunEntry{formals = params', result = rt}), tenv)
     end
 
-fun processFunDecBody ((* fundec *) {name, params, result, body, pos},(venv,tenv)) =
+fun processFunDecBody ((* fundec *) {name, params, result, body, pos}:A.fundec,(venv,tenv)) =
     let
+
+    (*
         (* Check that an identifier in the function body is in the value env (in scope) *)
         val SOME(Env.FunEntry{formals, result}) = S.look(venv,name)
 
         (* Check that an identifier actually has a valid type *)
-        fun transparam({name, escape, typ, pos}, access) =
+        fun transparam({name, escape, typ, pos}:A.field) =
             case S.look(tenv,typ) of
-	         SOME t => {access=access,name=name,ty=t}
-               | NONE   => ((* ERROR - identifier in code has wrong type *))
-			       
-	val params' = map transparam params
+	         SOME t => {access=access,n=name,ty=t}
+               | NONE   => {access=access,n=name,ty=T.UNIT}
+
+	      val params' = map transparam (params,access)
+
+
 
         (* Enter the first field in params' into venv
            Update venv identifier so it now includes that field
            Repeat for all fields in params'
            Result: all variables in the body are now in the value environment *)
 	val venv'' = (foldl
-		     (fn ({access,name,ty},venv) =>
-		     S.enter(env,name,Env.VarEntry{access=access,ty=ty})) venv params')
+		     (fn ({access, n, ty},venv) => S.enter(venv,name,Env.VarEntry({ty=ty}))) venv params)
+
+*)
 
         (* Find the body's result type *)
-        val {exp,ty} = transExp(venv'', tenv) body
+        val {exp,ty} = transExp(venv, tenv) body
     in
         (* Check that the body's result type matches the header's result type *)
-        if (result <> ty) then ((* type mismatch error *)) else ();
-	{venv=venv'',tenv=tenv}
+        if isCompatible (ty,result) then () else ((*error*));
+	      (venv,tenv)
     end
 
-								 
+
 fun transDec (venv, tenv, Absyn.VarDec(vd)) = (transVarDec(tenv, venv, Absyn.VarDec vd), tenv)
   | transDec (venv, tenv, Absyn.TypeDec(td)) = (venv, transTy(tenv, Absyn.TypeDec td))
   | transDec (venv, tenv, Absyn.FunctionDec(fundecs))  =
     (* Goal: Update the venv to include value entries declared in a function *)
     let
 	(* Include parameters from the function header in the new venv *)
-        val venv' = foldl processFunDecHead venv fundecs
+        val (venv',tenv') = foldl processFunDecHead (venv,tenv) fundecs
 	(* Include values that are declared in the body of the function *)
-	val {venv'',tenv} = foldl processFunDecBody (venv',tenv) fundecs
+	val (venv'',tenv'') = foldl processFunDecBody (venv',tenv') fundecs
     in
 	(* Check that there are no identical function headers *)
-	checkdups(map name fundecs, map pos fundecs);
-        {venv=venv'', tenv=tenv}
+	checkdups(map getName fundecs, map getPos fundecs);
+        {venv=venv'', tenv=tenv''}
     end
 
 
