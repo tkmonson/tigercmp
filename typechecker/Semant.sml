@@ -71,7 +71,10 @@ SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(tenv, fieldtypelist
 _    => Types.UNIT
 *)
 
-fun transDecs (venv:E.enventry S.table, tenv:T.ty S.table, d:Absyn.dec list) = (venv, tenv)
+fun transDecs (venv:E.enventry S.table, tenv:T.ty S.table, []) = (venv, tenv)
+    | transDecs (venv:E.enventry S.table, tenv:T.ty S.table, a::l:Absyn.dec list) =
+        let val (v', t') = transDec (venv, tenv, a)
+        in transDecs(v', t', l) end
   (*For each item in d*)
     (*Pattern match on the 3 different types of A.dec*)
     (*CASE:
