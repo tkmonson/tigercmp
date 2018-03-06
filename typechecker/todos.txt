@@ -1,7 +1,25 @@
-1) Implementation using top and bottom for exhaustive type checking
-2) Check for unit in all typechecks to prevent excessive error messages
-3) Make nil subtype of all records
+Questions
+
 4) Error messages for everything
   - Error produced, but not propagated (return type UNIT)
 5) Make sure we check type compatibility vs. actual type (example of unit vs. int)
-6) Cycles in type decs
+6) Cycles in type decs??
+7) Records: Check in trexp and deal with NIL compatibility
+
+
+Test Cases
+1 var dec
+1 type dec
+1 fun dec
+
+expressions (ALL)
+
+list of var decs
+list of type decs
+list of fun decs
+
+mutually recursive list of type decs
+mutually recursive list of fun decs
+
+nested scope
+nested scope with same var/type names
