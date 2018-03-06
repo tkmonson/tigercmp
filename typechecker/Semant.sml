@@ -71,6 +71,40 @@ SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(tenv, fieldtypelist
 _    => Types.UNIT
 *)
 
+fun transDecs (venv:E.enventry S.table, tenv:T.ty S.table, d:Absyn.dec list) = (venv, tenv)
+  (*For each item in d*)
+    (*Pattern match on the 3 different types of A.dec*)
+    (*CASE:
+          vardec: augment venv with new variable)
+          FunctionDec: Call helper processFunDecHead that adds headers to venv
+                       Call helper processFunDecBody to fill out fields in venv
+                       - allows for recursive functions
+                      typecheck functions with final venvs
+                      - handle arguments
+                      - calls transExp on body
+          TypeDec: Call helper processTypeDecHeads that adds headers to tenv
+                       Call helper processTypeDecBody to fill out fields in tenv
+                       - allows for recursive functions
+                       - three cases:
+                        * name
+                        * record - process fields with recTyFromFlist
+                        * array
+                      typecheck functions with final tenvs *)
+(*)
+fun processFunDecHead (venv, tenv, f(flist):A.FunctionDec) =
+(*for each in flist*)
+(*take header, represent as funentry, add to venv*)
+
+(*AFTER all are processed, call processFunDecBody*)
+
+(****Takes entire list of fundecs to process bodies****)
+(***Property of Tommy****)
+fun processFunDecBody (venv, tenv, f(flist):A.FunctionDec) =
+
+(*call transexp on exp in fundec body passed (v/t)env*)
+*)
+
+
 (*
 * transExp is side-effecting: It prints error messages, and returns trexp
 * transExp: (venv*tenv) -> (A.exp -> expty)
@@ -86,15 +120,15 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
         | trexp (A.OpExp{left=l, oper=_, right=r, pos=p}) = (checkInt(l, p);
                                                           checkInt(r, p);
                                                           {exp = (), ty = T.INT})
-        (*| trexp A.LetExp{decs=d, body=b, pos=p} =
-                let val {venv', tenv'} = transDecs (venv, tenv, d)
+        | trexp (A.LetExp{decs=d, body=b, pos=p}) =
+                let val (venv', tenv') = transDecs (venv, tenv, d)
                 in  transExp(venv', tenv') b
                 end
-        | trexp A.SeqExp(elist) = trseq elist
-        | trexp A.RecordExp{fields=flist, typ=t, pos=p} = {exp=(), ty=T.UNIT}(*Just lookup t and make sure it's a Types.RECORD*)
-        | trexp A.AssignExp{var=v,exp=e,pos=p} = {exp=(), ty=T.UNIT}(*if v is in venv then check it against e
+        | trexp (A.SeqExp(elist)) = trseq elist
+        | trexp (A.RecordExp{fields=flist, typ=t, pos=p}) = {exp=(), ty=T.UNIT}(*Just lookup t and make sure it's a Types.RECORD*)
+        | trexp (A.AssignExp{var=v,exp=e,pos=p}) = {exp=(), ty=T.UNIT}(*if v is in venv then check it against e
                                                   else add it to venv with type of e*)
-        | trexp A.IfExp{test=t, then'=thencase, else'=elsecase, pos=p} = (checkInt(t, p);
+        | trexp (A.IfExp{test=t, then'=thencase, else'=elsecase, pos=p}) = (checkInt(t, p);
                 let val {exp=thenexp, ty=thenty} = trexp thencase;
                     val {exp=elseexp, ty=elsety} = case elsecase of
                                                        SOME(e) => trexp e
@@ -104,26 +138,27 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
                     then {exp = (), ty = thenty}
                     else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
                 end) (*Check that t is an int, thencase and elsecase have the same type*)
-        | trexp A.WhileExp{test=t, body=b, pos=p} = (checkInt(t, p);
+        | trexp (A.WhileExp{test=t, body=b, pos=p}) = (checkInt(t, p);
                                                     checkBody(b, p);
                                                     {exp = (), ty = T.UNIT})
-        | trexp A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p} = (checkInt(v, p);
+        | trexp (A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p}) = ((*What do we do with the var?
+                                                                       create new scope for variable?*)
                                                                        checkInt(l, p);
                                                                        checkInt(h, p);
                                                                        checkBody(b, p);
                                                                        {exp = (), ty = T.UNIT})
-        | trexp A.ArrayExp{typ=t, size=s, init=i, pos=p} =
+        | trexp (A.ArrayExp{typ=t, size=s, init=i, pos=p}) =
         (*Just lookup t and make sure it's a Types.ARRAY*)
-            (let
-                val aTy = tenvLookUp(t)
+            let
+                val aTy = tenvLookUp(tenv, t)
                 val {exp=_,ty=iTy} = trexp i
             in
                 case aTy of
-                ARRAY(ty,u) => if  isCompatible(iTy, ty)
+                T.ARRAY(ty,u) => if  isCompatible(iTy, ty)
                               then {exp = (), ty = aTy}
                               else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
-                | UNIT => (*TODO:Throw error, type does not exist*){exp = (), ty = T.UNIT}
-            end)*)
+                | T.UNIT => (*TODO:Throw error, type does not exist*){exp = (), ty = T.UNIT}
+            end
 
   and trvar (v:A.var) = (transVar (venv, tenv, v))
   and trseq [] = {exp=(), ty=T.UNIT}
@@ -159,40 +194,6 @@ fun transVarDec(venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name
                   | NONE => venv'')
        | NONE => venv'
       end
-
-fun transDecs (venv, tenv, d:Absyn.dec list) = ()
-  (*For each item in d*)
-    (*Pattern match on the 3 different types of A.dec*)
-    (*CASE:
-          vardec: augment venv with new variable)
-          FunctionDec: Call helper processFunDecHead that adds headers to venv
-                       Call helper processFunDecBody to fill out fields in venv
-                       - allows for recursive functions
-                      typecheck functions with final venvs
-                      - handle arguments
-                      - calls transExp on body
-          TypeDec: Call helper processTypeDecHeads that adds headers to tenv
-                       Call helper processTypeDecBody to fill out fields in tenv
-                       - allows for recursive functions
-                       - three cases:
-                        * name
-                        * record - process fields with recTyFromFlist
-                        * array
-                      typecheck functions with final tenvs *)
-(*)
-fun processFunDecHead (venv, tenv, f(flist):A.FunctionDec) =
-(*for each in flist*)
-(*take header, represent as funentry, add to venv*)
-
-(*AFTER all are processed, call processFunDecBody*)
-
-(****Takes entire list of fundecs to process bodies****)
-(***Property of Tommy****)
-fun processFunDecBody (venv, tenv, f(flist):A.FunctionDec) =
-
-(*call transexp on exp in fundec body passed (v/t)env*)
-*)
-
 
 
 (*take header, represent as ty, add to tenv'*)
