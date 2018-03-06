@@ -127,10 +127,14 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
                 let val (venv', tenv') = transDecs (venv, tenv, d)
                 in  transExp(venv', tenv') b
                 end
+        | trexp (A.RecordExp(rexp)) = {exp=(), ty=checkRecordExp(A.RecordExp(rexp))}
+        | trexp (A.AssignExp{var=v,exp=e,pos=p}) =
+        let val {exp=e, ty=exptype} = trexp(e)
+            val vartype = trvar(v)
+            val compat = isCompatible(exptype, vartype)
+        in if compat then {exp=(), ty=Types.UNIT} else (*TODO: ERROR MESSAGE*) {exp=(), ty=Types.UNIT}
+        end
         | trexp (A.SeqExp(elist)) = trseq elist
-        | trexp (A.RecordExp{fields=flist, typ=t, pos=p}) = {exp=(), ty=T.UNIT}(*Just lookup t and make sure it's a Types.RECORD*)
-        | trexp (A.AssignExp{var=v,exp=e,pos=p}) = {exp=(), ty=T.UNIT}(*if v is in venv then check it against e
-                                                  else add it to venv with type of e*)
         | trexp (A.IfExp{test=t, then'=thencase, else'=elsecase, pos=p}) = (checkInt(t, p);
                 let val {exp=thenexp, ty=thenty} = trexp thencase;
                     val {exp=elseexp, ty=elsety} = case elsecase of
@@ -177,6 +181,22 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
       in
           if bTy <> T.UNIT then () else (*TODO: THROW ERROR*)()
       end
+
+  and checkRecordFields([], []) = ()
+    | checkRecordFields((rectypename, rectype)::l1, (recname, recval, pos)::l2) =
+    let val {exp=e, ty=recvaltype} = trexp recval
+    in
+          if rectypename <> recname then ()
+          else (if isCompatible(recvaltype, rectype) then checkRecordFields(l1, l2) else ())
+    end
+    | checkRecordFields(_,_) = ()
+
+  and checkRecordExp(A.RecordExp({fields=fieldlist, typ=typename, pos=p})) =
+      let val recordType = S.look(tenv, typename)
+      in case recordType of
+      SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
+    | _    => Types.UNIT
+    end
   in
   trexp
   end
