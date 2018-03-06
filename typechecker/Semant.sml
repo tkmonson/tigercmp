@@ -22,6 +22,16 @@ fun checkdups (nil, nil) = ()
 (*Checks whether a is the same type as, or a subtype of, b*)
 fun isCompatible(a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
 
+fun checkRecordFields(tenv, venv, [], []) = ()
+|   checkRecordFields(tenv, venv, (rectypename, rectype)::l, (recname, recval, pos)::l) =
+    if rectypename <> recname then ()
+    else (if isCompatible(trexp recval, rectypename) then () else ())
+
+fun checkRecordExp(A.RecordExp({fields=fieldlist, typ=typename, pos=p}), tenv, venv) =
+let val recordType = S.look(tenv, typename)
+in case recordType of
+SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(tenv, fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
+_    => Types.UNIT
 (*
 * transExp is side-effecting: It prints error messages, and returns trexp
 * transExp: (venv*tenv) -> (A.exp -> expty)
@@ -39,7 +49,7 @@ fun transExp (venv, tenv) =
                 let val {venv', tenv'} = transDecs (venv, tenv, d)
                 in  transExp(venv', tenv') b
         | trexp A.SeqExp(elist) = trseq elist
-        | trexp A.RecordExp{fields=flist, typ=t, pos=p} = (*Just lookup t and make sure it's a Types.RECORD*)
+        | trexp A.RecordExp{fields=flist, typ=t, pos=p} = Lookup t in type environment, then check the fields
         | trexp A.AssignExp{var=v,exp=e,pos=p} = (*if v is in venv then check it against e
                                                   else add it to venv with type of e*)
 
@@ -47,7 +57,7 @@ fun transExp (venv, tenv) =
         | trexp A.IfExp {test=t, then'=thencase, else'=elsecase, pos=p} = (*Check that t is an int, thencase and elsecase have the same type*)
         | trexp A.WhileExp{test=t, body=b, pos=p} =
         | trexp A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p} =
-        | trexp A.ArrayExp{typ=t, size=s, init=i, pos=p} = (*Just lookup t and make sure it's a Types.ARRAY*)
+        | trexp A.ArrayExp{typ=t, size=s, init=i, pos=p} =
   and trvar v:A.var = (transVar (venv, tenv, v))
   and trseq [] = {exp=(), ty=T.UNIT}
     | trseq a::[] = trexp a
