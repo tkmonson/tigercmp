@@ -1,12 +1,10 @@
 Questions
-1) Implementation using top and bottom for exhaustive type checking
-2) Check for unit in all typechecks to prevent excessive error messages
-3) Make nil subtype of all records
+
 4) Error messages for everything
   - Error produced, but not propagated (return type UNIT)
 5) Make sure we check type compatibility vs. actual type (example of unit vs. int)
 6) Cycles in type decs??
-7) Check records in trexp
+7) Records: Check in trexp and deal with NIL compatibility
 
 
 Test Cases
