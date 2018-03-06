@@ -19,119 +19,59 @@ fun checkdups (nil, nil) = ()
     if (List.all (fn (x) => (name <> x)) others) then checkdups(others, poss)
     else ()(* error: duplicate definition *)
 
+(*tenv*Types.ty -> Types.ty*)
+(*TODO: Error message for case where the named type points to NONE*)
+fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) =
+  (let val storedTy = case !t of
+  SOME(x) => x
+  | NONE => T.UNIT
+  in
+  actualType (tenv, storedTy)
+  end)
+  | actualType (tenv:Types.ty Symbol.table, t:Types.ty) = t
+
+(*Types.ty -> Types.ty*)
+(*Simple helper that tells you the type of object stored in an array*)
+(*TODO: Error message when argument is not of type Types.ARRAY*)
+fun lookupArrayType (Types.ARRAY(ty, u)) = ty
+  | lookupArrayType (a:Types.ty) = Types.UNIT
+
+(*Types.ty*symbol -> Types.ty*)
+(*TODO: Error message when field list is empty, since that means that we didn't find that field*)
+fun traverseFieldList ([], s:S.symbol) = Types.UNIT
+  | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
+
+(*Types.ty*symbol -> Types.ty*)
+(*TODO: Error message for when we try and access a field of something that's not a record*)
+fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (fieldlist, s)
+  | lookupFieldType (a:Types.ty, s) = Types.UNIT
+
+(*  venv*tenv*Absyn.var -> Types.ty *)
+(*Tells you the type of a variable*)
+(*TODO: Error message for when we have a simplevar that's not in the venv*)
+fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType (transVar(venv, tenv, v)))
+  | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType ((transVar (venv, tenv, v),s)))
+  | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p)) = case S.look (venv, s) of
+                                              SOME(E.VarEntry{ty=vartype}) => actualType(tenv, vartype)
+                                            | NONE => T.UNIT
+
 (*Checks whether a is the same type as, or a subtype of, b*)
 fun isCompatible(a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
 
-(*
-* transExp is side-effecting: It prints error messages, and returns trexp
-* transExp: (venv*tenv) -> (A.exp -> expty)
-* trexp: A.exp -> expty
-* trvar: A.var -> T.ty
+(*)
+fun checkRecordFields(tenv, venv, [], []) = ()
+|   checkRecordFields(tenv, venv, (rectypename, rectype)::l, (recname, recval, pos)::l) =
+    if rectypename <> recname then ()
+    else (if isCompatible(trexp recval, rectypename) then () else ())
+
+fun checkRecordExp(A.RecordExp({fields=fieldlist, typ=typename, pos=p}), tenv, venv) =
+let val recordType = S.look(tenv, typename)
+in case recordType of
+SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(tenv, fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
+_    => Types.UNIT
 *)
-fun transExp (venv, tenv) =
-  (*fn(e:Absyn.exp) => {exp=(), ty=Types.UNIT}*)
-  let fun trexp A.NilExp = {exp = (), ty = T.NIL}
-        | trexp A.IntExp(num) = {exp = (), ty = T.INT}
-        | trexp A.StringExp(s,p) = {exp = (), ty = T.STRING}
-        | trexp A.VarExp(v) = {exp = (), ty = trvar v}
-        | trexp A.OpExp{left=l, oper=o, right=r, pos=p} = (checkInt(l, p);
-                                                          checkInt(r, p);
-                                                          {exp = (), ty = T.INT})
-        | trexp A.LetExp{decs=d, body=b, pos=p} =
-                let val {venv', tenv'} = transDecs (venv, tenv, d)
-                in  transExp(venv', tenv') b
-                end
-        | trexp A.SeqExp(elist) = trseq elist
-        | trexp A.RecordExp(rexp) = {exp=(), ty=checkRecordExp(A.RecordExp(rexp))}
-        | trexp A.AssignExp{var=v,exp=e,pos=p} =
-        let val {exp=e, ty=exptype} = trexp(e)
-            val vartype = trvar(v)
-            val compat = isCompatible(exptype, vartype)
-        in if compat then {exp=(), ty=Types.UNIT} else (*TODO: ERROR MESSAGE*) {exp=(), ty=Types.UNIT}
-        end
-        | trexp A.IfExp{test=t, then'=thencase, else'=elsecase, pos=p} = (checkInt(t, p);
-                let val {exp=thenexp, ty=thenty} = trexp thencase;
-                    val {exp=elseexp, ty=elsety} = case elsecase of
-                                                       SOME(e) => trexp e
-                                                       | NONE => {exp=(), ty=T.UNIT}
-                in
-                    if thenty = elsety
-                    then {exp = (), ty = thenty}
-                    else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
-                end) (*Check that t is an int, thencase and elsecase have the same type*)
-        | trexp A.WhileExp{test=t, body=b, pos=p} = (checkInt(t, p);
-                                                    checkBody(b, p);
-                                                    {exp = (), ty = T.UNIT})
-        | trexp A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p} = (checkInt(v, p);
-                                                                       checkInt(l, p);
-                                                                       checkInt(h, p);
-                                                                       checkBody(b, p);
-                                                                       {exp = (), ty = T.UNIT})
-        | trexp A.ArrayExp{typ=t, size=s, init=i, pos=p} =
-        (*Just lookup t and make sure it's a Types.ARRAY*)
-            (let
-                val aTy = tenvLookUp(t)
-                val {exp=_,ty=iTy} = trexp i
-            in
-                case aTy of
-                ARRAY(ty,u) => if  isCompatible(iTy, ty)
-                              then {exp = (), ty = aTy}
-                              else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
-                | UNIT => (*TODO:Throw error, type does not exist*){exp = (), ty = T.UNIT}
-            end)
 
-  and trvar (v:A.var) = (transVar (venv, tenv, v))
-  and trseq [] = {exp=(), ty=T.UNIT}
-    | trseq ((a,p)::[]) = trexp a
-    | trseq ((a,p)::l) = (trexp a; trseq l) (*Call trexp on a for side effects*)
-  and checkInt(e:A.exp, pos) =
-      let val {exp=_, ty=eTy} = trexp e
-      in
-          if isCompatible(eTy, T.INT) then () else (*Add error message here*)()
-      end
-  and checkBody (b:A.exp, pos) =
-      let val {exp=_, ty=bTy} = trexp b
-      in
-          if bTy <> T.UNIT then () else (*TODO: THROW ERROR*)()
-      end
-
-  and checkRecordFields([], []) = ()
-    | checkRecordFields((rectypename, rectype)::l, (recname, recval, pos)::l) =
-    let val {exp=e, ty=recvaltype} = trexp recval
-    in
-          if rectypename <> recname then ()
-          else (if isCompatible(recvaltype, rectype) then () else ())
-    end
-    | checkRecordFields(_,_) = ()
-
-  and checkRecordExp(A.RecordExp({fields=fieldlist, typ=typename, pos=p})) =
-      let val recordType = S.look(tenv, typename)
-      in case recordType of
-      SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
-    | _    => Types.UNIT
-    end
-  in
-  trexp
-  end
-
-(*Top level function: Calls side-effecting function transExp, and then returns unit*)
-(**)
-fun transProg exp = (transExp (Env.base_venv, Env.base_tenv) exp; ())
-
-(*TODO: Add error messages if types are not equal or if expected type doens't exist in tenv*)
-fun transVarDec(tenv:T.ty S.table, venv: Env.enventry S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
-      let val {exp=exp, ty=exptype} = transExp(tenv, venv) i
-          val venv' = S.enter(venv, varname, Env.VarEntry{ty=exptype})
-          val venv'' = S.enter(venv, varname, Env.VarEntry{ty=T.UNIT})
-      in
-         case vartype of
-         SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
-                    SOME(expectedtype) => if isCompatible(exptype,expectedtype) then venv' else venv''
-                  | NONE => venv'')
-       | NONE => venv'
-      end
-
-fun transDecs (venv, tenv, d:Absyn.dec list) = ()
+fun transDecs (venv:E.enventry S.table, tenv:T.ty S.table, d:Absyn.dec list) = (venv, tenv)
   (*For each item in d*)
     (*Pattern match on the 3 different types of A.dec*)
     (*CASE:
@@ -164,6 +104,116 @@ fun processFunDecBody (venv, tenv, f(flist):A.FunctionDec) =
 (*call transexp on exp in fundec body passed (v/t)env*)
 *)
 
+
+(*
+* transExp is side-effecting: It prints error messages, and returns trexp
+* transExp: (venv*tenv) -> (A.exp -> expty)
+* trexp: A.exp -> expty
+* trvar: A.var -> T.ty
+*)
+fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
+  (*fn(e:Absyn.exp) => {exp=(), ty=Types.UNIT}*)
+  let fun trexp (A.NilExp) = {exp = (), ty = T.NIL}
+        | trexp (A.IntExp(num)) = {exp = (), ty = T.INT}
+        | trexp (A.StringExp(s,p)) = {exp = (), ty = T.STRING}
+        | trexp (A.VarExp(v)) = {exp = (), ty = trvar v}
+        | trexp (A.OpExp{left=l, oper=_, right=r, pos=p}) = (checkInt(l, p);
+                                                          checkInt(r, p);
+                                                          {exp = (), ty = T.INT})
+        | trexp (A.LetExp{decs=d, body=b, pos=p}) =
+                let val (venv', tenv') = transDecs (venv, tenv, d)
+                in  transExp(venv', tenv') b
+                end
+        | trexp (A.RecordExp(rexp)) = {exp=(), ty=checkRecordExp(A.RecordExp(rexp))}
+        | trexp (A.AssignExp{var=v,exp=e,pos=p}) =
+        let val {exp=e, ty=exptype} = trexp(e)
+            val vartype = trvar(v)
+            val compat = isCompatible(exptype, vartype)
+        in if compat then {exp=(), ty=Types.UNIT} else (*TODO: ERROR MESSAGE*) {exp=(), ty=Types.UNIT}
+        end
+        | trexp (A.SeqExp(elist)) = trseq elist
+        | trexp (A.IfExp{test=t, then'=thencase, else'=elsecase, pos=p}) = (checkInt(t, p);
+                let val {exp=thenexp, ty=thenty} = trexp thencase;
+                    val {exp=elseexp, ty=elsety} = case elsecase of
+                                                       SOME(e) => trexp e
+                                                       | NONE => {exp=(), ty=T.UNIT}
+                in
+                    if thenty = elsety
+                    then {exp = (), ty = thenty}
+                    else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
+                end) (*Check that t is an int, thencase and elsecase have the same type*)
+        | trexp (A.WhileExp{test=t, body=b, pos=p}) = (checkInt(t, p);
+                                                    checkBody(b, p);
+                                                    {exp = (), ty = T.UNIT})
+        | trexp (A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p}) = ((*What do we do with the var?
+                                                                       create new scope for variable?*)
+                                                                       checkInt(l, p);
+                                                                       checkInt(h, p);
+                                                                       checkBody(b, p);
+                                                                       {exp = (), ty = T.UNIT})
+        | trexp (A.ArrayExp{typ=t, size=s, init=i, pos=p}) =
+        (*Just lookup t and make sure it's a Types.ARRAY*)
+            let
+                val aTy = tenvLookUp(tenv, t)
+                val {exp=_,ty=iTy} = trexp i
+            in
+                case aTy of
+                T.ARRAY(ty,u) => if  isCompatible(iTy, ty)
+                              then {exp = (), ty = aTy}
+                              else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
+                | T.UNIT => (*TODO:Throw error, type does not exist*){exp = (), ty = T.UNIT}
+            end
+
+  and trvar (v:A.var) = (transVar (venv, tenv, v))
+  and trseq [] = {exp=(), ty=T.UNIT}
+    | trseq ((a,p)::[]) = trexp a
+    | trseq ((a,p)::l) = (trexp a; trseq l) (*Call trexp on a for side effects*)
+  and checkInt(e:A.exp, pos) =
+      let val {exp=_, ty=eTy} = trexp e
+      in
+          if isCompatible(eTy, T.INT) then () else (*Add error message here*)()
+      end
+  and checkBody (b:A.exp, pos) =
+      let val {exp=_, ty=bTy} = trexp b
+      in
+          if bTy <> T.UNIT then () else (*TODO: THROW ERROR*)()
+      end
+
+  and checkRecordFields([], []) = ()
+    | checkRecordFields((rectypename, rectype)::l1, (recname, recval, pos)::l2) =
+    let val {exp=e, ty=recvaltype} = trexp recval
+    in
+          if rectypename <> recname then ()
+          else (if isCompatible(recvaltype, rectype) then checkRecordFields(l1, l2) else ())
+    end
+    | checkRecordFields(_,_) = ()
+
+  and checkRecordExp(A.RecordExp({fields=fieldlist, typ=typename, pos=p})) =
+      let val recordType = S.look(tenv, typename)
+      in case recordType of
+      SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
+    | _    => Types.UNIT
+    end
+  in
+  trexp
+  end
+
+(*Top level function: Calls side-effecting function transExp, and then returns unit*)
+(**)
+fun transProg exp = (transExp (Env.base_venv, Env.base_tenv) exp; ())
+
+(*TODO: Add error messages if types are not equal or if expected type doens't exist in tenv*)
+fun transVarDec(venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
+      let val {exp=exp, ty=exptype} = transExp(venv, tenv) i
+          val venv' = S.enter(venv, varname, Env.VarEntry{ty=exptype})
+          val venv'' = S.enter(venv, varname, Env.VarEntry{ty=T.UNIT})
+      in
+         case vartype of
+         SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
+                    SOME(expectedtype) => if isCompatible(exptype,expectedtype) then venv' else venv''
+                  | NONE => venv'')
+       | NONE => venv'
+      end
 
 
 (*take header, represent as ty, add to tenv'*)
@@ -264,7 +314,7 @@ fun processFunDecBody ((* fundec *) {name, params, result, body, pos}:A.fundec,(
     end
 
 
-fun transDec (venv, tenv, Absyn.VarDec(vd)) = (transVarDec(tenv, venv, Absyn.VarDec vd), tenv)
+fun transDec (venv, tenv, Absyn.VarDec(vd)) = (transVarDec(venv, tenv, Absyn.VarDec vd), tenv)
   | transDec (venv, tenv, Absyn.TypeDec(td)) = (venv, transTy(tenv, Absyn.TypeDec td))
   | transDec (venv, tenv, Absyn.FunctionDec(fundecs))  =
     (* Goal: Update the venv to include value entries declared in a function *)
@@ -278,43 +328,3 @@ fun transDec (venv, tenv, Absyn.VarDec(vd)) = (transVarDec(tenv, venv, Absyn.Var
 	checkdups(map getNameFromFunDec fundecs, map getPosFromFunDec fundecs);
         (venv'', tenv'')
     end
-
-
-(**SAUMYA**)
-
-
-(*tenv*Types.ty -> Types.ty*)
-(*TODO: Error message for case where the named type points to NONE*)
-fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) =
-  (let val storedTy = case !t of
-  SOME(x) => x
-  | NONE => T.UNIT
-  in
-  actualType (tenv, storedTy)
-  end)
-  | actualType (tenv:Types.ty Symbol.table, t:Types.ty) = t
-
-(*Types.ty -> Types.ty*)
-(*Simple helper that tells you the type of object stored in an array*)
-(*TODO: Error message when argument is not of type Types.ARRAY*)
-fun lookupArrayType (Types.ARRAY(ty, u)) = ty
-  | lookupArrayType (a:Types.ty) = Types.UNIT
-
-(*Types.ty*symbol -> Types.ty*)
-(*TODO: Error message when field list is empty, since that means that we didn't find that field*)
-fun traverseFieldList ([], s:S.symbol) = Types.UNIT
-  | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
-
-(*Types.ty*symbol -> Types.ty*)
-(*TODO: Error message for when we try and access a field of something that's not a record*)
-fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (fieldlist, s)
-  | lookupFieldType (a:Types.ty, s) = Types.UNIT
-
-(*  venv*tenv*Absyn.var -> Types.ty *)
-(*Tells you the type of a variable*)
-(*TODO: Error message for when we have a simplevar that's not in the venv*)
-fun transVar (venv, tenv, Absyn.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType (transVar(venv, tenv, v)))
-  | transVar (venv, tenv, Absyn.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType ((transVar (venv, tenv, v),s)))
-  | transVar (venv, tenv, Absyn.SimpleVar(s,p)) = case S.look (venv, s) of
-                                              SOME x => actualType(tenv, x)
-                                            | NONE => T.UNIT
