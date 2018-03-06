@@ -22,6 +22,7 @@ fun checkdups (nil, nil) = ()
 (*Checks whether a is the same type as, or a subtype of, b*)
 fun isCompatible(a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
 
+(*)
 fun checkRecordFields(tenv, venv, [], []) = ()
 |   checkRecordFields(tenv, venv, (rectypename, rectype)::l, (recname, recval, pos)::l) =
     if rectypename <> recname then ()
@@ -32,6 +33,8 @@ let val recordType = S.look(tenv, typename)
 in case recordType of
 SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(tenv, fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
 _    => Types.UNIT
+*)
+
 (*
 * transExp is side-effecting: It prints error messages, and returns trexp
 * transExp: (venv*tenv) -> (A.exp -> expty)
@@ -88,8 +91,8 @@ fun transExp (venv, tenv) =
 
   and trvar (v:A.var) = (transVar (venv, tenv, v))
   and trseq [] = {exp=(), ty=T.UNIT}
-    | trseq a::[] = trexp a
-    | trseq a::l::[] = (trexp a; trseq l) (*Call trexp on a for side effects*)
+    | trseq ((a,p)::[]) = trexp a
+    | trseq ((a,p)::l) = (trexp a; trseq l) (*Call trexp on a for side effects*)
   and checkInt(e:A.exp, pos) =
       let val {exp=_, ty=eTy} = trexp e
       in
