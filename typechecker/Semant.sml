@@ -12,7 +12,7 @@ type expty = {exp: Translate.exp, ty:Types.ty}
 
 fun tenvLookUp (tenv, n) = case S.look(tenv, n) of
                  SOME x => x
-                 | NONE => Types.UNIT
+                 | NONE => (*TODO: Throw error*)Types.UNIT
 
 fun checkdups (nil, nil) = ()
   | checkdups (name::others, pos::poss) =
@@ -22,6 +22,19 @@ fun checkdups (nil, nil) = ()
 (*Checks whether a is the same type as, or a subtype of, b*)
 fun isCompatible(a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
 
+(*)
+fun checkRecordFields(tenv, venv, [], []) = ()
+|   checkRecordFields(tenv, venv, (rectypename, rectype)::l, (recname, recval, pos)::l) =
+    if rectypename <> recname then ()
+    else (if isCompatible(trexp recval, rectypename) then () else ())
+
+fun checkRecordExp(A.RecordExp({fields=fieldlist, typ=typename, pos=p}), tenv, venv) =
+let val recordType = S.look(tenv, typename)
+in case recordType of
+SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(tenv, fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
+_    => Types.UNIT
+*)
+
 (*
 * transExp is side-effecting: It prints error messages, and returns trexp
 * transExp: (venv*tenv) -> (A.exp -> expty)
@@ -29,34 +42,70 @@ fun isCompatible(a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
 * trvar: A.var -> T.ty
 *)
 fun transExp (venv, tenv) =
-  fn(e:Absyn.exp) => {exp=(), ty=Types.UNIT}
-  (*let fun trexp A.NilExp = {exp = (), ty = T.Nil}
+  (*fn(e:Absyn.exp) => {exp=(), ty=Types.UNIT}*)
+  let fun trexp A.NilExp = {exp = (), ty = T.NIL}
         | trexp A.IntExp(num) = {exp = (), ty = T.INT}
         | trexp A.StringExp(s,p) = {exp = (), ty = T.STRING}
         | trexp A.VarExp(v) = {exp = (), ty = trvar v}
-        | trexp A.OpExp{left=l, oper=o, right=r, pos=p} = (checkInt(trexp l, p); checkInt(trexp r, p); {exp = (), ty = T.INT})
+        | trexp A.OpExp{left=l, oper=o, right=r, pos=p} = (checkInt(l, p);
+                                                          checkInt(r, p);
+                                                          {exp = (), ty = T.INT})
         | trexp A.LetExp{decs=d, body=b, pos=p} =
                 let val {venv', tenv'} = transDecs (venv, tenv, d)
                 in  transExp(venv', tenv') b
+                end
         | trexp A.SeqExp(elist) = trseq elist
-        | trexp A.RecordExp{fields=flist, typ=t, pos=p} = (*Just lookup t and make sure it's a Types.RECORD*)
-        | trexp A.AssignExp{var=v,exp=e,pos=p} = (*if v is in venv then check it against e
+        | trexp A.RecordExp{fields=flist, typ=t, pos=p} = {exp=(), ty=T.UNIT}(*Just lookup t and make sure it's a Types.RECORD*)
+        | trexp A.AssignExp{var=v,exp=e,pos=p} = {exp=(), ty=T.UNIT}(*if v is in venv then check it against e
                                                   else add it to venv with type of e*)
+        | trexp A.IfExp{test=t, then'=thencase, else'=elsecase, pos=p} = (checkInt(t, p);
+                let val {exp=thenexp, ty=thenty} = trexp thencase;
+                    val {exp=elseexp, ty=elsety} = case elsecase of
+                                                       SOME(e) => trexp e
+                                                       | NONE => {exp=(), ty=T.UNIT}
+                in
+                    if thenty = elsety
+                    then {exp = (), ty = thenty}
+                    else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
+                end) (*Check that t is an int, thencase and elsecase have the same type*)
+        | trexp A.WhileExp{test=t, body=b, pos=p} = (checkInt(t, p);
+                                                    checkBody(b, p);
+                                                    {exp = (), ty = T.UNIT})
+        | trexp A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p} = (checkInt(v, p);
+                                                                       checkInt(l, p);
+                                                                       checkInt(h, p);
+                                                                       checkBody(b, p);
+                                                                       {exp = (), ty = T.UNIT})
+        | trexp A.ArrayExp{typ=t, size=s, init=i, pos=p} =
+        (*Just lookup t and make sure it's a Types.ARRAY*)
+            (let
+                val aTy = tenvLookUp(t)
+                val {exp=_,ty=iTy} = trexp i
+            in
+                case aTy of
+                ARRAY(ty,u) => if  isCompatible(iTy, ty)
+                              then {exp = (), ty = aTy}
+                              else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
+                | UNIT => (*TODO:Throw error, type does not exist*){exp = (), ty = T.UNIT}
+            end)
 
-        (*Below this is property of ANITA. No trespassing.*)
-        | trexp A.IfExp {test=t, then'=thencase, else'=elsecase, pos=p} = (*Check that t is an int, thencase and elsecase have the same type*)
-        | trexp A.WhileExp{test=t, body=b, pos=p} =
-        | trexp A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p} =
-        | trexp A.ArrayExp{typ=t, size=s, init=i, pos=p} = (*Just lookup t and make sure it's a Types.ARRAY*)
-  and trvar v:A.var = (transVar (venv, tenv, v))
+  and trvar (v:A.var) = (transVar (venv, tenv, v))
   and trseq [] = {exp=(), ty=T.UNIT}
-    | trseq a::[] = trexp a
-    | trseq a::l::[] = (trexp a; trseq l) (*Call trexp on a for side effects*)
-  and checkInt({exp=e, ty=t}, pos) = if isCompatible(trexp e, T.INT) then () else (*Add error message here*)()
+    | trseq ((a,p)::[]) = trexp a
+    | trseq ((a,p)::l) = (trexp a; trseq l) (*Call trexp on a for side effects*)
+  and checkInt(e:A.exp, pos) =
+      let val {exp=_, ty=eTy} = trexp e
+      in
+          if isCompatible(eTy, T.INT) then () else (*Add error message here*)()
+      end
+  and checkBody (b:A.exp, pos) =
+      let val {exp=_, ty=bTy} = trexp b
+      in
+          if bTy <> T.UNIT then () else (*TODO: THROW ERROR*)()
+      end
   in
   trexp
-
-  end*)
+  end
 
 (*Top level function: Calls side-effecting function transExp, and then returns unit*)
 (**)
@@ -133,7 +182,7 @@ case envTy of
                                 SOME (Types.RECORD (recTyFromFlist (tenv, flist), ref ())); tenv)
             | Absyn.ArrayTy(s,pos) => (ty :=
                                 SOME (Types.ARRAY(tenvLookUp(tenv, s), ref ())); tenv))
-    | _ => tenv(*error*)
+            | _ => tenv(*error*)
 end
 
 fun processTypeDecBodies (tenv, []) = tenv
