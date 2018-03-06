@@ -20,7 +20,14 @@ fun checkdups (nil, nil) = ()
     else ()(* error: duplicate definition *)
 
 (*Checks whether a is the same type as, or a subtype of, b*)
-fun isCompatible(a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
+fun isCompatible (a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
+
+fun listCompatible ([]:T.ty list,[]:T.ty list) = true					   
+  | listCompatible (a::[]:T.ty list,b::[]:T.ty list) = isCompatible(a,b)
+  | listCompatible (a::(aa::(aTail::[])):T.ty list, b::(bb::(bTail::[])):T.ty list) =
+    if isCompatible(a,b) then listCompatible(aa::(aTail::[]),bb::(bTail::[])) else false (*error*)
+  | listCompatible (_,_) = false (*error*) 
+    
 
 (*)
 fun checkRecordFields(tenv, venv, [], []) = ()
@@ -88,6 +95,19 @@ fun transExp (venv, tenv) =
                               else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
                 | UNIT => (*TODO:Throw error, type does not exist*){exp = (), ty = T.UNIT}
             end)
+	| trexp A.CallExp{name=n, params=ps, pos=p} =
+	  let
+	      val fs = case S.look(n) of
+		                   SOME(fs, rt) => fs
+		                 | NONE         => T.UNIT::[]
+	      val rt = case S.look(n) of
+		                   SOME(fs, rt) => rt
+		                 | NONE         => T.UNIT		  
+	  in
+	      listCompatible(ps,fs);
+	      {exp = (), ty = rt}
+	  end
+	      
 
   and trvar (v:A.var) = (transVar (venv, tenv, v))
   and trseq [] = {exp=(), ty=T.UNIT}
