@@ -175,16 +175,16 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
                 | UNIT => (*TODO:Throw error, type does not exist*){exp = (), ty = T.UNIT}
             end
 
-	| trexp A.CallExp{name=n, params=ps, pos=p} =
+	| trexp (A.CallExp{func:A.symbol, args: A.exp list, pos:A.pos}) =
 	  let
-	      val fs = case S.look(n) of
-		                   SOME(fs, rt) => fs
-		                 | NONE         => T.UNIT::[]
-	      val rt = case S.look(n) of
-		                   SOME(fs, rt) => rt
-		                 | NONE         => T.UNIT		  
+	      val fs = case S.look(venv:E.enventry S.table,func) of
+		            SOME(E.FunEntry{formals=fs, result=rt}) => fs
+		          | NONE => T.UNIT::[]
+	      val rt = case S.look(venv,func) of
+		            SOME(E.FunEntry{formals=fs, result=rt}) => rt
+		          | NONE => T.UNIT		  
 	  in
-	      listCompatible(ps,fs);
+	      listCompatible(args,fs);
 	      {exp = (), ty = rt}
 	  end
 	      
