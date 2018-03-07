@@ -185,7 +185,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
                 case aTy of
                 T.ARRAY(ty,u) => if  isCompatible(iTy, ty)
                               then {exp = (), ty = aTy}
-                              else (printError("Type mismatch between array and entry", p); {exp = (), ty = T.UNIT})
+                              else (printError("Type mismatch between array and entry", p); {exp = (), ty = T.BOTTOM})
                 | T.BOTTOM => (printError("Array's type does not exist", p); {exp = (), ty = T.BOTTOM})
             end
 
@@ -204,7 +204,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 
 
   and trvar (v:A.var) = (transVar (venv, tenv, v))
-  and trseq [] = {exp=(), ty=T.UNIT}
+  and trseq [] = {exp=(), ty=T.UNIT} (*This should be unit and not bottom!*)
     | trseq ((a,p)::[]) = trexp a
     | trseq ((a,p)::l) = (trexp a; trseq l) (*Call trexp on a for side effects*)
   and checkInt(e:A.exp, pos) =
@@ -228,7 +228,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
     let val {exp=e, ty=recvaltype} = trexp recval
     in
           if rectypename <> recname then ()
-          else (if isCompatible(recvaltype, rectype) then checkRecordFields(l1, l2) else ())
+          else (if isCompatible(recvaltype, rectype) then checkRecordFields(l1, l2) else printError("Record fields are not compatible", pos))
     end
     | checkRecordFields(_,_) = ()
 
@@ -236,7 +236,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
       let val recordType = S.look(tenv, typename)
       in case recordType of
       SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
-    | _    => T.UNIT
+    | _    => (printError("Trying to set fields of something that is not a record type", p);T.BOTTOM)
     end
 
   and transDecs (venv:E.enventry S.table, tenv:T.ty S.table, []) = (venv, tenv)
