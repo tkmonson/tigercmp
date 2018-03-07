@@ -12,7 +12,9 @@ type expty = {exp: Translate.exp, ty:Types.ty}
 
 fun tenvLookUp (tenv, n) = case S.look(tenv, n) of
                  SOME x => x
-                 | NONE => (*TODO: Throw error*)Types.BOTTOM
+	       | NONE   => (*TODO: Throw error*)Types.BOTTOM
+
+fun makeVarEntry (typ:Types.ty) = E.VarEntry {ty=typ}
 
 fun checkdups (nil, nil) = ()
   | checkdups (name::others, pos::poss) =
@@ -21,7 +23,7 @@ fun checkdups (nil, nil) = ()
 
 (*tenv*Types.ty -> Types.ty*)
 (*TODO: Error message for case where the named type points to NONE*)
-fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) =
+fun actualType (tenv:T.ty S.table, Types.NAME(s,t)) =
   (let val storedTy = case !t of
   SOME(x) => x
   | NONE => T.UNIT
@@ -78,10 +80,6 @@ SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(tenv, fieldtypelist
 _    => Types.UNIT
 *)
 
-fun transDecs (venv:E.enventry S.table, tenv:T.ty S.table, []) = (venv, tenv)
-    | transDecs (venv:E.enventry S.table, tenv:T.ty S.table, a::l:Absyn.dec list) =
-        let val (v', t') = transDec (venv, tenv, a)
-        in transDecs(v', t', l) end
   (*For each item in d*)
     (*Pattern match on the 3 different types of A.dec*)
     (*CASE:
@@ -158,25 +156,6 @@ fun getNameFromField ({name, escape, typ, pos}:A.field) = name
 fun getPosFromField  ({name, escape, typ, pos}:A.field) = pos
 fun getNameFromFunDec ({name, params, result, body, pos}:A.fundec) = name
 fun getPosFromFunDec  ({name, params, result, body, pos}:A.fundec) = pos
-
-
-fun processFunDecHead ((* fundec *) {name, params, result, body, pos}:A.fundec, (venv, tenv)) =
-    let
-        (* 1. Check return type *)
-        val rt = case result of
-	               NONE => T.UNIT
-                 | SOME (typ, pos) => tenvLookUp(tenv, typ)
-
-	(* 2. Check param types *)
-        fun transparam ({typ,...}:Absyn.field) = tenvLookUp(tenv, typ)
-        val params' = map transparam params
-
-    in
-        (* 3. No duplicate params -- does map make sense here? *)
-        checkdups(map getNameFromField params, map getPosFromField params);
-	(* Put function header into (value) environment *)
-        (S.enter(venv, name, E.FunEntry{formals = params', result = rt}), tenv)
-    end
 
   (*
   * transExp is side-effecting: It prints error messages, and returns trexp
@@ -294,6 +273,27 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
     | transDec (venv, tenv, Absyn.TypeDec(td)) = (venv, transTy(tenv, Absyn.TypeDec td))
     | transDec (venv, tenv, Absyn.FunctionDec(fundecs))  = (transFunDec (venv, tenv, Absyn.FunctionDec fundecs), tenv)
 
+  and processFunDecHead ((* fundec *) {name, params, result, body, pos}:A.fundec, (venv, tenv)) =
+      let
+          (* 1. Check return type *)
+          val rt = case result of
+	                NONE => T.UNIT
+                      | SOME (typ, pos) => tenvLookUp(tenv, typ)
+
+	  (* 2. Check param types *)
+          fun transparam ({typ,...}:Absyn.field) = tenvLookUp(tenv, typ)
+          val params' = map transparam params
+	  val vEntries = map makeVarEntry params'
+	  fun enterVars (v:E.enventry, venv:E.enventry S.table) =
+	      S.enter(venv,name,v)
+	  val venv' = foldr enterVars venv vEntries;
+      in
+          (* 3. No duplicate params -- does map make sense here? *)
+          checkdups(map getNameFromField params, map getPosFromField params);
+	  (* Put function header and params into (value) environment *)
+          (S.enter(venv', name, E.FunEntry{formals = params', result = rt}), tenv)
+      end
+							       
   and processFunDecBody ((* fundec *) {name, params, result, body, pos}:A.fundec,(venv,tenv)) =
       let
           val {exp,ty} = transExp(venv, tenv) body
@@ -312,17 +312,17 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
       (* Goal: Update the venv to include value entries declared in a function *)
       let
   	(* Include parameters from the function header in the new venv *)
-          val (venv',tenv') = foldl processFunDecHead (venv,tenv) fundecs
+        val (venv',tenv') = foldl processFunDecHead (venv,tenv) fundecs
   	(* Include values that are declared in the body of the function *)
-  	      val (venv'',tenv'') = foldl processFunDecBody (venv',tenv') fundecs
+  	val (venv'',tenv'') = foldl processFunDecBody (venv',tenv') fundecs
       in
   	(* Check that there are no identical function headers *)
   	checkdups(map getNameFromFunDec fundecs, map getPosFromFunDec fundecs);
-          venv''
+        venv''
       end
 
   (*TODO: Add error messages if types are not equal or if expected type doens't exist in tenv*)
-  and transVarDec(venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
+  and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
         let val {exp=exp, ty=exptype} = transExp(venv, tenv) i
             val venv' = S.enter(venv, varname, Env.VarEntry{ty=exptype})
             val venv'' = S.enter(venv, varname, Env.VarEntry{ty=T.UNIT})
