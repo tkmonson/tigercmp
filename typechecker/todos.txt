@@ -1,10 +1,17 @@
 Questions
-
+1) Implementation using top and bottom for exhaustive type checking
+unit is top- no useful values type theoretically sound if return types are different but we're discarding them (like ignore in sml)
+bottom - don't return UNIT return bottom for error checking
+2) Check for unit in all typechecks to prevent excessive error messages
+3) Make nil subtype of all records
 4) Error messages for everything
   - Error produced, but not propagated (return type UNIT)
-5) Make sure we check type compatibility vs. actual type (example of unit vs. int)
+5) Make sure we check type compatibility vs. actual type (example of unit vs. int go to least upper bound in type lattice ie top for string and int)
 6) Cycles in type decs??
-7) Records: Check in trexp and deal with NIL compatibility
+take each type that were made in ONE group and do dfs to see if we get cycle that doesn't contain a
+record (because they can be nil)
+stop on int, nil, string
+7) Check records in trexp
 
 
 Test Cases

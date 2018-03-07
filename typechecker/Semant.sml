@@ -12,7 +12,7 @@ type expty = {exp: Translate.exp, ty:Types.ty}
 
 fun tenvLookUp (tenv, n) = case S.look(tenv, n) of
                  SOME x => x
-                 | NONE => (*TODO: Throw error*)Types.UNIT
+                 | NONE => (*TODO: Throw error*)Types.BOTTOM
 
 fun checkdups (nil, nil) = ()
   | checkdups (name::others, pos::poss) =
@@ -156,7 +156,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
                                                     checkBody(b, p);
                                                     {exp = (), ty = T.UNIT})
         | trexp (A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p}) = ((*What do we do with the var?
-                                                                       create new scope for variable?*)
+                                                                       create new scope for variable
+                                                                       use it in ex3 in book ONLY then take out*)
                                                                        checkInt(l, p);
                                                                        checkInt(h, p);
                                                                        checkBody(b, p);
