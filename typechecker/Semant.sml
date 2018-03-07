@@ -63,8 +63,8 @@ fun listCompatible ([]:T.ty list,[]:T.ty list) = true
   | listCompatible (a::(aa::(aTail::[])):T.ty list, b::(bb::(bTail::[])):T.ty list) =
     if isCompatible(a,b) then listCompatible(aa::(aTail::[]),bb::(bTail::[])) else false (*error*)
   | listCompatible (_,_) = false (*error*) 
-    
 
+			       
 (*)
 fun checkRecordFields(tenv, venv, [], []) = ()
 |   checkRecordFields(tenv, venv, (rectypename, rectype)::l, (recname, recval, pos)::l) =
@@ -185,7 +185,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 		            SOME(E.FunEntry{formals=fs, result=rt}) => rt
 		          | NONE => T.UNIT		  
 	  in
-	      listCompatible(args,fs);
+	      listCompatible(map (fn {exp,ty} => ty) (map trexp args),fs);
 	      {exp = (), ty = rt}
 	  end
 	      
