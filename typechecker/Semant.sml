@@ -68,9 +68,9 @@ fun listCompatible ([]:T.ty list,[]:T.ty list) = true
   | listCompatible (a::[]:T.ty list,b::[]:T.ty list) = isCompatible(a,b)
   | listCompatible (a::(aa::(aTail::[])):T.ty list, b::(bb::(bTail::[])):T.ty list) =
     if isCompatible(a,b) then listCompatible(aa::(aTail::[]),bb::(bTail::[])) else false (*error*)
-  | listCompatible (_,_) = false (*error*) 
+  | listCompatible (_,_) = false (*error*)
 
-			       
+
 (*)
 fun checkRecordFields(tenv, venv, [], []) = ()
 |   checkRecordFields(tenv, venv, (rectypename, rectype)::l, (recname, recval, pos)::l) =
@@ -289,10 +289,10 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
           (* 1. Check return type *)
           val rt = case result of
 	                NONE => T.UNIT
-                      | SOME (typ, pos) => tenvLookUp(tenv, typ)
+                      | SOME (typ, pos) => tenvLookUp(tenv, typ, pos)
 
 	  (* 2. Check param types *)
-          fun transparam ({typ,...}:Absyn.field) = tenvLookUp(tenv, typ)
+          fun transparam ({typ,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
           val params' = map transparam params
 	  val vEntries = map makeVarEntry params'
 	  fun enterVars (v:E.enventry, venv:E.enventry S.table) =
@@ -304,7 +304,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 	  (* Put function header and params into (value) environment *)
           (S.enter(venv', name, E.FunEntry{formals = params', result = rt}), tenv)
       end
-							       
+
   and processFunDecBody ((* fundec *) {name, params, result, body, pos}:A.fundec,(venv,tenv)) =
       let
           val {exp,ty} = transExp(venv, tenv) body
