@@ -13,6 +13,8 @@ record (because they can be nil)
 stop on int, nil, string
 7) Check records in trexp
 
+- In the case where the type of init in an array doesn't match array type, do we return bottom or int?
+
 
 Test Cases
 1 var dec
