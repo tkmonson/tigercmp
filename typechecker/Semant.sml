@@ -34,17 +34,17 @@ fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) =
 (*Simple helper that tells you the type of object stored in an array*)
 (*TODO: Error message when argument is not of type Types.ARRAY*)
 fun lookupArrayType (Types.ARRAY(ty, u)) = ty
-  | lookupArrayType (a:Types.ty) = Types.UNIT
+  | lookupArrayType (a:Types.ty) = T.UNIT
 
 (*Types.ty*symbol -> Types.ty*)
 (*TODO: Error message when field list is empty, since that means that we didn't find that field*)
-fun traverseFieldList ([], s:S.symbol) = Types.UNIT
+fun traverseFieldList ([], s:S.symbol) = T.UNIT
   | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
 
 (*Types.ty*symbol -> Types.ty*)
 (*TODO: Error message for when we try and access a field of something that's not a record*)
 fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (fieldlist, s)
-  | lookupFieldType (a:Types.ty, s) = Types.UNIT
+  | lookupFieldType (a:Types.ty, s) = T.UNIT
 
 (*  venv*tenv*Absyn.var -> Types.ty *)
 (*Tells you the type of a variable*)
@@ -121,7 +121,7 @@ fun processFunDecHead ((* fundec *) {name, params, result, body, pos}:A.fundec, 
   * trvar: A.var -> T.ty
   *)
 fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
-  (*fn(e:Absyn.exp) => {exp=(), ty=Types.UNIT}*)
+  (*fn(e:Absyn.exp) => {exp=(), ty=T.UNIT}*)
   let fun trexp (A.NilExp) = {exp = (), ty = T.NIL}
         | trexp (A.IntExp(num)) = {exp = (), ty = T.INT}
         | trexp (A.StringExp(s,p)) = {exp = (), ty = T.STRING}
@@ -138,7 +138,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
         let val {exp=e, ty=exptype} = trexp(e)
             val vartype = trvar(v)
             val compat = isCompatible(exptype, vartype)
-        in if compat then {exp=(), ty=Types.UNIT} else (*TODO: ERROR MESSAGE*) {exp=(), ty=Types.UNIT}
+        in if compat then {exp=(), ty=T.UNIT} else (*TODO: ERROR MESSAGE*) {exp=(), ty=T.UNIT}
         end
         | trexp (A.SeqExp(elist)) = trseq elist
         | trexp (A.IfExp{test=t, then'=thencase, else'=elsecase, pos=p}) = (checkInt(t, p);
@@ -147,19 +147,22 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
                                                        SOME(e) => trexp e
                                                        | NONE => {exp=(), ty=T.UNIT}
                 in
-                    if thenty = elsety
-                    then {exp = (), ty = thenty}
-                    else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
+                    if elsety = T.UNIT
+                    then
+                        if thenty = elsety
+                        then {exp = (), ty = thenty}
+                        else (*TODO:PRINT ERROR*){exp = (), ty = T.BOTTOM}
+                    else {exp = (), ty = T.UNIT}
                 end) (*Check that t is an int, thencase and elsecase have the same type*)
         | trexp (A.WhileExp{test=t, body=b, pos=p}) = (checkInt(t, p);
-                                                    checkBody(b, p);
-                                                    {exp = (), ty = T.UNIT})
+                                                      checkUnitTy(b, p);
+                                                      {exp = (), ty = T.UNIT})
         | trexp (A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p}) = ((*What do we do with the var?
                                                                        create new scope for variable
                                                                        use it in ex3 in book ONLY then take out*)
                                                                        checkInt(l, p);
                                                                        checkInt(h, p);
-                                                                       checkBody(b, p);
+                                                                       checkBody(S.enter (venv, v, Env.VarEntry{ty=T.INT}), b, v, p);
                                                                        {exp = (), ty = T.UNIT})
         | trexp (A.ArrayExp{typ=t, size=s, init=i, pos=p}) =
         (*Just lookup t and make sure it's a Types.ARRAY*)
@@ -171,7 +174,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
                 T.ARRAY(ty,u) => if  isCompatible(iTy, ty)
                               then {exp = (), ty = aTy}
                               else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
-                | T.UNIT => (*TODO:Throw error, type does not exist*){exp = (), ty = T.UNIT}
+                | T.BOTTOM => (*TODO:Throw error, type does not exist*){exp = (), ty = T.BOTTOM}
             end
 
   and trvar (v:A.var) = (transVar (venv, tenv, v))
@@ -183,10 +186,15 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
       in
           if isCompatible(eTy, T.INT) then () else (*Add error message here*)()
       end
-  and checkBody (b:A.exp, pos) =
-      let val {exp=_, ty=bTy} = trexp b
+  and checkBody (venv':E.enventry S.table, b:A.exp, v, pos:A.pos) =
+      let val {exp=_, ty=bTy} = transExp (venv', tenv) b
       in
           if bTy <> T.UNIT then () else (*TODO: THROW ERROR*)()
+      end
+  and checkUnitTy (e:A.exp, pos:A.pos) =
+      let val {exp=_, ty=eTy} = trexp e
+      in
+          if eTy <> T.UNIT then () else (*TODO: THROW ERROR*)()
       end
 
   and checkRecordFields([], []) = ()
@@ -202,7 +210,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
       let val recordType = S.look(tenv, typename)
       in case recordType of
       SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
-    | _    => Types.UNIT
+    | _    => T.UNIT
     end
 
   and transDecs (venv:E.enventry S.table, tenv:T.ty S.table, []) = (venv, tenv)
@@ -257,5 +265,5 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
   in
   trexp
   end
-  
+
 fun transProg exp = (transExp (Env.base_venv, Env.base_tenv) exp; ())
