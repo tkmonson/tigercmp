@@ -23,42 +23,44 @@ fun checkdups (nil, nil) = ()
 
 (*tenv*Types.ty -> Types.ty*)
 (*TODO: Error message for case where the named type points to NONE*)
-fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t)) =
+fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t), pos) =
   (let val storedTy = case !t of
   SOME(x) => x
-  | NONE => T.UNIT
+  | NONE => (printError("Tried to call actualType on a NameTy with ref NONE...this should never happen!",pos); T.BOTTOM)
   in
-  actualType (tenv, storedTy)
+  actualType (tenv, storedTy, pos)
   end)
-  | actualType (tenv:Types.ty Symbol.table, t:Types.ty) = t
+  | actualType (tenv:Types.ty Symbol.table, t:Types.ty, pos) = t
 
 (*Types.ty -> Types.ty*)
 (*Simple helper that tells you the type of object stored in an array*)
-(*TODO: Error message when argument is not of type Types.ARRAY*)
-fun lookupArrayType (Types.ARRAY(ty, u)) = ty
-  | lookupArrayType (a:Types.ty) = Types.UNIT
+fun lookupArrayType (Types.ARRAY(ty, u), pos) = ty
+  | lookupArrayType (Types.BOTTOM, pos) = Types.BOTTOM
+  | lookupArrayType (a:Types.ty, pos) = (printError("Trying to access subscript of a variable that is not an array", pos); Types.BOTTOM)
 
 (*Types.ty*symbol -> Types.ty*)
-(*TODO: Error message when field list is empty, since that means that we didn't find that field*)
-fun traverseFieldList ([], s:S.symbol) = Types.UNIT
-  | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol) = if s1=s2 then t else traverseFieldList (l, s2)
+fun traverseFieldList ([], s:S.symbol, pos) = (printError("Record variable does not have requested field", pos); Types.BOTTOM)
+  | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol, pos) = if s1=s2 then t else traverseFieldList (l, s2, pos)
 
 (*Types.ty*symbol -> Types.ty*)
-(*TODO: Error message for when we try and access a field of something that's not a record*)
-fun lookupFieldType (Types.RECORD(fieldlist, u), s) = traverseFieldList (fieldlist, s)
-  | lookupFieldType (a:Types.ty, s) = Types.UNIT
+fun lookupFieldType (Types.RECORD(fieldlist, u), s, pos) = traverseFieldList (fieldlist, s, pos)
+  | lookupFieldType(Types.BOTTOM, s, pos) = Types.BOTTOM
+  | lookupFieldType (a:Types.ty, s, pos) = (printError("Trying to access field of a variable that is not a record", pos); Types.BOTTOM)
 
 (*  venv*tenv*Absyn.var -> Types.ty *)
 (*Tells you the type of a variable*)
 (*TODO: Error message for when we have a simplevar that's not in the venv*)
-fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType (transVar(venv, tenv, v)))
-  | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType ((transVar (venv, tenv, v),s)))
+fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType ((transVar(venv, tenv, v),p)), p)
+  | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType ((transVar (venv, tenv, v),s,p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p)) = case S.look (venv, s) of
-                                              SOME(E.VarEntry{ty=vartype}) => actualType(tenv, vartype)
-                                            | NONE => T.UNIT
+                                              SOME(E.VarEntry{ty=vartype}) => actualType(tenv, vartype, p)
+                                            | NONE => (printError("Could not this variable in the current scope", p);T.BOTTOM)
 
 (*Checks whether a is the same type as, or a subtype of, b*)
-fun isCompatible (a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
+fun isCompatible (T.BOTTOM, b:Types.ty) = true
+  | isCompatible (a:T.ty, T.UNIT) = true
+  | isCompatible(T.NIL, T.RECORD(arg1,arg2)) = true
+  | isCompatible(a:T.ty, b:T.ty) = a=b
 
 fun listCompatible ([]:T.ty list,[]:T.ty list) = true
   | listCompatible (a::[]:T.ty list,b::[]:T.ty list) = isCompatible(a,b)
@@ -66,41 +68,6 @@ fun listCompatible ([]:T.ty list,[]:T.ty list) = true
     if isCompatible(a,b) then listCompatible(aa::(aTail::[]),bb::(bTail::[])) else false (*error*)
   | listCompatible (_,_) = false (*error*)
 
-
-(*)
-fun checkRecordFields(tenv, venv, [], []) = ()
-|   checkRecordFields(tenv, venv, (rectypename, rectype)::l, (recname, recval, pos)::l) =
-    if rectypename <> recname then ()
-    else (if isCompatible(trexp recval, rectypename) then () else ())
-
-fun checkRecordExp(A.RecordExp({fields=fieldlist, typ=typename, pos=p}), tenv, venv) =
-let val recordType = S.look(tenv, typename)
-in case recordType of
-SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(tenv, fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
-_    => Types.UNIT
-*)
-
-(*)
-fun processFunDecHead (venv, tenv, f(flist):A.FunctionDec) =
-(*for each in flist*)
-(*take header, represent as funentry, add to venv*)
-
-(*AFTER all are processed, call processFunDecBody*)
-
-(****Takes entire list of fundecs to process bodies****)
-(***Property of Tommy****)
-fun processFunDecBody (venv, tenv, f(flist):A.FunctionDec) =
-
-(*call transexp on exp in fundec body passed (v/t)env*)
-*)
-
-
-(*
-* transExp is side-effecting: It prints error messages, and returns trexp
-* transExp: (venv*tenv) -> (A.exp -> expty)
-* trexp: A.exp -> expty
-* trvar: A.var -> T.ty
-*)
 
 (*take header, represent as ty, add to tenv'*)
 fun processTypeDecHeads (tenv, []) = tenv
@@ -309,8 +276,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
         in
            case vartype of
            SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
-                      SOME(expectedtype) => if isCompatible(exptype,expectedtype) then venv' else venv''
-                    | NONE => venv'')
+                      SOME(expectedtype) => if isCompatible(exptype,expectedtype) then venv' else (printError("Variable type does not meet expected type", p);venv'')
+                    | NONE => (printError("Could not find type in type environment",p);venv''))
          | NONE => venv'
         end
 
