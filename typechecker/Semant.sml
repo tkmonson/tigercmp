@@ -10,6 +10,8 @@ structure Translate = struct type exp = unit end
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
 
+fun printError(msg, pos) = ErrorMsg.error pos (msg)
+
 fun tenvLookUp (tenv, n) = case S.look(tenv, n) of
                  SOME x => x
                  | NONE => (*TODO: Throw error*)Types.BOTTOM
@@ -58,13 +60,13 @@ fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e
 (*Checks whether a is the same type as, or a subtype of, b*)
 fun isCompatible (a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
 
-fun listCompatible ([]:T.ty list,[]:T.ty list) = true					   
+fun listCompatible ([]:T.ty list,[]:T.ty list) = true
   | listCompatible (a::[]:T.ty list,b::[]:T.ty list) = isCompatible(a,b)
   | listCompatible (a::(aa::(aTail::[])):T.ty list, b::(bb::(bTail::[])):T.ty list) =
     if isCompatible(a,b) then listCompatible(aa::(aTail::[]),bb::(bTail::[])) else false (*error*)
-  | listCompatible (_,_) = false (*error*) 
+  | listCompatible (_,_) = false (*error*)
 
-			       
+
 (*)
 fun checkRecordFields(tenv, venv, [], []) = ()
 |   checkRecordFields(tenv, venv, (rectypename, rectype)::l, (recname, recval, pos)::l) =
@@ -78,28 +80,6 @@ SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(tenv, fieldtypelist
 _    => Types.UNIT
 *)
 
-fun transDecs (venv:E.enventry S.table, tenv:T.ty S.table, []) = (venv, tenv)
-    | transDecs (venv:E.enventry S.table, tenv:T.ty S.table, a::l:Absyn.dec list) =
-        let val (v', t') = transDec (venv, tenv, a)
-        in transDecs(v', t', l) end
-  (*For each item in d*)
-    (*Pattern match on the 3 different types of A.dec*)
-    (*CASE:
-          vardec: augment venv with new variable)
-          FunctionDec: Call helper processFunDecHead that adds headers to venv
-                       Call helper processFunDecBody to fill out fields in venv
-                       - allows for recursive functions
-                      typecheck functions with final venvs
-                      - handle arguments
-                      - calls transExp on body
-          TypeDec: Call helper processTypeDecHeads that adds headers to tenv
-                       Call helper processTypeDecBody to fill out fields in tenv
-                       - allows for recursive functions
-                       - three cases:
-                        * name
-                        * record - process fields with recTyFromFlist
-                        * array
-                      typecheck functions with final tenvs *)
 (*)
 fun processFunDecHead (venv, tenv, f(flist):A.FunctionDec) =
 (*for each in flist*)
@@ -247,12 +227,12 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 		          | NONE => T.UNIT::[]
 	      val rt = case S.look(venv,func) of
 		            SOME(E.FunEntry{formals=fs, result=rt}) => rt
-		          | NONE => T.UNIT		  
+		          | NONE => T.UNIT
 	  in
 	      listCompatible(map (fn {exp,ty} => ty) (map trexp args),fs);
 	      {exp = (), ty = rt}
 	  end
-	      
+
 
   and trvar (v:A.var) = (transVar (venv, tenv, v))
   and trseq [] = {exp=(), ty=T.UNIT}
@@ -325,7 +305,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
   and transVarDec(venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
         let val {exp=exp, ty=exptype} = transExp(venv, tenv) i
             val venv' = S.enter(venv, varname, Env.VarEntry{ty=exptype})
-            val venv'' = S.enter(venv, varname, Env.VarEntry{ty=T.UNIT})
+            val venv'' = S.enter(venv, varname, Env.VarEntry{ty=T.BOTTOM})
         in
            case vartype of
            SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
@@ -337,5 +317,5 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
   in
   trexp
   end
-  
+
 fun transProg exp = (transExp (Env.base_venv, Env.base_tenv) exp; ())
