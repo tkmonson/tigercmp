@@ -1,0 +1,37 @@
+How to test:
+-CM.make "sources.cm";
+-use "Semant.sml";
+-val t = Env.base_tenv;
+-val v = Env.base_venv;
+-transExp(v,t) Parse.parse "Sample.tig"
+-Look to see if transExp returns the correct Types.ty,
+and whether it prints error messages in cases where it should
+
+
+Things that return correct types and throw errors correctly:
+
+NilExp
+IntExp
+StringExp
+OpExp
+IfExp
+
+
+Things that have been tested partially:
+
+Declaring and using simple type declarations (eg type myInt = int)
+Declaring and using simple var declarations (eg var N := 8)
+Let blocks containing simple declarations
+Nested let blocks containing simple declarations
+
+Things to start testing:
+-Declaring more complex types like arrays and records
+-Variable declarations with more complex types
+-Mutually recursive types
+-Function declarations and function calls
+
+
+Things that have known bugs:
+Sequences:
+-Parser messes up sequences with <2 elements...
+-Need to stop trseq from returning BOTTOM to user

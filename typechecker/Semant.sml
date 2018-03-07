@@ -54,7 +54,7 @@ fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType ((transVar (venv, tenv, v),s,p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p)) = case S.look (venv, s) of
                                               SOME(E.VarEntry{ty=vartype}) => actualType(tenv, vartype, p)
-                                            | NONE => (printError("Could not this variable in the current scope", p);T.BOTTOM)
+                                            | NONE => (printError("Could not find this variable in the current scope", p);T.BOTTOM)
 
 (*Checks whether a is the same type as, or a subtype of, b*)
 fun isCompatible (T.BOTTOM, b:Types.ty) = true
@@ -159,7 +159,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
                                                        SOME(e) => trexp e
                                                        | NONE => {exp=(), ty=T.UNIT}
                 in
-                    if elsety = T.UNIT
+                    if elsety <> T.UNIT
                     then
                         if thenty = elsety
                         then {exp = (), ty = thenty}
@@ -210,7 +210,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
   and checkInt(e:A.exp, pos) =
       let val {exp=_, ty=eTy} = trexp e
       in
-          if isCompatible(eTy, T.INT) then () else (*Add error message here*)()
+          if isCompatible(eTy, T.INT) then () else (printError("Expression is not an int!!", pos))
       end
   and checkBody (venv':E.enventry S.table, b:A.exp, v, pos:A.pos) =
       let val {exp=_, ty=bTy} = transExp (venv', tenv) b
@@ -283,7 +283,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
         in
            case vartype of
            SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
-                      SOME(expectedtype) => if isCompatible(exptype,expectedtype) then venv' else (printError("Variable type does not meet expected type", p);venv'')
+                      SOME(expectedtype) => if isCompatible(exptype, actualType(tenv, expectedtype, p)) then venv' else (printError("Variable type does not meet expected type", p);venv'')
                     | NONE => (printError("Could not find type in type environment",p);venv''))
          | NONE => venv'
         end
