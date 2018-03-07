@@ -10,6 +10,8 @@ structure Translate = struct type exp = unit end
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
 
+fun printError(msg, pos) = ErrorMsg.error pos (msg)
+
 fun tenvLookUp (tenv, n) = case S.look(tenv, n) of
                  SOME x => x
                  | NONE => (*TODO: Throw error*)Types.BOTTOM
@@ -56,7 +58,49 @@ fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e
                                             | NONE => T.UNIT
 
 (*Checks whether a is the same type as, or a subtype of, b*)
-fun isCompatible(a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
+fun isCompatible (a:T.ty, b:T.ty) = (a=b) orelse (a=T.UNIT)
+
+fun listCompatible ([]:T.ty list,[]:T.ty list) = true
+  | listCompatible (a::[]:T.ty list,b::[]:T.ty list) = isCompatible(a,b)
+  | listCompatible (a::(aa::(aTail::[])):T.ty list, b::(bb::(bTail::[])):T.ty list) =
+    if isCompatible(a,b) then listCompatible(aa::(aTail::[]),bb::(bTail::[])) else false (*error*)
+  | listCompatible (_,_) = false (*error*)
+
+
+(*)
+fun checkRecordFields(tenv, venv, [], []) = ()
+|   checkRecordFields(tenv, venv, (rectypename, rectype)::l, (recname, recval, pos)::l) =
+    if rectypename <> recname then ()
+    else (if isCompatible(trexp recval, rectypename) then () else ())
+
+fun checkRecordExp(A.RecordExp({fields=fieldlist, typ=typename, pos=p}), tenv, venv) =
+let val recordType = S.look(tenv, typename)
+in case recordType of
+SOME(Types.RECORD(fieldtypelist, unq)) => (checkRecordFields(tenv, fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
+_    => Types.UNIT
+*)
+
+(*)
+fun processFunDecHead (venv, tenv, f(flist):A.FunctionDec) =
+(*for each in flist*)
+(*take header, represent as funentry, add to venv*)
+
+(*AFTER all are processed, call processFunDecBody*)
+
+(****Takes entire list of fundecs to process bodies****)
+(***Property of Tommy****)
+fun processFunDecBody (venv, tenv, f(flist):A.FunctionDec) =
+
+(*call transexp on exp in fundec body passed (v/t)env*)
+*)
+
+
+(*
+* transExp is side-effecting: It prints error messages, and returns trexp
+* transExp: (venv*tenv) -> (A.exp -> expty)
+* trexp: A.exp -> expty
+* trvar: A.var -> T.ty
+*)
 
 (*take header, represent as ty, add to tenv'*)
 fun processTypeDecHeads (tenv, []) = tenv
@@ -120,6 +164,7 @@ fun processFunDecHead ((* fundec *) {name, params, result, body, pos}:A.fundec, 
   * trexp: A.exp -> expty
   * trvar: A.var -> T.ty
   *)
+
 fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
   (*fn(e:Absyn.exp) => {exp=(), ty=T.UNIT}*)
   let fun trexp (A.NilExp) = {exp = (), ty = T.NIL}
@@ -176,6 +221,20 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
                               else (*TODO:PRINT ERROR*){exp = (), ty = T.UNIT}
                 | T.BOTTOM => (*TODO:Throw error, type does not exist*){exp = (), ty = T.BOTTOM}
             end
+
+	| trexp (A.CallExp{func:A.symbol, args: A.exp list, pos:A.pos}) =
+	  let
+	      val fs = case S.look(venv:E.enventry S.table,func) of
+		            SOME(E.FunEntry{formals=fs, result=rt}) => fs
+		          | NONE => T.UNIT::[]
+	      val rt = case S.look(venv,func) of
+		            SOME(E.FunEntry{formals=fs, result=rt}) => rt
+		          | NONE => T.UNIT
+	  in
+	      listCompatible(map (fn {exp,ty} => ty) (map trexp args),fs);
+	      {exp = (), ty = rt}
+	  end
+
 
   and trvar (v:A.var) = (transVar (venv, tenv, v))
   and trseq [] = {exp=(), ty=T.UNIT}
@@ -253,7 +312,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
   and transVarDec(venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
         let val {exp=exp, ty=exptype} = transExp(venv, tenv) i
             val venv' = S.enter(venv, varname, Env.VarEntry{ty=exptype})
-            val venv'' = S.enter(venv, varname, Env.VarEntry{ty=T.UNIT})
+            val venv'' = S.enter(venv, varname, Env.VarEntry{ty=T.BOTTOM})
         in
            case vartype of
            SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
