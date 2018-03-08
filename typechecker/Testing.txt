@@ -1,0 +1,34 @@
+How to test:
+-CM.make "sources.cm";
+-use "Semant.sml";
+-val t = Env.base_tenv;
+-val v = Env.base_venv;
+-transExp(v,t) Parse.parse "Sample.tig"
+-Look to see if transExp returns the correct Types.ty,
+and whether it prints error messages in cases where it should
+
+
+Things that return correct types and throw errors correctly:
+NilExp
+IntExp
+StringExp
+OpExp
+IfExp
+Declaring and using records
+Declaring and using arrays
+Recursive records
+Mutually recursive records (tree, forest)
+
+Things that have been tested partially:
+
+
+Things to start testing:
+-Function declarations and function calls
+-For loops
+-While loops
+
+
+Things that have known bugs:
+Sequences:
+-Parser messes up sequences with <2 elements...
+-Need to stop trseq from returning BOTTOM to user
