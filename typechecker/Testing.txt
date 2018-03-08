@@ -9,26 +9,23 @@ and whether it prints error messages in cases where it should
 
 
 Things that return correct types and throw errors correctly:
-
 NilExp
 IntExp
 StringExp
 OpExp
 IfExp
-
+Declaring and using records
+Declaring and using arrays
+Recursive records
+Mutually recursive records (tree, forest)
 
 Things that have been tested partially:
 
-Declaring and using simple type declarations (eg type myInt = int)
-Declaring and using simple var declarations (eg var N := 8)
-Let blocks containing simple declarations
-Nested let blocks containing simple declarations
 
 Things to start testing:
--Declaring more complex types like arrays and records
--Variable declarations with more complex types
--Mutually recursive types
 -Function declarations and function calls
+-For loops
+-While loops
 
 
 Things that have known bugs:
