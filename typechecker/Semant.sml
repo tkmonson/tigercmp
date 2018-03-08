@@ -289,10 +289,10 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
           (* 1. Check return type *)
           val rt = case result of
 	                NONE => T.UNIT
-                      | SOME (typ, pos) => tenvLookUp(tenv, typ)
+                      | SOME (typ, pos) => tenvLookUp(tenv, typ, pos)
 
 	  (* 2. Check param types *)
-          fun transparam ({typ,...}:Absyn.field) = tenvLookUp(tenv, typ)
+          fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
           val params' = map transparam params
 	  val vEntries = map makeVarEntry params'
 	  fun enterVars (v:E.enventry, venv:E.enventry S.table) =
@@ -310,9 +310,9 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
           val {exp,ty} = transExp(venv, tenv) body
       in
           (* Check that the body's result type matches the header's result type *)
-          if
-  	    isCompatible (ty, case result of SOME(rSym,rPos) => tenvLookUp (tenv, rSym, rPos)
-  					   | NONE            => T.UNIT)
+        if
+  	  isCompatible (ty, case result of SOME(rSym,rPos) => tenvLookUp (tenv, rSym, rPos)
+  					 | NONE            => T.UNIT)
   	then ()
 
   	else ((*error*));
