@@ -74,7 +74,7 @@ fun isCompatible (T.BOTTOM, b:Types.ty) = true
   | isCompatible(T.NIL, T.RECORD(arg1,arg2)) = true
   | isCompatible(a:T.ty, b:T.ty) = a=b
 
-fun listCompatible ([]:T.ty list,[]:T.ty list) = true
+fun listCompatible ([]:T.ty list,[]:T.ty list, pos:int) = true
   | listCompatible (a::[]:T.ty list,b::[]:T.ty list) = isCompatible(a,b)
   | listCompatible (a::(aa::(aTail::[])):T.ty list, b::(bb::(bTail::[])):T.ty list) =
     if isCompatible(a,b) then listCompatible(aa::(aTail::[]),bb::(bTail::[])) else false (*error*)
@@ -191,8 +191,9 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 	      val rt = case S.look(venv,func) of
 		            SOME(E.FunEntry{formals=fs, result=rt}) => rt
 		          | NONE => T.UNIT
+	      fun actualTypeWrapper typ = actualType(tenv, typ, pos)
 	  in
-	      listCompatible(map (fn {exp,ty} => ty) (map trexp args),fs);
+	      listCompatible(map actualTypeWrapper (map (fn {exp,ty} => ty) (map trexp args)), map actualTypeWrapper fs);
 	      {exp = (), ty = rt}
 	  end
 
@@ -255,20 +256,22 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 	  (* 2. Check param types *)
           fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
           val params' = map transparam params
-	  val vEntries = map makeVarEntry params'
-	  fun enterVars (v:E.enventry, venv:E.enventry S.table) =
-	      S.enter(venv,name,v)
-	  val venv' = foldr enterVars venv vEntries;
       in
           (* 3. No duplicate params -- does map make sense here? *)
           checkdups(map getNameFromField params, map getPosFromField params);
 	  (* Put function header and params into (value) environment *)
-          (S.enter(venv', name, E.FunEntry{formals = params', result = rt}), tenv)
+          (S.enter(venv, name, E.FunEntry{formals = params', result = rt}), tenv)
       end
 
   and processFunDecBody ((* fundec *) {name, params, result, body, pos}:A.fundec,(venv,tenv)) =
       let
-          val {exp,ty} = transExp(venv, tenv) body
+          fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
+          val params' = map transparam params
+	  val vEntries = map makeVarEntry params'
+	  fun enterVars (v:E.enventry, venv:E.enventry S.table) =
+	      S.enter(venv,name,v)
+	  val venv' = foldr enterVars venv vEntries;
+	  val {exp,ty} = transExp(venv', tenv) body
       in
           (* Check that the body's result type matches the header's result type *)
         if
@@ -277,7 +280,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
   	then ()
 
   	else ((*error*));
-  	(venv,tenv)
+	(venv,tenv)
       end
 
   and transFunDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.FunctionDec fundecs) =
@@ -287,11 +290,11 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
         val (venv',tenv') = foldl processFunDecHead (venv,tenv) fundecs
         (*BUG: This creates 1 venv with the param entries for ALL the fundecs...we want to do it one at a time*)
   	(* Include values that are declared in the body of the function *)
-  	val (venv'',tenv'') = foldl processFunDecBody (venv',tenv') fundecs
       in
+	foldl processFunDecBody (venv',tenv') fundecs;
   	(* Check that there are no identical function headers *)
   	checkdups(map getNameFromFunDec fundecs, map getPosFromFunDec fundecs);
-        venv'' (*BUG: This has entries for the params, which we don't want to return*)
+        venv' (*BUG: This has entries for the params, which we don't want to return*)
       end
 
   and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
