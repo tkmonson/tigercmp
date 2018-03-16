@@ -3,7 +3,6 @@ structure S = Symbol
 structure E = Env
 structure T = Types
 
-
 (*A dummy Translate structure to use for this step*)
 structure Translate = struct type exp = unit end
 
@@ -104,7 +103,7 @@ fun processTypeDecBodies (tenv, []) = tenv
 (***Explained on page 120***)
 fun transTy (tenv, Absyn.TypeDec(tylist)) = processTypeDecBodies (processTypeDecHeads(tenv, tylist), tylist)
 
-fun getNameFromField ({name, escape, typ, pos}:A.field) = name
+fun getNameFromField ({name, escape, typ, pos}:A.field) = name							      
 fun getPosFromField  ({name, escape, typ, pos}:A.field) = pos
 fun getNameFromFunDec ({name, params, result, body, pos}:A.fundec) = name
 fun getPosFromFunDec  ({name, params, result, body, pos}:A.fundec) = pos
@@ -264,60 +263,71 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 	  | transDec (venv, tenv, Absyn.TypeDec(td)) = (venv, transTy(tenv, Absyn.TypeDec td))
 	  | transDec (venv, tenv, Absyn.FunctionDec(fundecs))  = (transFunDec (venv, tenv, Absyn.FunctionDec fundecs), tenv)
 
-	and processFunDecHead ({name, params, result, body, pos}:A.fundec, (venv, tenv)) =
+	and processFunDecHead ({name, params, result, body, pos}:A.fundec, (venv, venv2, tenv)) =
 	    let
-		(* 1. Check return type *)
+		(* 1. Check that result has valid type *)
 		val rt = case result of
 	                     NONE => T.UNIT
 			   | SOME (typ, pos) => tenvLookUp(tenv, typ, pos)
 
-		(* 2. Check param types *)
+		(* 2. Check that params have valid types *)
 		fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
-		val params' = map transparam params
-	    in
-		(* 3. No duplicate params -- does map make sense here? *)
-		checkDups(map getNameFromField params, map getPosFromField params);
+		val names = map getNameFromField params
+		val types = map transparam params
+
+		(*3. Create venv', which represents the scope within the function body *)
+		val vEntries = map makeVarEntry types
+		fun enterVars ((name:S.symbol, vEntry:E.enventry), venv: E.enventry S.table) = S.enter(venv,name,vEntry)
+		fun combineLists (a::[]:'a list, b::[]:'b list) = (a,b)::[]
+		  | combineLists (a::(aa::(aTail::[])):'a list, b::(bb::(bTail::[])):'b list) = (a,b)::combineLists(aa::(aTail::[]), bb::(bTail::[]))
+		val venv' = foldr enterVars venv (combineLists(names, vEntries));
 		
-		(* 4. Put function into value environment *)
-		(S.enter(venv, name, E.FunEntry{formals = params', result = rt}), tenv)
+	    in
+		(* 4. Check that no params share a name *)
+		checkDups(map getNameFromField params, map getPosFromField params);
+
+		(* 5. Return venv (the scope outside the function), and venv' (the scope inside the function)
+                      Both environments contain the function header *)
+                (S.enter(venv, name, E.FunEntry{formals = types, result = rt}), S.enter(venv', name, E.FunEntry{formals = types, result = rt}),tenv)
 	    end
 
 	and processFunDecBody ({name, params, result, body, pos}:A.fundec,(venv,tenv)) =
 	    let
 		(* 1. Make sure variables in the body have valid type *)
 		fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
-		val params' = map transparam params
+		val types = map transparam params
 
-		(* 2. Turn these variables into VarEntrys and put them in the value environment *)
-		val vEntries = map makeVarEntry params'
-		fun enterVars (v:E.enventry, venv:E.enventry S.table) =
-		    S.enter(venv,name,v)
-		val venv' = foldr enterVars venv vEntries;
-
-		(* 3. Evaluate the overall result type of the function's body *)
-		val {exp,ty} = transExp(venv', tenv) body
+		(* 2. Make sure variables are in scope and evaluate the overall result type of the function's body *)
+		val {exp,ty} = transExp(venv, tenv) body
 	    in
-		(* 4. Check that the body's result type matches the header's result type *)
+		(* 3. Check that the body's result type matches the header's result type *)
 		if
   		    isCompatible (ty, case result of SOME(rSym,rPos) => tenvLookUp (tenv, rSym, rPos)
   						   | NONE            => T.UNIT)
   		then ()
-
   		else printError("Result type of function header does not match result type of function body.", pos);
+
+		(* 4. Result is unimportant, this function is strictly side-effecting *)
 		(venv,tenv)
 	    end
 
 	and transFunDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.FunctionDec fundecs) =
 	    let
-  		(* 1. Include just the function variable in venv', no params *)
-		val (venv',tenv') = foldl processFunDecHead (venv,tenv) fundecs
+  		(* 1. processFunDecHead takes a function header and updates the venv accordingly
+                      It returns: venv  (the scope outside the function)
+                                  venv' (the scope inside the function)
+                                  tenv  (the type environment) *)
+		val (venv,venv',tenv) = foldl processFunDecHead (venv,venv,tenv) fundecs
 	    in
-		(*2.  Make sure body variables have valid type, put variables in venv', compare body and header result types
-	      Issue error messages if necessary, but venv' will not change due to this line *)
-		foldl processFunDecBody (venv',tenv') fundecs;
-  		(* 3. Check that there are no identical function headers *)
+		(*2.  Make sure body variables have valid type and are in scope, compare body and header result types
+	              This function is strictly side-effecting for the purpose of returning error messages *)
+		foldl processFunDecBody (venv',tenv) fundecs;
+		
+  		(* 3. Check that there are no identical function names *)
   		checkDups(map getNameFromFunDec fundecs, map getPosFromFunDec fundecs);
-		venv'
+
+		(* 4. Return the venv outside of the function scope *)
+		venv
 	    end
 
 	and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
