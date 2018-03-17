@@ -3,7 +3,7 @@ structure S = Symbol
 signature ENV =
 sig
   type access
-  datatype enventry = VarEntry of {ty:Types.ty}
+  datatype enventry = VarEntry of {ty:Types.ty, isCounter:bool}
                     | FunEntry of {formals: Types.ty list, result:Types.ty}
 
   val base_tenv : Types.ty S.table
@@ -17,7 +17,7 @@ struct
   type access = bool
   type ty = Types.ty
 
-  datatype enventry = VarEntry of {ty:ty}
+  datatype enventry = VarEntry of {ty:ty, isCounter:bool}
                     | FunEntry of {formals: ty list, result:ty}
 
   (*Basic type environment contains int and string*)
