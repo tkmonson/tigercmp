@@ -139,14 +139,16 @@ fun checkTypeCycle (tstart, tcurr, pos) =
 fun checkTypeGroupCycle (tenv, []) = ()
     | checkTypeGroupCycle (tenv, {name=n, ty=t, pos=p}::l) = let val tyDec = tenvLookUp(tenv, n, p)
                                                             in case tyDec of
-                                                                T.NAME(s,tref) => (case !tref of SOME(child) => checkTypeCycle(tyDec, child, p)
-                                                                               | NONE => ())
+                                                                T.NAME(s,tref) => (case !tref of
+                                                                                  SOME(child) => (checkTypeCycle(tyDec, child, p);
+                                                                                                 checkTypeGroupCycle(tenv, l))
+                                                                                 | NONE => checkTypeGroupCycle(tenv, l))
                                                                 | _ => ()
                                                             end
 
 (***Explained on page 120***)
-fun transTy (tenv, Absyn.TypeDec(tylist)) = (processTypeDecBodies (processTypeDecHeads(tenv, tylist), tylist);
-                                            checkTypeGroupCycle(tenv, tylist))
+fun transTy (tenv, Absyn.TypeDec(tylist)) = let val newTenv = processTypeDecBodies (processTypeDecHeads(tenv, tylist), tylist)
+                                            in (checkTypeGroupCycle (newTenv, tylist); newTenv) end
 
 fun getNameFromField ({name, escape, typ, pos}:A.field) = name
 fun getPosFromField  ({name, escape, typ, pos}:A.field) = pos
