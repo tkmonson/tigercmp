@@ -109,6 +109,17 @@ fun processTypeDecBody (tenv, {name=n, ty=t, pos=p}) =
 fun processTypeDecBodies (tenv, []) = tenv
     | processTypeDecBodies (tenv, a::l) = processTypeDecBodies (processTypeDecBody (tenv, a), l)
 
+
+(* call this function in trans ty after processing a group
+fun checkTypeLoop (tenv, tcurr, tstart)
+    if tcurr <> null
+        if tcurr = tstart (*we have a loop! throw error*)
+        else
+            if record type stop
+            if string or int or nil stop
+            else recursive call on child
+    else stop*)
+    
 (***Explained on page 120***)
 fun transTy (tenv, Absyn.TypeDec(tylist)) = processTypeDecBodies (processTypeDecHeads(tenv, tylist), tylist)
 
@@ -209,12 +220,12 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
   and checkBody (venv':E.enventry S.table, b:A.exp, v, pos:A.pos) =
       let val {exp=_, ty=bTy} = transExp (venv', tenv) b
       in
-          if bTy <> T.UNIT then () else (printError("Unit return type expected", pos);())
+          if bTy = T.UNIT then () else (printError("Unit return type expected, received " ^ printType bTy, pos);())
       end
   and checkUnitTy (e:A.exp, pos:A.pos) =
       let val {exp=_, ty=eTy} = trexp e
       in
-          if eTy <> T.UNIT then () else (printError("Unit return type expected", pos);())
+          if eTy = T.UNIT then () else (printError("Unit return type expected, received " ^ printType eTy, pos);())
       end
 
   and checkRecordFields([], []) = ()
