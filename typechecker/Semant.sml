@@ -205,12 +205,11 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 		           | NONE => T.UNIT
 
 		fun listCompatible ([]:T.ty list, []:T.ty list, pos:int) = true
-		  | listCompatible (a::[]:T.ty list, b::[]:T.ty list, pos:int) = isCompatible(a,b)
-		  | listCompatible (a::(aa::(aTail::[])):T.ty list, b::(bb::(bTail::[])):T.ty list, pos:int) =
+		  | listCompatible (a::aTail:T.ty list, b::bTail:T.ty list, pos:int) =
 		    if isCompatible(a,b)
-		    then listCompatible(aa::(aTail::[]), bb::(bTail::[]), pos)
-		    else let in printError("Argument type does not match parameter type in function declaration.", pos); false end
-		  | listCompatible (_,_,pos) = let in printError("Number of arguments does not equal number of parameters.", pos); false end
+		    then listCompatible(aTail, bTail, pos)
+		    else (printError("Argument type does not match parameter type in function declaration.", pos); false)
+		  | listCompatible (_,_,pos) = (printError("Number of arguments does not equal number of parameters.", pos); false)
 
 		fun actualTypeWrapper typ = actualType(tenv, typ, pos)
 	    in
@@ -361,5 +360,5 @@ fun transProg exp = (transExp (Env.base_venv, Env.base_tenv, false) exp; ())
 structure Main =
 struct
   fun translate filename =
-    transProg (Parse.parse filename)
+    transExp(Env.base_venv, Env.base_tenv, false) (Parse.parse filename);
 end
