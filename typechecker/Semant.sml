@@ -51,13 +51,15 @@ fun actualType (ty:T.ty, pos) =
 
 fun checkType (t1:T.ty, t2:T.ty, pos) =
     let
-	val t = actualType(t1,pos) in
-	if (t <> t2)
-	then case (t,t2) of
+	val t = actualType(t1,pos)
+	val tt = actualType(t2,pos)
+    in
+	if (t <> tt)
+	then case (t,tt) of
 		 (T.RECORD(_,_),T.NIL) => ()
 	       | (T.NIL,T.RECORD(_,_)) => ()
 	       | (_,_) => printError("Expected "   ^ printType(t) ^
-				     ", received " ^ printType(t2) , pos)
+				     ", received " ^ printType(tt) , pos)
 	else ()
     end
 
