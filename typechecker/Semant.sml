@@ -100,25 +100,38 @@ fun processTypeDecBody (tenv, {name=n, ty=t, pos=p}) =
                                     SOME (Types.RECORD (recTyFromFlist (tenv, flist), ref ())); tenv)
                 | Absyn.ArrayTy(s,pos) => (ty :=
                                     SOME (Types.ARRAY(tenvLookUp(tenv, s, pos), ref ())); tenv))
-                | _ => tenv(*error*)
+        | _ => tenv(*error*)
     end
 
 fun processTypeDecBodies (tenv, []) = tenv
     | processTypeDecBodies (tenv, a::l) = processTypeDecBodies (processTypeDecBody (tenv, a), l)
 
 
-(* call this function in trans ty after processing a group
-fun checkTypeLoop (tenv, tcurr, tstart)
-    if tcurr <> null
-        if tcurr = tstart (*we have a loop! throw error*)
-        else
-            if record type stop
-            if string or int or nil stop
-            else recursive call on child
-    else stop*)
+(* call this function in trans ty after processing a group*)
+fun checkTypeLoop (tstart, tcurr, pos) =
+    if tcurr = tstart then (printError("Cyclic type declaration", pos); ())(*we have a loop! throw error*)
+    else
+        case tcurr of
+            T.RECORD(a,b) => ()
+            | T.STRING => ()
+            | T.INT => ()
+            | T.NIL => ()
+            | T.NAME(s,t) => case t of
+                           SOME(ty) => checkTypeLoop (ty, tstart, pos)
+                           | NONE => ()
+
+
+fun checkTypeGroupLoop (tenv, []) = ()
+    | checkTypeGroupLoop (tenv, {name=n, ty=t, pos=p}::l) = let val tyDec = tenvLookUp(n)
+                                                            in case tyDec of
+                                                                T.NAME(s,t) => (case t of SOME(t) => checkTypeLoop(tyDec, t, p)
+                                                                               | NONE => ())
+                                                                | _ => ()
+                                                            end
 
 (***Explained on page 120***)
-fun transTy (tenv, Absyn.TypeDec(tylist)) = processTypeDecBodies (processTypeDecHeads(tenv, tylist), tylist)
+fun transTy (tenv, Absyn.TypeDec(tylist)) = (processTypeDecBodies (processTypeDecHeads(tenv, tylist), tylist);
+                                            checkTypeGroupLoop(tenv, tylist))
 
 fun getNameFromField ({name, escape, typ, pos}:A.field) = name
 fun getPosFromField  ({name, escape, typ, pos}:A.field) = pos
