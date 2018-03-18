@@ -121,11 +121,14 @@ fun getPosFromFunDec  ({name, params, result, body, pos}:A.fundec) = pos
   * trvar: A.var -> T.ty
   *)
 
-fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
+fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
   (*fn(e:Absyn.exp) => {exp=(), ty=T.UNIT}*)
     let fun trexp (A.NilExp) = {exp = (), ty = T.NIL}
 
           | trexp (A.IntExp(num)) = {exp = (), ty = T.INT}
+
+          | trexp (A.BreakExp(p)) = if isLoop then {exp = (), ty = T.UNIT}
+                                    else (printError("Can't call break outside of a loop body", p); {exp=(), ty=T.UNIT})
 
           | trexp (A.StringExp(s,p)) = {exp = (), ty = T.STRING}
 
@@ -138,7 +141,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 
           | trexp (A.LetExp{decs=d, body=b, pos=p}) =
             let val (venv', tenv') = transDecs (venv, tenv, d)
-            in  transExp(venv', tenv') b
+            in  transExp(venv', tenv', false) b
             end
 
           | trexp (A.RecordExp(rexp)) = {exp=(), ty=checkRecordExp(A.RecordExp(rexp))}
@@ -229,7 +232,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 	    end
 
 	and checkBody (venv':E.enventry S.table, b:A.exp, v, pos:A.pos) =
-	    let val {exp=_, ty=bTy} = transExp (venv', tenv) b
+	    let val {exp=_, ty=bTy} = transExp (venv', tenv, true) b
 	    in
 		if bTy = T.UNIT then () else (printError("Unit return type expected", pos);())
 	    end
@@ -283,8 +286,9 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 		(*3. Create venv', which represents the scope within the function body *)
 		val vEntries = map makeVarEntry types
 		fun enterVars ((name:S.symbol, vEntry:E.enventry), venv: E.enventry S.table) = S.enter(venv,name,vEntry)
-		fun combineLists (a::[]:'a list, b::[]:'b list) = (a,b)::[]
-		  | combineLists (a::(aa::(aTail::[])):'a list, b::(bb::(bTail::[])):'b list) = (a,b)::combineLists(aa::(aTail::[]), bb::(bTail::[]))
+		fun combineLists ([], []) = []
+       | combineLists(a::aTail, b::bTail) = (a,b) :: combineLists(aTail, bTail)
+
 		val venv' = foldr enterVars venv (combineLists(names, vEntries));
 
 	    in
@@ -303,7 +307,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 		val types = map transparam params
 
 		(* 2. Make sure variables are in scope and evaluate the overall result type of the function's body *)
-		val {exp,ty} = transExp(venv, tenv) body
+		val {exp,ty} = transExp(venv, tenv, false) body
 	    in
 		(* 3. Check that the body's result type matches the header's result type *)
 		if
@@ -336,7 +340,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 	    end
 
 	and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
-            let val {exp=exp, ty=exptype} = transExp(venv, tenv) i
+            let val {exp=exp, ty=exptype} = transExp(venv, tenv, false) i
 		val venv' = S.enter(venv, varname, Env.VarEntry{ty=exptype, isCounter=false})
 		val venv'' = S.enter(venv, varname, Env.VarEntry{ty=T.BOTTOM, isCounter=false})
             in
@@ -352,4 +356,10 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table) =
 	trexp
     end
 
-fun transProg exp = (transExp (Env.base_venv, Env.base_tenv) exp; ())
+fun transProg exp = (transExp (Env.base_venv, Env.base_tenv, false) exp; ())
+
+structure Main =
+struct
+  fun translate filename =
+    transProg (Parse.parse filename)
+end

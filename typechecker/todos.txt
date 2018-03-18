@@ -1,3 +1,14 @@
+CONCRETE TODOS:
+-Deal with type dec cycles
+-Check if 'break' is within a loop by adding an isLoop arg to transExp
+
+Parser Bugs:
+-Sequences
+-Can't parse breaks properly
+
+
+
+
 Questions
 1) Implementation using top and bottom for exhaustive type checking
 unit is top- no useful values type theoretically sound if return types are different but we're discarding them (like ignore in sml)
@@ -12,23 +23,4 @@ take each type that were made in ONE group and do dfs to see if we get cycle tha
 record (because they can be nil)
 stop on int, nil, string
 7) Check records in trexp
-
-- In the case where the type of init in an array doesn't match array type, do we return bottom or int?
-
-
-Test Cases
-1 var dec
-1 type dec
-1 fun dec
-
-expressions (ALL)
-
-list of var decs
-list of type decs
-list of fun decs
-
-mutually recursive list of type decs
-mutually recursive list of fun decs
-
-nested scope
-nested scope with same var/type names
+8) In the case where the type of init in an array doesn't match array type, do we return bottom or int?
