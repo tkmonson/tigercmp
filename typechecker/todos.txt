@@ -1,6 +1,6 @@
 CONCRETE TODOS:
 -Deal with type dec cycles
--Check if 'break' is within a loop by adding an isLoop arg to transExp
+-Testing functions
 
 Parser Bugs:
 -Sequences
