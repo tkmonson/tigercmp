@@ -5,7 +5,7 @@ structure T = Types
 
 (*A dummy Translate structure to use for this step*)
 structure Translate = struct type exp = unit end
-
+			  
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
 
@@ -17,15 +17,15 @@ fun checkLoopCounter(venv, A.SimpleVar(s,p)) = (case S.look (venv, s) of
                                           | NONE => ())
   | checkLoopCounter(venv, v:A.var) = ()
 
-fun printType t = case t of
-T.RECORD(a,b) =>  "RECORD"
-| T.NIL => "NIL"
-| T.INT => "INT"
-| T.STRING => "STRING"
-| T.ARRAY(t,u) => "ARRAY"
-| T.NAME(s,t) => "NAME"
-| T.UNIT => "UNIT"
-| T.BOTTOM => "BOTTOM"
+fun printType ty = case ty of
+    T.RECORD(_,_) =>  "record"
+  | T.NIL => "nil"
+  | T.INT => "int"
+  | T.STRING => "string"
+  | T.ARRAY(t,_) => "array of " ^ printType(ty)
+  | T.NAME(s,_) => "name of " ^ S.name(s)
+  | T.UNIT => "unit"
+  | T.BOTTOM => "bottom"
 
 fun tenvLookUp (tenv, n, pos) = case S.look(tenv, n) of
                  SOME x => x
@@ -38,15 +38,28 @@ fun checkDups (nil, nil) = ()
     if (List.all (fn (x) => (name <> x)) others) then checkDups(others, poss)
     else printError("Multiple functions or values share a name.", pos)
 
-(*tenv*Types.ty -> Types.ty*)
-fun actualType (tenv:Types.ty Symbol.table, Types.NAME(s,t), pos) =
-  (let val storedTy = case !t of
-  SOME(x) => x
-  | NONE => (printError("Tried to call actualType on a NameTy with ref NONE...this should never happen!",pos); T.BOTTOM)
-  in
-  actualType (tenv, storedTy, pos)
-  end)
-  | actualType (tenv:Types.ty Symbol.table, t:Types.ty, pos) = t
+(*Types.ty -> Types.ty*)
+fun actualType (ty:T.ty, pos) =
+    case ty of
+	T.NAME(sym,tyref) =>
+	    (case !tyref of
+                SOME(ty) => actualType(ty, pos)
+              | NONE => (printError("Tried to call actualType on a NameTy with ref NONE... "
+                                    ^ "this should never happen!", pos); T.BOTTOM))
+      | T.ARRAY(t,u) => T.ARRAY(actualType(t,pos),u)
+      | _ => ty
+
+fun checkType (t1:T.ty, t2:T.ty, pos) =
+    let
+	val t = actualType(t1,pos) in
+	if (t <> t2)
+	then case (t,t2) of
+		 (T.RECORD(_,_),T.NIL) => ()
+	       | (T.NIL,T.RECORD(_,_)) => ()
+	       | (_,_) => printError("Expected "   ^ printType(t) ^
+				     ", received " ^ printType(t2) , pos)
+	else ()
+    end
 
 (*Types.ty -> Types.ty*)
 (*Simple helper that tells you the type of object stored in an array*)
@@ -65,10 +78,10 @@ fun lookupFieldType (Types.RECORD(fieldlist, u), s, pos) = traverseFieldList (fi
 
 (* venv*tenv*Absyn.var -> Types.ty *)
 (* Tells you the type of a variable*)
-fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p)) = actualType (tenv, lookupArrayType ((transVar(venv, tenv, v),p)), p)
-  | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (tenv, lookupFieldType ((transVar (venv, tenv, v),s,p)), p)
+fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p)) = actualType (lookupArrayType ((transVar(venv, tenv, v),p)), p)
+  | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (lookupFieldType ((transVar (venv, tenv, v),s,p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p)) = case S.look (venv, s) of
-                                              SOME(E.VarEntry{ty=vartype, isCounter=c}) => actualType(tenv, vartype, p)
+                                              SOME(E.VarEntry{ty=vartype, isCounter=c}) => actualType(vartype, p)
                                             | NONE => (printError("Could not find variable " ^ S.name(s) ^ " in the current scope", p);T.BOTTOM)
 
 (*Checks whether a is the same type as, or a subtype of, b*)
@@ -91,16 +104,16 @@ fun processTypeDecBody (tenv, {name=n, ty=t, pos=p}) =
        val envTy = tenvLookUp (tenv, n, p)
     in
     (*Turn ty record from absyn into ty.RECORD from types.sml*)
-    case envTy of
-        Types.NAME (_, ty) =>
+	case envTy of
+            Types.NAME (_, ty) =>
             (case t of
-                Absyn.NameTy(s,pos) => (ty :=
-                                   SOME (Types.NAME(n, ref (SOME (tenvLookUp(tenv, s, pos))))); tenv)
-                | Absyn.RecordTy(flist) => (ty :=
-                                    SOME (Types.RECORD (recTyFromFlist (tenv, flist), ref ())); tenv)
-                | Absyn.ArrayTy(s,pos) => (ty :=
-                                    SOME (Types.ARRAY(tenvLookUp(tenv, s, pos), ref ())); tenv))
-                | _ => tenv(*error*)
+                 Absyn.NameTy(s,pos) => (ty :=
+					 SOME (Types.NAME(n, ref (SOME (tenvLookUp(tenv, s, pos))))); tenv)
+               | Absyn.RecordTy(flist) => (ty :=
+					   SOME (Types.RECORD (recTyFromFlist (tenv, flist), ref ())); tenv)
+               | Absyn.ArrayTy(s,pos) => (ty :=
+					  SOME (Types.ARRAY(tenvLookUp(tenv, s, pos), ref ())); tenv))
+               | _ => tenv(*error*)
     end
 
 fun processTypeDecBodies (tenv, []) = tenv
@@ -127,17 +140,63 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 
           | trexp (A.IntExp(num)) = {exp = (), ty = T.INT}
 
-          | trexp (A.BreakExp(p)) = if isLoop then {exp = (), ty = T.UNIT}
-                                    else (printError("Can't call break outside of a loop body", p); {exp=(), ty=T.UNIT})
+          | trexp (A.BreakExp(p)) =
+	    if isLoop
+	    then {exp = (), ty = T.UNIT}
+            else (printError("Can't call break outside of a loop body", p); {exp=(), ty=T.UNIT})
 
           | trexp (A.StringExp(s,p)) = {exp = (), ty = T.STRING}
 
           | trexp (A.VarExp(v)) = {exp = (), ty = trvar v}
 
-          | trexp (A.OpExp{left=l, oper=_, right=r, pos=p}) = (
-	      checkInt(l, p);
-              checkInt(r, p);
-              {exp = (), ty = T.INT})
+          | trexp (A.OpExp{left=l, oper=oper, right=r, pos=p}) =
+
+	    let
+		val {exp=lexp, ty=lty} = trexp l
+                val {exp=rexp, ty=rty} = trexp r
+					       
+	        datatype CLASS = ARITH | COMP | EQ
+					    
+  	        fun classify (oper) =
+		    case oper of
+		        A.PlusOp   => ARITH
+		      | A.MinusOp  => ARITH
+		      | A.TimesOp  => ARITH
+		      | A.DivideOp => ARITH
+		      | A.LtOp     => COMP
+		      | A.LeOp     => COMP
+		      | A.GtOp     => COMP
+		      | A.GeOp     => COMP
+		      | A.EqOp     => EQ
+		      | A.NeqOp    => EQ
+
+	        fun checkArith () = (checkInt(l,p); checkInt(r,p))
+
+	        fun checkComp () =
+		    case lty of
+		        T.INT    => checkType(T.INT,rty,p)
+		      | T.STRING => checkType(T.STRING,rty,p)
+		      | _ => printError("Can only compare int or string types, received "
+				        ^ printType lty, p)
+
+	        fun checkEq () =
+                    case lty of
+		        T.INT          => checkType(T.INT,rty,p)
+		      | T.STRING       => checkType(T.STRING,rty,p)
+		      | T.ARRAY(t,u)   => checkType(T.ARRAY(t,u),rty,p)
+		      | T.RECORD(fs,u) => checkType(T.RECORD(fs,u),rty,p)
+		      | _ => printError("Can only check equality of int, string, "
+					^ "array, or record types, received "
+				        ^ printType lty, p)
+
+	    in
+		case classify(oper) of
+		    ARITH => (checkArith(); {exp=(), ty=T.INT})
+		  | COMP  => (checkComp();  {exp=(), ty=T.INT})
+		  | EQ    => (checkEq();    {exp=(), ty=T.INT})
+	    end
+		
+	
 
           | trexp (A.LetExp{decs=d, body=b, pos=p}) =
             let val (venv', tenv') = transDecs (venv, tenv, d)
@@ -149,7 +208,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
           | trexp (A.AssignExp{var=v,exp=e,pos=p}) =
             let val {exp=e, ty=exptype} = trexp(e)
 		            val vartype = trvar(v)
-		            val compat = isCompatible(actualType(tenv, exptype, p), actualType(tenv, vartype, p))
+		            val compat = isCompatible(actualType(exptype, p), actualType(vartype, p))
             in checkLoopCounter(venv,v); if compat then {exp=(), ty=T.UNIT} else (printError("Assign statement type incompatible", p); {exp=(), ty=T.UNIT})
             end
 
@@ -184,11 +243,11 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
           | trexp (A.ArrayExp{typ=t, size=s, init=i, pos=p}) =
             (checkInt(s, p);
              let
-                 val aTy = actualType(tenv, tenvLookUp(tenv, t, p), p)
+                 val aTy = actualType(tenvLookUp(tenv, t, p), p)
                  val {exp=_,ty=iTy} = trexp i
              in
                  case aTy of
-                     T.ARRAY(ty,u) => if  isCompatible(actualType(tenv, iTy, p), actualType(tenv, ty, p))
+                     T.ARRAY(ty,u) => if  isCompatible(actualType(iTy, p), actualType(ty, p))
 				      then {exp = (), ty = aTy}
 				      else (printError("Type mismatch between array and entry", p); {exp = (), ty = T.BOTTOM})
                    | T.BOTTOM => (printError("Array's type does not exist", p); {exp = (), ty = T.BOTTOM})
@@ -211,7 +270,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 		    else (printError("Argument type does not match parameter type in function declaration.", pos); false)
 		  | listCompatible (_,_,pos) = (printError("Number of arguments does not equal number of parameters.", pos); false)
 
-		fun actualTypeWrapper typ = actualType(tenv, typ, pos)
+		fun actualTypeWrapper typ = actualType(typ, pos)
 	    in
       (*Arg1: Actual type of every argument
       Arg2: Actual type of every formal*)
@@ -229,7 +288,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 	and checkInt (e:A.exp, pos) =
 	    let val {exp=_, ty=eTy} = trexp e
 	    in
-		if isCompatible(actualType(tenv, eTy, pos), T.INT) then () else (printError("Expression is not an int!!", pos))
+		if isCompatible(actualType(eTy, pos), T.INT) then () else (printError("Expression is not an int!!", pos))
 	    end
 
 	and checkBody (venv':E.enventry S.table, b:A.exp, v, pos:A.pos) =
@@ -249,7 +308,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 	    let val {exp=e, ty=recvaltype} = trexp recval
 	    in
 		if rectypename <> recname then (printError("Expected field " ^ S.name(recname) ^ " but received " ^ S.name(rectypename), pos))
-		else (if isCompatible(actualType(tenv, recvaltype,pos), actualType(tenv,rectype,pos))
+		else (if isCompatible(actualType(recvaltype,pos), actualType(rectype,pos))
 		      then checkRecordFields(l1, l2)
 		      else printError("Record fields are not compatible for field " ^ S.name(recname) ^
 				      ". Expected " ^ printType rectype ^ " and received " ^ printType recvaltype , pos))
@@ -257,7 +316,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 	  | checkRecordFields (_,_) = ()
 
 	and checkRecordExp (A.RecordExp({fields=fieldlist, typ=typename, pos=p})) =
-	    let val recordType = actualType(tenv, tenvLookUp(tenv, typename, p), p)
+	    let val recordType = actualType(tenvLookUp(tenv, typename, p), p)
 	    in case recordType of
 		   Types.RECORD (fieldtypelist, unq) => (checkRecordFields(fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
 		 | _    => (printError("Trying to set fields of something that is not a record type", p);T.BOTTOM)
@@ -286,47 +345,45 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 
 	    in
 
-  	(* 4. Check that no params share a name *)
+  		(* 3. Check that no params share a name *)
 		checkDups(map getNameFromField params, map getPosFromField params);
 
-		(* 5. Return venv with FunEntry *)
+		(* 4. Return venv with FunEntry *)
                 (S.enter(venv, name, E.FunEntry{formals = types, result = rt}),tenv)
 	    end
 
 	and processFunDecBody ({name, params, result, body, pos}:A.fundec,(venv,tenv)) =
 	    let
-
-      fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
+		(* 1. Make sure parameters have valid types  *)
+		fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
   		val names = map getNameFromField params
   		val types = map transparam params
 
+		(* 2. Declare the parameters to be in scope within the body of the function *)
   		val vEntries = map makeVarEntry types
   		fun enterVars ((name:S.symbol, vEntry:E.enventry), venv: E.enventry S.table) = S.enter(venv,name,vEntry)
   		fun combineLists ([], []) = []
-         | combineLists(a::aTail, b::bTail) = (a,b) :: combineLists(aTail, bTail)
+		  | combineLists(a::aTail, b::bTail) = (a,b) :: combineLists(aTail, bTail)
 
   		val venv' = foldr enterVars venv (combineLists(names, vEntries));
 
-		(* 2. Make sure variables are in scope and evaluate the overall result type of the function's body *)
+		(* 3. Make sure body variables are in scope and evaluate the overall result type of the function's body *)
 		val {exp,ty} = transExp(venv', tenv, false) body
 	    in
-		(* 3. Check that the body's result type matches the header's result type *)
+		(* 4. Check that the body's result type matches the header's result type *)
 		if
   		    isCompatible (ty, case result of SOME(rSym,rPos) => tenvLookUp (tenv, rSym, rPos)
   						   | NONE            => T.UNIT)
   		then ()
   		else printError("Result type of function header does not match result type of function body.", pos);
 
-		(* 4. Result is unimportant, this function is strictly side-effecting *)
+		(* 5. Result is unimportant, this function is strictly side-effecting *)
 		(venv,tenv)
 	    end
 
 	and transFunDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.FunctionDec fundecs) =
 	    let
-  		(* 1. processFunDecHead takes a function header and updates the venv accordingly
-                      It returns: venv  (the scope outside the function)
-                                  venv' (the scope inside the function)
-                                  tenv  (the type environment) *)
+  		(* 1. processFunDecHead takes a function header and updates the venv to include the function *)
 		val (venv',tenv) = foldl processFunDecHead (venv,tenv) fundecs
 	    in
 		(*2.  Make sure body variables have valid type and are in scope, compare body and header result types
@@ -336,7 +393,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
   		(* 3. Check that there are no identical function names *)
   		checkDups(map getNameFromFunDec fundecs, map getPosFromFunDec fundecs);
 
-		(* 4. Return the venv outside of the function scope *)
+		(* 4. Return the venv outside of the function body's scope *)
 		venv'
 	    end
 
@@ -347,7 +404,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
             in
 		case vartype of
 		    SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
-		                                     SOME(expectedtype) => if isCompatible(exptype, actualType(tenv, expectedtype, p))
+		                                     SOME(expectedtype) => if isCompatible(exptype, actualType(expectedtype, p))
 									   then venv'
 									   else (printError("Variable type does not meet expected type", p);venv'')
 						   | NONE => (printError("Could not find type in type environment",p);venv''))
