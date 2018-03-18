@@ -821,7 +821,7 @@ end)
 end
 |  ( 25, ( ( _, ( _, (BREAKleft as BREAK1left), BREAK1right)) :: 
 rest671)) => let val  result = MlyValue.exp (fn _ => (
-A.BreakExp BREAKleft))
+ErrorMsg.error BREAKleft ("FOUND A BREAK"); A.BreakExp BREAKleft))
  in ( LrTable.NT 1, ( result, BREAK1left, BREAK1right), rest671)
 end
 |  ( 26, ( ( _, ( MlyValue.exp exp2, _, exp2right)) :: _ :: ( _, ( 
