@@ -5,7 +5,7 @@ structure T = Types
 
 (*A dummy Translate structure to use for this step*)
 structure Translate = struct type exp = unit end
-			  
+
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
 
@@ -156,9 +156,9 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 	    let
 		val {exp=lexp, ty=lty} = trexp l
                 val {exp=rexp, ty=rty} = trexp r
-					       
+
 	        datatype CLASS = ARITH | COMP | EQ
-					    
+
   	        fun classify (oper) =
 		    case oper of
 		        A.PlusOp   => ARITH
@@ -197,8 +197,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 		  | COMP  => (checkComp();  {exp=(), ty=T.INT})
 		  | EQ    => (checkEq();    {exp=(), ty=T.INT})
 	    end
-		
-	
+
+
 
           | trexp (A.LetExp{decs=d, body=b, pos=p}) =
             let val (venv', tenv') = transDecs (venv, tenv, d)
@@ -371,14 +371,18 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 
 		(* 3. Make sure body variables are in scope and evaluate the overall result type of the function's body *)
 		val {exp,ty} = transExp(venv', tenv, false) body
-	    in
-		(* 4. Check that the body's result type matches the header's result type *)
-		if
-  		    isCompatible (ty, case result of SOME(rSym,rPos) => tenvLookUp (tenv, rSym, rPos)
-  						   | NONE            => T.UNIT)
-  		then ()
-  		else printError("Result type of function header does not match result type of function body.", pos);
 
+		(* 4. Make sure that type of body matches expected return type of function *)
+		val expectedReturnType = case result of SOME(rSym,rPos) => actualType(tenvLookUp (tenv, rSym, rPos), pos)
+					 																| NONE            => T.UNIT
+	  val actualReturnType = actualType(ty, pos)
+
+    val checkBodyType =
+		case expectedReturnType of
+		  T.UNIT   => if actualReturnType = T.UNIT then () else printError("Void function should not be returning a value", pos)
+		| _        =>	if isCompatible(actualReturnType, expectedReturnType) then () else printError("Result type of function header does not match result type of function body.", pos)
+
+		in
 		(* 5. Result is unimportant, this function is strictly side-effecting *)
 		(venv,tenv)
 	    end
