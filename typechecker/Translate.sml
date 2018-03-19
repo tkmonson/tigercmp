@@ -1,14 +1,17 @@
 signature TRANSLATE =
 sig
 
-  (*QUESTION: Can this just be an int and a UNIT ref? What information is stored in a level?
-  My guess is that it stores a Frame.frame option and a parent*)
+  (*QUESTION: What information is stored in a level?
+  My guess is that it stores a Frame.frame option and a parent and a ref UNIT*)
+  (*Answer: Keep the frame. Can use a unit REF or a depth counter. *)
   (*Associated with a function *)
+  (*Static link: One example of static link following is MEM(MEM(FP))*)
   type level
 
   (*Different from Frame.access; Aware of static links*)
   (*Associated with a variable *)
-  (*QUESTION: What's in this? My guess is a Frame.access along with information about static links, in the form of a Frame.frame or a Translate.level*)
+  (*QUESTION: What's in this? My guess is a Frame.access along with information about static links, in the form of a Translate.level*)
+  (*Answer: Correct.*)
   type access
 
   datatype exp = Ex of Tree.exp
