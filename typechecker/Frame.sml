@@ -1,21 +1,16 @@
 signature FRAME =
 sig
 
-(*Details on page 156*)
-  val FP : temp.temp
+  datatype frame = makeFrame of {name: Temp.label, formals:access list, offset: int ref}
+  and      access =  InFrame of int
+                   | InReg   of Temp.temp
+
+  val FP : Temp.temp
   val wordsize : int
-  val exp: Frame.access -> Tree.exp -> Tree.exp
-
-(*Holds info about formals and local variables*)
-(*QUESTION: What information? My guess is name of the frame, and access for each formal, AND a ref int that represents the offset for the next local variable *)
-  type frame
-
-(*Represents the location (in register or in frame) of any formal or local variable*)
-  type access  (* InFrame of int
-                   |InReg of temp.temp *)
+  val exp: access -> Tree.exp -> Tree.exp
 
   val newFrame : {name:Temp.label, formals:bool list} -> frame
-  val name: frame -> temp.label
+  val name: frame -> Temp.label
   val formals : frame -> access list
 
   val allocLocal : frame -> bool -> access
@@ -27,6 +22,36 @@ sig
   val procEntryExit1 : frame * Tree.stm -> Tree.stm
 
 (*Label for the machine code of this function : Produced using Temp.newLabel()*)
-  val funclabel : temp.label
+  val funclabel : Temp.label
+
+end
+
+structure MipsFrame:FRAME =
+struct
+
+  (*name of the frame, access for each formal, AND a ref int that represents the offset for the next local variable*)
+  datatype frame = makeFrame of {name: Temp.label, formals:access list, offset:int ref}
+
+  (*Represents the location (in register or in frame) of any formal or local variable*)
+  and      access =  InFrame of int
+                   | InReg   of Temp.temp
+
+  val FP = Temp.newtemp()
+  val wordsize = 32
+
+  fun newFrame({name:Temp.label, formals:bool list}) =
+      let val oset = ref 0
+          val allFormals = true::formals
+          fun createAccess(esc:bool):access = if esc then (oset:=(!oset)+1; InFrame ((!oset)-1)) else InReg (Temp.newtemp())
+          val accessList = map createAccess formals
+      in makeFrame({name=name, formals=accessList, offset=oset})
+      end
+
+  fun name(makeFrame{name, formals, offset}) = name
+  fun formals(makeFrame{name, formals, offset}) = formals
+  val funclabel = Temp.newlabel()
+
+
+
 
 end

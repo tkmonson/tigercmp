@@ -20,6 +20,11 @@ tiger.lex
 tiger.grm
 parse.sml
 
+(*Temps and IR*)
+temp.sig
+temp.sml
+tree.sml
+
 (*SML libraries*)
 $/smlnj-lib.cm
 $/ml-yacc-lib.cm
