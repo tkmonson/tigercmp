@@ -8,6 +8,13 @@ structure Translate = struct type exp = unit end
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
 
+fun getNameFromField ({name, escape, typ, pos}:A.field) = name
+fun getPosFromField  ({name, escape, typ, pos}:A.field) = pos
+fun getNameFromFunDec ({name, params, result, body, pos}:A.fundec) = name
+fun getPosFromFunDec  ({name, params, result, body, pos}:A.fundec) = pos
+fun getNameFromTypeDec({name, ty, pos}) = name
+fun getPosFromTypeDec({name, ty, pos}) = pos
+
 fun printError(msg, pos) = ErrorMsg.error pos (msg)
 
 fun checkLoopCounter(venv, A.SimpleVar(s,p)) = (case S.look (venv, s) of
@@ -35,7 +42,7 @@ fun makeVarEntry (typ:Types.ty) = E.VarEntry {ty=typ, isCounter=false}
 fun checkDups (nil, nil) = ()
   | checkDups (name::others, pos::poss) =
     if (List.all (fn (x) => (name <> x)) others) then checkDups(others, poss)
-    else printError("Multiple functions or values share a name.", pos)
+    else printError("Multiple functions or values or types share a name.", pos)
 
 (*Types.ty -> Types.ty*)
 fun actualType (ty:T.ty, pos) =
@@ -66,16 +73,18 @@ fun checkType (t1:T.ty, t2:T.ty, pos) =
 (*Simple helper that tells you the type of object stored in an array*)
 fun lookupArrayType (Types.ARRAY(ty, u), pos) = ty
   | lookupArrayType (Types.BOTTOM, pos) = Types.BOTTOM
-  | lookupArrayType (a:Types.ty, pos) = (printError("Trying to access subscript of a variable that is not an array", pos); Types.BOTTOM)
+  | lookupArrayType (a:Types.ty, pos) = (printError("Trying to access subscript of a variable that has type " ^ printType a, pos); Types.BOTTOM)
 
 (*Types.ty*symbol -> Types.ty*)
-fun traverseFieldList ([], s:S.symbol, pos) = (printError("Record variable does not have requested field", pos); Types.BOTTOM)
+fun traverseFieldList ([], s:S.symbol, pos) = (printError("Record variable does not have field " ^ Symbol.name s, pos); Types.BOTTOM)
   | traverseFieldList ((s1:S.symbol, t:Types.ty)::l, s2:S.symbol, pos) = if s1=s2 then t else traverseFieldList (l, s2, pos)
 
 (*Types.ty*symbol -> Types.ty*)
 fun lookupFieldType (Types.RECORD(fieldlist, u), s, pos) = traverseFieldList (fieldlist, s, pos)
   | lookupFieldType(Types.BOTTOM, s, pos) = Types.BOTTOM
-  | lookupFieldType (a:Types.ty, s, pos) = (printError("Trying to access field of a variable that is not a record", pos); Types.BOTTOM)
+  | lookupFieldType (a:Types.ty, s, pos) = (printError("Trying to access field of a variable that has type " ^ printType a ^
+                                                        ". Fields can only be accessed from records.", pos);
+                                            Types.BOTTOM)
 
 (* venv*tenv*Absyn.var -> Types.ty *)
 (* Tells you the type of a variable*)
@@ -93,7 +102,13 @@ fun isCompatible (T.BOTTOM, b:Types.ty) = true
 
 (*take header, represent as ty, add to tenv'*)
 fun processTypeDecHeads (tenv, []) = tenv
-  | processTypeDecHeads (tenv, {name=n, ty=t, pos=p}::l) = processTypeDecHeads (S.enter (tenv, n, Types.NAME(n, ref NONE)), l)
+  | processTypeDecHeads (tenv, {name=n, ty=t, pos=p}::l) =
+      let
+      val nameList = (map getNameFromTypeDec) ({name=n,ty=t,pos=p}::l)
+      val posList = (map getPosFromTypeDec) ({name=n,ty=t,pos=p}::l)
+      val dup = checkDups(nameList, posList)
+      in  processTypeDecHeads (S.enter (tenv, n, Types.NAME(n, ref NONE)), l)
+      end
 
 (*Creates (S.symbol * ty) list from field list*)
 fun recTyFromFlist (tenv, []) = []
@@ -148,11 +163,6 @@ fun checkTypeGroupCycle (tenv, []) = ()
 (***Explained on page 120***)
 fun transTy (tenv, Absyn.TypeDec(tylist)) = let val newTenv = processTypeDecBodies (processTypeDecHeads(tenv, tylist), tylist)
                                             in (checkTypeGroupCycle (newTenv, tylist); newTenv) end
-
-fun getNameFromField ({name, escape, typ, pos}:A.field) = name
-fun getPosFromField  ({name, escape, typ, pos}:A.field) = pos
-fun getNameFromFunDec ({name, params, result, body, pos}:A.fundec) = name
-fun getPosFromFunDec  ({name, params, result, body, pos}:A.fundec) = pos
 
   (*
   * transExp is side-effecting: It prints error messages, and returns trexp
@@ -212,6 +222,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 		      | T.STRING       => checkType(T.STRING,rty,p)
 		      | T.ARRAY(t,u)   => checkType(T.ARRAY(t,u),rty,p)
 		      | T.RECORD(fs,u) => checkType(T.RECORD(fs,u),rty,p)
+          | T.NIL          => checkType(T.NIL, rty, p)
 		      | _ => printError("Can only check equality of int, string, "
 					^ "array, or record types, received "
 				        ^ printType lty, p)
@@ -252,7 +263,9 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
                      if thenty = elsety
                      then {exp = (), ty = thenty}
                      else (printError("Type mismatch in then and else statements", p); {exp = (), ty = T.BOTTOM})
-		 else {exp = (), ty = T.UNIT}
+
+     (*If elsety is UNIT, thenty must also be unit*)
+     else (if thenty <> T.UNIT then printError("Then clause of an if/then statement can not return a value", p) else (); {exp = (), ty = T.UNIT})
              end)
 
           | trexp (A.WhileExp{test=t, body=b, pos=p}) = (
@@ -288,7 +301,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 		           | NONE => T.UNIT::[]
 		val rt = case S.look(venv,func) of
 		             SOME(E.FunEntry{formals=fs, result=rt}) => rt
-		           | NONE => T.UNIT
+		           | NONE => (printError("Function " ^ Symbol.name func ^ " is not accessible in current scope", pos);T.BOTTOM)
 
 		fun listCompatible ([], [], pos:int) = true
 		  | listCompatible (a::aTail, b::bTail, pos:int) =
@@ -321,13 +334,13 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 	and checkBody (venv':E.enventry S.table, b:A.exp, v, pos:A.pos) =
 	    let val {exp=_, ty=bTy} = transExp (venv', tenv, true) b
 	    in
-		if bTy = T.UNIT then () else (printError("Unit return type expected", pos);())
+		if bTy = T.UNIT then () else (printError("Unit return type expected; received " ^ printType bTy, pos);())
 	    end
 
 	and checkUnitTy (e:A.exp, pos:A.pos) =
 	    let val {exp=_, ty=eTy} = trexp e
 	    in
-		if eTy = T.UNIT then () else (printError("Unit return type expected", pos);())
+		if eTy = T.UNIT then () else (printError("Unit return type expected; received " ^ printType eTy, pos);())
 	    end
 
 	and checkRecordFields ([], []) = ()
@@ -439,7 +452,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 									   then venv'
 									   else (printError("Variable type does not meet expected type", p);venv'')
 						   | NONE => (printError("Could not find type in type environment",p);venv''))
-		  | NONE => venv'
+		  | NONE => if exptype = T.NIL then (printError("Implicitly typed variables can not be declared as NIL", p); venv'') else venv'
             end
     in
 	trexp
