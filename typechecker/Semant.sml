@@ -136,25 +136,30 @@ fun processTypeDecBodies (tenv, []) = tenv
     | processTypeDecBodies (tenv, a::l) = processTypeDecBodies (processTypeDecBody (tenv, a), l)
 
 
+fun listContains (element, []) = false
+    | listContains (element, a::l) = if (a = element) then true else listContains (element, l)
+
 (* call this function in trans ty after processing a group*)
-fun checkTypeCycle (tstart, tcurr, pos) =
-    if tcurr = tstart then (printError("Cyclic type declaration", pos); ())(*we have a loop! throw error*)
+fun checkTypeCycle (tvisited, tcurr, pos) =
+    if listContains(tcurr, tvisited) then (printError("Cyclic type declaration", pos); ())(*we have a loop! throw error*)
     else
         case tcurr of
             T.RECORD(a,b) => ()
             | T.STRING => ()
             | T.INT => ()
             | T.NIL => ()
-            | T.NAME(s,tref) => case !tref of
-                           SOME(child) => checkTypeCycle (tstart, child, pos)
-                           | NONE => ()
+            | T.NAME(s,tref) => (case !tref of
+                           SOME(child) => checkTypeCycle (tcurr::tvisited, child, pos)
+                           | NONE => ())
+            | T.ARRAY(arrTy,u) => checkTypeCycle (tcurr::tvisited, arrTy, pos)
+            | _ => ()
 
 
 fun checkTypeGroupCycle (tenv, []) = ()
     | checkTypeGroupCycle (tenv, {name=n, ty=t, pos=p}::l) = let val tyDec = tenvLookUp(tenv, n, p)
                                                             in case tyDec of
                                                                 T.NAME(s,tref) => (case !tref of
-                                                                                  SOME(child) => (checkTypeCycle(tyDec, child, p);
+                                                                                  SOME(child) => (checkTypeCycle([tyDec], child, p);
                                                                                                  checkTypeGroupCycle(tenv, l))
                                                                                  | NONE => checkTypeGroupCycle(tenv, l))
                                                                 | _ => ()
