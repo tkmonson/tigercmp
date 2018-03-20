@@ -13,9 +13,11 @@ Conceptually hard stuff: Getting started.
 
 
 
-Typechecker Fixes:
-You could be more specific when the number of parameters do not match what is expected in a function call (TOMMY)
-
-(ANITA)
+(-8 pts): there are several issues with type declarations:
 1) you report the existence of an illegal cycle, but enter an infinite loop (see test16.tig)
 2) you cannot handle array types - the compiler crashes reporting a Match failure, which is caused by non-exhaustive matches
+
+FindEscape questions:
+- Why do RecordTys have a list of fields that escape?
+
+Ask: do we need an unCx(Nx _ ) pattern match?

@@ -227,7 +227,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 		      | T.STRING       => checkType(T.STRING,rty,p)
 		      | T.ARRAY(t,u)   => checkType(T.ARRAY(t,u),rty,p)
 		      | T.RECORD(fs,u) => checkType(T.RECORD(fs,u),rty,p)
-                      | T.NIL          => checkType(T.NIL, rty, p)
+          | T.NIL          => checkType(T.NIL, rty, p)
 		      | _ => printError("Can only check equality of int, string, "
 					^ "array, or record types, received "
 				        ^ printType lty, p)
@@ -308,21 +308,17 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 		             SOME(E.FunEntry{formals=fs, result=rt}) => rt
 		           | NONE => (printError("Function " ^ Symbol.name func ^ " is not accessible in current scope", pos);T.BOTTOM)
 
-		fun length l  = foldr (fn(x,y) => 1+y) 0 l
-					 
 		fun listCompatible ([], [], pos:int) = true
 		  | listCompatible (a::aTail, b::bTail, pos:int) =
 		    if isCompatible(a,b)
 		    then listCompatible(aTail, bTail, pos)
 		    else (printError("Argument type does not match parameter type in function declaration.", pos); false)
-		  | listCompatible (_,_,pos) = (printError("Number of arguments does not equal number of parameters, expected " ^
-							   Int.toString(length fs) ^ " arguments, recieved " ^
-							   Int.toString(length args)  ^ " arguments.", pos); false)
+		  | listCompatible (_,_,pos) = (printError("Number of arguments does not equal number of parameters.", pos); false)
 
 		fun actualTypeWrapper typ = actualType(typ, pos)
 	    in
       (*Arg1: Actual type of every argument
-        Arg2: Actual type of every formal*)
+      Arg2: Actual type of every formal*)
 		listCompatible(map actualTypeWrapper (map (fn {exp,ty} => ty) (map trexp args)), map actualTypeWrapper fs, pos);
 		{exp = (), ty = rt}
 	    end
