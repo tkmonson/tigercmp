@@ -25,3 +25,32 @@ sig
   val simpleVar : access*level -> exp
 
 end
+
+structure T = Tree
+
+(* exp -> Tree.exp *)
+fun unEx (Ex e) = e
+  | unEx (Cx genstm) =
+    let val r = Temp.newtemp()
+	val t = Temp.newlabel() and f = Temp.newlabel()
+    in T.ESEQ(seq[T.MOVE(T.TEMP r, T.CONST 1),
+		  genstm(t,f),
+		  T.LABEL f,
+		  T.MOVE(T.TEMP r, T.CONST 0),
+		  T.LABEL t],
+	      T.TEMP r)
+    end
+  | unEx (Nx s) = T.ESEQ(s,T.CONST 0)
+
+(* exp -> Tree.stm *)
+fun unNx (Ex e) =
+  | unNx (Nx n) = n
+  | unNx (Cx x) = 
+
+(* exp -> (Temp.label * Temp.label -> Tree.stm) *)
+fun unCx (Ex e) = fn (t,f) => CJUMP(NEQ, e, CONST 0, t, f)
+  | unCx (Ex (CONST 0)) = fn(t,f) => JUMP(NAME f, [f])
+  | unCx (Ex (CONST 1)) = fn(t,f) => JUMP(NAME t, [t])
+    (* Nx pattern match necessary? *)				 
+  | unCx (Cx c) = c
+	
