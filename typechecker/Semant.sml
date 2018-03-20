@@ -159,7 +159,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 
 	        datatype CLASS = ARITH | COMP | EQ
 
-  	        fun classify (oper) =
+  	        fun classify (oper) : CLASS =
 		    case oper of
 		        A.PlusOp   => ARITH
 		      | A.MinusOp  => ARITH
