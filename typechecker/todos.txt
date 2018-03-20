@@ -1,7 +1,7 @@
-Step 1: write findEscapes to set escape variables in ASTs
-Step 2: Start creating structures Translate and Frame based on chapters 6 and 7
-FIX TREE TO HAVE RELOP AND COMMUTE
-Step 3: Modify FunEntry and VarEntry based on page 140, and modify Semant to use Translate as in chapter 6
+Step 1: write findEscapes to set escape variables in ASTs  (ANITA)
+Step 2: Start creating structures Translate and Frame based on chapters 6 and 7 (SAUMYA)
+Step 2.5: (FIX TREE TO HAVE RELOP AND COMMUTE) (TOMMY)
+Step 3: Modify FunEntry and VarEntry based on page 140, and modify Semant to use Translate as in chapter 6 (SAUMYA)
 Step 4: Write unEx, unCx, unNx in Translate
 Step 5: Write a function in Translate to translate simple variables (this involves handling static links)
 Step 6: Modify Semant to use the simplevar function in Translate
@@ -12,10 +12,12 @@ Step 9: Do fragment stuff??
 Conceptually hard stuff: Getting started.
 
 
-You could be more specific when the number of parameters do not match what is expected in a function call,
 
 (-8 pts): there are several issues with type declarations:
 1) you report the existence of an illegal cycle, but enter an infinite loop (see test16.tig)
 2) you cannot handle array types - the compiler crashes reporting a Match failure, which is caused by non-exhaustive matches
+
+FindEscape questions:
+- Why do RecordTys have a list of fields that escape?
 
 Ask: do we need an unCx(Nx _ ) pattern match?
