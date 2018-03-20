@@ -25,7 +25,7 @@ sig
 	           | ULT | ULE | UGT | UGE
 
   val notRel : relop -> relop
-  val commute: exp * exp -> bool
+  (*val commute: exp * exp -> bool*)
 end
 
 structure Tree : TREE =
@@ -58,15 +58,15 @@ struct
        fun notRel (r:relop) : relop =
            case r of
 	       EQ => NE
-	       NE => EQ
-	       LT => GE	     
-	       GT => LE	      
-	       LE => GT
-	       GE => LT
-	       ULT => UGE
-               UGT => ULE
-               ULE => UGT
-	       UGE => ULT
+	      | NE => EQ
+	      | LT => GE
+	      | GT => LE
+	      | LE => GT
+	      | GE => LT
+	      | ULT => UGE
+        |       UGT => ULE
+        |       ULE => UGT
+	      | UGE => ULT
 
-       fun commute (r1:relop,r2:relop) : relop = EQ
+       (*fun commute (r1:relop,r2:relop) : relop = EQ*)
 end
