@@ -1,26 +1,19 @@
-CONCRETE TODOS:
--Deal with type dec cycles
--Testing functions
+Step 1: write findEscapes to set escape variables in ASTs
+Step 2: Start creating structures Translate and Frame based on chapters 6 and 7
+FIX TREE TO HAVE RELOP AND COMMUTE
+Step 3: Modify FunEntry and VarEntry based on page 140, and modify Semant to use Translate as in chapter 6
+Step 4: Write unEx, unCx, unNx in Translate
+Step 5: Write a function in Translate to translate simple variables (this involves handling static links)
+Step 6: Modify Semant to use the simplevar function in Translate
+Step 7: Write functions in Translate to generate IR for all different kinds of Tiger exps
+Step 8: Modify Semant to call Translate functions
+Step 9: Do fragment stuff??
 
-Parser Bugs:
--Sequences
--Can't parse breaks properly
+Conceptually hard stuff: Getting started.
 
 
+You could be more specific when the number of parameters do not match what is expected in a function call,
 
-
-Questions
-1) Implementation using top and bottom for exhaustive type checking
-unit is top- no useful values type theoretically sound if return types are different but we're discarding them (like ignore in sml)
-bottom - don't return UNIT return bottom for error checking
-2) Check for unit in all typechecks to prevent excessive error messages
-3) Make nil subtype of all records
-4) Error messages for everything
-  - Error produced, but not propagated (return type UNIT)
-5) Make sure we check type compatibility vs. actual type (example of unit vs. int go to least upper bound in type lattice ie top for string and int)
-6) Cycles in type decs??
-take each type that were made in ONE group and do dfs to see if we get cycle that doesn't contain a
-record (because they can be nil)
-stop on int, nil, string
-7) Check records in trexp
-8) In the case where the type of init in an array doesn't match array type, do we return bottom or int?
+(-8 pts): there are several issues with type declarations:
+1) you report the existence of an illegal cycle, but enter an infinite loop (see test16.tig)
+2) you cannot handle array types - the compiler crashes reporting a Match failure, which is caused by non-exhaustive matches
