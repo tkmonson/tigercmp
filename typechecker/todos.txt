@@ -1,4 +1,4 @@
-Step 1: write findEscapes to set escape variables in ASTs  (ANITA)
+Step 1: write findEscapes to set escape variables in ASTs  (ANITA) page 149 in textbook pdf
 Step 2: Start creating structures Translate and Frame based on chapters 6 and 7 (SAUMYA)
 Step 3: Modify FunEntry and VarEntry based on page 140, and modify Semant to use Translate as in chapter 6 (SAUMYA)
 Step 4: Write unEx, unCx, unNx in Translate (TOMMY)
@@ -10,6 +10,19 @@ Step 8: Modify Semant to call Translate functions
 Step 9: Do fragment stuff??
 
 
+
+FindEscape questions:
+- Only have to worry about let statements, forexp, vardec, field
+- Similarly to Semant, we check headers first then go through bodies- does this mean that we just look for for loops, lets, etc. and then check the stuff inside of them later?
+- confirm: traverse exp checks fields within the exp itself, but what actually traverses tree? (traverseexp pattern matches on exps listed above)
+- Why do RecordTys have a list of fields that escape? If we are declaring a record then we do need to traverse the initialization expressions but NOT the fields, don't want to add fields to escEnv
+for loop counters CAN escape
+
+fundec tells us we have a new level (depth) level plus one to traverse on body
+vardecs add to symbol Table- vardec has ref in it bool ref in pair POINTS TO SAME BOOL REF
+varexp - if you come accross the var at a lower level then mark as escaping, if same level then leave it
+
+figure out if we're giving errors for vars that are used before or without declaration in findescapes OR in semant
 
 
 Ask: do we need an unCx(Nx _ ) pattern match?
