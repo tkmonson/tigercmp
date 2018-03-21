@@ -106,10 +106,36 @@ fun unEx (Ex e) = e
     | unCx (Cx(c)) = c
 
 
-  (* exp -> T.stm *)
+
+  (* exp -> T.stm
   fun unNx (Ex e) =
     | unNx (Nx n) = n
-    | unNx (Cx x) =
+    | unNx (Cx x) =*)
 
+  (*Translation for an ArrayExp*)
+  (*Assume that the external function initArray will initialize the array and return its base addr in a temp*)
+  fun arrayCreate(size, initValue) =
+  let
+   val baseAddr = Temp.newtemp()
+   val getBaseAddr = MipsFrame.externalCall("initArray", [size, initValue])
+   val storeBaseAddr = T.MOVE(T.TEMP(baseAddr), getBaseAddr)
+  in T.ESEQ(storeBaseAddr, baseAddr)
+
+ (*Translation for a RecordExp*)
+ (*Assume that malloc returns base address in a temp*)
+ (*WARNING: This function uses REFS for convenience...Saumya got lazy*)
+  fun recCreate(fieldList, numFields) =
+   let
+    val baseAddr = Temp.newtemp()
+    val getBaseAddr = MipsFrame.externalCall("malloc",[T.CONST(numFields*MipsFrame.wordsize)])
+    val storeBaseAddr = T.MOVE(T.TEMP(baseAddr), getBaseAddr)
+    val offset = ref 0
+    fun genMove(offsetRef, field) = (offset := (!offset) + 1;
+                                    T.MOVE(T.MEM(T.BINOP(T.PLUS, T.TEMP(baseAddr), T.CONST((!offset-1)*MipsFrame.wordsize))), field))
+    val moveList = map genMove fieldList
+    val statements = storeBaseAddr::moveList
+  in
+    T.ESEQ(T.seq(statements), T.TEMP(baseAddr))
+  end
 
 end

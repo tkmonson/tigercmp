@@ -11,6 +11,33 @@ Step 9: Do fragment stuff??
 
 
 
+IR Functions:
+
+Saumya:
+SimpleVar
+WhileExp
+IfExp
+ArrayExp
+RecordExp
+
+Tommy:
+NilExp
+IntExp
+OpExp
+StringExp
+
+Anita:
+SeqExp
+AssignExp
+BreakExp
+CallExp
+VarDec
+
+Together:
+FunctionDec
+
+
+
 FindEscape questions:
 - Only have to worry about let statements, forexp, vardec, field
 - Similarly to Semant, we check headers first then go through bodies- does this mean that we just look for for loops, lets, etc. and then check the stuff inside of them later?
@@ -27,7 +54,9 @@ figure out if we're giving errors for vars that are used before or without decla
 
 Ask: do we need an unCx(Nx _ ) pattern match?
 
+Record/Array Creation: Done
 
+AssignExps: Just MOVEs
 
 Subscript Expressions:
 If array base address is held in temp b, a[i] = MEM(BINOP(PLUS, MEM(b), BINOP(MUL, i, wordsize)))
@@ -38,17 +67,18 @@ Similar to subscript expressions, but instead of an array index we need the offs
 Arithmetic:
 Mostly simple. Not sure about unary complement.
 
-Conditionals:
-- Book says that every conditional translates to a Cx that takes 2 labels and generates a CJUMP
-  -In an if statement, we can initialize the CJUMP with labels for the true/false cases
-  -QUESTION: For a simple conditional (eg the Tiger program a<5), what labels do we use to initialize the CJUMP?
-  -QUESTION: What to do specifically for an If statement where both expressions are Nx?
-  -QUESTION: In the case that both are Cx, what is label z??
+IfExp:
+  -Appel says to unEx both clauses and do MOVES on them
+    -If both clauses are Nx, then don't do the MOVES. Just create a SEQ(CJUMP(), truelabel, trueclause, falselabel, falseclause, JUMP to "join" label)
+
+  -QUESTION: In the case that both are Cx, what do we set t and f to be?
+  -QUESTION: The book makes it sound like all IfExps should be SEQs...what if the IfExp is an r-value,
+    and we need to make it an exp?
 
 Variable definitions:
- - Should we generate Assign statements for each variable in AST,or in IR?
+ - Should we generate Assign statements for each variable in AST,or in IR? --> In IR makes more sense
 
- While loops:
+While loops:
 Given translatedBody and translatedTest, my guess is that we do
  Create labels: test, done
  SEQ(test, CJUMP(EQ, translatedTest, CONST 0, done, body), LABEL body, translatedBody, JUMP(NAME test, test::[]), done)

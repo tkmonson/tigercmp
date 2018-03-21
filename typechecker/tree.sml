@@ -55,8 +55,9 @@ struct
        and relop = EQ | NE | LT | GT | LE | GE
 	           | ULT | ULE | UGT | UGE
 
+       (*WARNING: Nonexhaustive because we should never have a seq of < 2 stms*)
        fun seq(s1::s2::[]) = SEQ(s1, s2)
-          |seq(s1::s2::l)  = seq(SEQ(s1, s2)::l) 
+          |seq(s1::s2::l)  = seq(SEQ(s1, s2)::l)
 
        (* Is this correct?  *)
        fun notRel (r:relop) : relop =
