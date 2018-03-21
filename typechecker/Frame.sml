@@ -15,6 +15,8 @@ sig
 
   val allocLocal : frame -> bool -> access
 
+  val externalCall : string*Tree.exp list -> Tree.exp
+
   val procEntryExit1 : frame * Tree.stm -> Tree.stm
 
 (*Label for the machine code of this function : Produced using Temp.newLabel()*)
@@ -59,7 +61,7 @@ struct
     (*TODO: Make this actually do something*)
   fun procEntryExit1(makeFrame{name, formals, offset}, stat:Tree.stm) = stat
 
-
+  fun externalCall(fname, argList) = Tree.CALL(Tree.NAME(Temp.namedlabel(fname)), argList)
 
 
 end
