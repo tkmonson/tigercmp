@@ -25,7 +25,34 @@ varexp - if you come accross the var at a lower level then mark as escaping, if 
 figure out if we're giving errors for vars that are used before or without declaration in findescapes OR in semant
 
 
-Typechecker Fixes:
-You could be more specific when the number of parameters do not match what is expected in a function call (TOMMY)
-
 Ask: do we need an unCx(Nx _ ) pattern match?
+
+
+
+Subscript Expressions:
+If array base address is held in temp b, a[i] = MEM(BINOP(PLUS, MEM(b), BINOP(MUL, i, wordsize)))
+
+Field expressions:
+Similar to subscript expressions, but instead of an array index we need the offset of the field
+
+Arithmetic:
+Mostly simple. Not sure about unary complement.
+
+Conditionals:
+- Book says that every conditional translates to a Cx that takes 2 labels and generates a CJUMP
+  -In an if statement, we can initialize the CJUMP with labels for the true/false cases
+  -QUESTION: For a simple conditional (eg the Tiger program a<5), what labels do we use to initialize the CJUMP?
+  -QUESTION: What to do specifically for an If statement where both expressions are Nx?
+  -QUESTION: In the case that both are Cx, what is label z??
+
+Variable definitions:
+ - Should we generate Assign statements for each variable in AST,or in IR?
+
+ While loops:
+Given translatedBody and translatedTest, my guess is that we do
+ Create labels: test, done
+ SEQ(test, CJUMP(EQ, translatedTest, CONST 0, done, body), LABEL body, translatedBody, JUMP(NAME test, test::[]), done)
+(QUESTION: Just have Drew look at this)
+
+For loops:
+Just translate to while loops and translate that
