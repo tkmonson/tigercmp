@@ -1,5 +1,4 @@
 structure T = Tree
-structure F = Frame
 
 signature TRANSLATE =
 sig
@@ -50,7 +49,7 @@ struct
     end
 
  (*Given the level for some function, formals returns the Translate.access for each of its formals, except for the static link*)
-  fun formals(makeLevel{frame, parent, unq}) =
+  fun formals(makeLevel{frame=frame, parent=parent, unq=unq}) =
     let val accList = MipsFrame.formals(frame)
         val l = makeLevel{frame=frame, parent=parent, unq=unq}
         fun accWrapper(a:MipsFrame.access) = makeAccess{acc=a, lev=l}
@@ -60,23 +59,24 @@ struct
     end
 
   (*QUESTION: What to do here if called on outermost level? *)
-  fun allocLocal(makeLevel{frame, parent, unq}) =
+  fun allocLocal(makeLevel{frame=frame, parent=parent, unq=unq}) =
       fn(x:bool) => makeAccess{acc=MipsFrame.allocLocal(frame) (x),
                                lev=makeLevel{frame=frame,parent=parent,unq=unq}}
 
-  fun traverseLevels(makeLevel{accessFrame, accessParent, accessUnq}, makeLevel{curFrame, curParent, curUnq}) =
+  fun traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
+                     makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
     if curUnq = accessUnq then T.TEMP(MipsFrame.FP)
                           else let val subexp = traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}, curParent)
                           in T.CONST(1)
                           end
 (*First argument is the access representing where a variable was declared*)
 (*Second argument is the level where the variable is being accessed*)
-  fun simpleVar(makeAccess{accessType, accLevel as makeLevel{accessFrame, accessParent, accessUnq}},
-                makeLevel{curFrame, curParent, curUnq}) =
+  fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
+                makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
         let
           val exp = case accessType of
-                          InReg(t) => T.CONST 0
-                        | InFrame(offset) => traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
+                          MipsFrame.InReg(t) => T.CONST 0
+                        | MipsFrame.InFrame(offset) => traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
                                                             makeLevel{frame=curFrame, parent=curParent, unq=curUnq})
         in
           MipsFrame.exp(accessType)(exp)
@@ -87,7 +87,7 @@ fun unEx (Ex e) = e
   | unEx (Cx genstm) =
     let val r = Temp.newtemp()
 	val t = Temp.newlabel() and f = Temp.newlabel()
-    in T.ESEQ(seq[T.MOVE(T.TEMP r, T.CONST 1),
+    in T.ESEQ(T.seq[T.MOVE(T.TEMP r, T.CONST 1),
 		  genstm(t,f),
 		  T.LABEL f,
 		  T.MOVE(T.TEMP r, T.CONST 0),
@@ -96,16 +96,20 @@ fun unEx (Ex e) = e
     end
   | unEx (Nx s) = T.ESEQ(s,T.CONST 0)
 
-(* exp -> T.stm *)
-fun unNx (Ex e) =
-  | unNx (Nx n) = n
-  | unNx (Cx x) =
 
-(* exp -> (Temp.label * Temp.label -> T.stm) *)
-fun unCx (Ex e) = fn (t,f) => CJUMP(NEQ, e, CONST 0, t, f)
-  | unCx (Ex (CONST 0)) = fn(t,f) => JUMP(NAME f, [f])
-  | unCx (Ex (CONST 1)) = fn(t,f) => JUMP(NAME t, [t])
-    (* Nx pattern match necessary? *)
-  | unCx (Cx c) = c
+  (* exp -> (Temp.label * Temp.label -> T.stm) *)
+  (* Nx pattern match necessary? *)
+  fun unCx (Ex(e)) = (case e of
+                      T.CONST(0) => (fn(t,f) => T.JUMP(T.NAME f, [f]))
+                    | T.CONST(1) => (fn(t,f) => T.JUMP(T.NAME t, [t]))
+                    |  _         => (fn(t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f)))
+    | unCx (Cx(c)) = c
+
+
+  (* exp -> T.stm *)
+  fun unNx (Ex e) =
+    | unNx (Nx n) = n
+    | unNx (Cx x) =
+
 
 end
