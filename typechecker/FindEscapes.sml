@@ -10,16 +10,22 @@ struct
       simple var looks at the Symbol
       field ignore symbol, recurse on var
       subscript recurse on exp AND recurse on var*)
-    fun traverseVar(env:escEnv, d:depth, s:Absyn.var): unit = let var esc = S.look (env, s)
-                                                              in case esc of SOME ('d, r) => if 'd = d then () else (r:=true;())
-                                                                             | NONE => ()
+    fun traverseVar(env:escEnv, d:depth, s:Absyn.var): unit =
+       SimpleVar(s, pos) = S.look (env, s)
+                                   in case esc of SOME ('d, r) => if 'd = d then () else (r:=true;())
+                                                  | NONE => ()
+       (*call recursively on var*)
+       | A.FieldVar(var, symbol, pos) = traverseVar(env, d, var)
+       (*call recursively on var, call traverseexp on exp*)
+       | A.SubscriptVar(var, exp, pos) = (traverseVar(env, d, var); traverseExp(env, d, exp))
 
     (*Pattern matches like trexp in semant, check for lets, forexp, vardec, and field (fundec params and record ty)
      Side affects absyn tree to set boolean
      adds to escenv*)
     and traverseExp(env:escEnv, d:depth, s:Absyn.exp): unit =
         case s of
-            NilExp
+            VarExp(var) = traverseVar()
+            | NilExp = ()
             | A.IntExp(i) = ()
             | A.StringExp(s,p) = ()
             | A.CallExp{func=s, args=expList, pos=p} = let function travList [] = ()
@@ -52,9 +58,19 @@ struct
 
     and traverseDec(env, d, s: Absyn.dec): escEnv =
         case s of
-            A.FunctionDec (fundec list {name: symbol, params: field list,result: (symbol * pos) option, body: exp, pos: pos} (*TODO (d+1)*)
-            | A.VarDec{name: symbol, escape: bool ref, typ: (symbol * pos) option, init: exp, pos: pos}
-            | A.TypeDec of {name: symbol, ty: ty, pos: pos} listS.enter(env, ())
+           (*For every field in the function create env that has all fields in field list with 'd = d+1
+             call traverseExp on body with new environment
+             retun env*)
+            A.FunctionDec (fdecList) = (let val 'd = d+1
+                                            function traverseFieldDecs (env, []) = env
+                                            | traverseFieldDecs {name=fSym, escape=fBoolRef, typ=fTy, pos=fPos}::l = traverseFieldDecs(S.enter(env, fSym, ('d. fBoolRef), l)
+                                        in let val newEnv = traverseFieldDecs(env, fdecList)
+                                           in (transExp(newEnv, 'd, exp); newEnv) end
+                                        end
+            (*Add symbol to escEnv, return new escEnv*)
+            | A.VarDec{name=s, escape=boolRef, typ=tyOpt, init=exp, pos=pos} = Symbol.enter (env, s, (d, boolRef))
+            (*do nothing*)
+            | A.TypeDec of {name: symbol, ty: ty, pos: pos} = env
         (*Adds s |-> d, (t/f) to env and rturns new escEnv*)
 
     (*Call on every dec within structure of traverseExp
