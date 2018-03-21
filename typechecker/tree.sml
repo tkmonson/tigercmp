@@ -24,6 +24,7 @@ sig
        and relop = EQ | NE | LT | GT | LE | GE
 	           | ULT | ULE | UGT | UGE
 
+  val seq: stm list -> stm
   val notRel : relop -> relop
   (*val commute: exp * exp -> bool*)
 end
@@ -53,6 +54,9 @@ struct
 
        and relop = EQ | NE | LT | GT | LE | GE
 	           | ULT | ULE | UGT | UGE
+
+       fun seq(s1::s2::[]) = SEQ(s1, s2)
+          |seq(s1::s2::l)  = seq(SEQ(s1, s2)::l) 
 
        (* Is this correct?  *)
        fun notRel (r:relop) : relop =
