@@ -1,6 +1,10 @@
+structure Semant : SEMANT =
+struct
+
 structure A = Absyn
 structure E = Env
 structure T = Types
+structure S = Symbol
 
 (*A dummy Translate structure to use for this step*)
 structure Translate = struct type exp = unit end
@@ -8,12 +12,12 @@ structure Translate = struct type exp = unit end
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
 
-fun getNameFromField ({name, escape, typ, pos}:A.field) = name
-fun getPosFromField  ({name, escape, typ, pos}:A.field) = pos
-fun getNameFromFunDec ({name, params, result, body, pos}:A.fundec) = name
-fun getPosFromFunDec  ({name, params, result, body, pos}:A.fundec) = pos
-fun getNameFromTypeDec({name, ty, pos}) = name
-fun getPosFromTypeDec({name, ty, pos}) = pos
+fun getNameFromField   ({name, escape, typ, pos}:A.field) = name
+fun getPosFromField    ({name, escape, typ, pos}:A.field) = pos
+fun getNameFromFunDec  ({name, params, result, body, pos}:A.fundec) = name
+fun getPosFromFunDec   ({name, params, result, body, pos}:A.fundec) = pos
+fun getNameFromTypeDec ({name, ty, pos}) = name
+fun getPosFromTypeDec  ({name, ty, pos}) = pos
 
 fun printError(msg, pos) = ErrorMsg.error pos (msg)
 
@@ -473,4 +477,6 @@ structure Main =
 struct
   fun translate filename =
     transExp(Env.base_venv, Env.base_tenv, false) (Parse.parse filename);
+end
+
 end

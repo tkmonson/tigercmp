@@ -27,7 +27,7 @@ tree.sml
 
 (*Frame and Translate*)
 Frame.sml
-(*Translate.sml*)
+Translate.sml
 
 (*SML libraries*)
 $/smlnj-lib.cm
