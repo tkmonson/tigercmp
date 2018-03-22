@@ -119,7 +119,8 @@ fun unEx (Ex e) = e
    val baseAddr = Temp.newtemp()
    val getBaseAddr = MipsFrame.externalCall("initArray", [size, initValue])
    val storeBaseAddr = T.MOVE(T.TEMP(baseAddr), getBaseAddr)
-  in T.ESEQ(storeBaseAddr, baseAddr)
+  in T.ESEQ(storeBaseAddr, T.TEMP(baseAddr))
+  end
 
  (*Translation for a RecordExp*)
  (*Assume that malloc returns base address in a temp*)
