@@ -20,11 +20,14 @@ tiger.lex
 tiger.grm
 parse.sml
 
-(*Temps and IR
+(*Temps and IR*)
 temp.sig
 temp.sml
 tree.sml
-*)
+
+(*Frame and Translate*)
+Frame.sml
+(*Translate.sml*)
 
 (*SML libraries*)
 $/smlnj-lib.cm

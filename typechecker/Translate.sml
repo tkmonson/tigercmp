@@ -1,3 +1,5 @@
+structure T = Tree
+
 signature TRANSLATE =
 sig
 
@@ -7,12 +9,12 @@ sig
   datatype level = makeLevel of {frame:MipsFrame.frame, parent:level, unq: unit ref}
                  | outermost
 
-  (* Associated with a variable *)
+  (* Associated with a variable: Keeps track of how to access that variable, and what level it was declared *)
   datatype access = makeAccess of {acc:MipsFrame.access, lev:level}
 
-  datatype exp = Ex of Tree.exp
-                |Nx of Tree.stm
-                |Cx of Temp.label*Temp.label -> Tree.stm
+  datatype exp = Ex of T.exp
+                |Nx of T.stm
+                |Cx of Temp.label*Temp.label -> T.stm
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   val newLevel : {parent:level, name:Temp.label, formals:bool list} -> level
@@ -34,9 +36,9 @@ struct
   (* Associated with a variable *)
   datatype access = makeAccess of {acc:MipsFrame.access, lev:level}
 
-  datatype exp = Ex of Tree.exp
-                |Nx of Tree.stm
-                |Cx of Temp.label*Temp.label -> Tree.stm
+  datatype exp = Ex of T.exp
+                |Nx of T.stm
+                |Cx of Temp.label*Temp.label -> T.stm
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
@@ -46,43 +48,46 @@ struct
     makeLevel{frame=fr, parent=parent,unq=ref ()}
     end
 
-  fun formals (makeLevel{frame, parent, unq}) =
+ (*Given the level for some function, formals returns the Translate.access for each of its formals, except for the static link*)
+  fun formals(makeLevel{frame=frame, parent=parent, unq=unq}) =
     let val accList = MipsFrame.formals(frame)
         val l = makeLevel{frame=frame, parent=parent, unq=unq}
         fun accWrapper(a:MipsFrame.access) = makeAccess{acc=a, lev=l}
-    in map accWrapper accList
+    in case accList of
+      [] => []
+    | a::l => map accWrapper l
     end
 
-  fun allocLocal(makeLevel{frame, parent, unq}) =
+  (*QUESTION: What to do here if called on outermost level? *)
+  fun allocLocal(makeLevel{frame=frame, parent=parent, unq=unq}) =
       fn(x:bool) => makeAccess{acc=MipsFrame.allocLocal(frame) (x),
                                lev=makeLevel{frame=frame,parent=parent,unq=unq}}
 
-(*)  fun simpleVar(makeAccess{accessType, makeLevel{accessFrame, accessParent, accessUnq}},
-                makeLevel{curFrame, curParent, curUnq}) =
+  fun traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
+                     makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
+    if curUnq = accessUnq then T.TEMP(MipsFrame.FP)
+                          else let val subexp = traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}, curParent)
+                          in T.CONST(1)
+                          end
+(*First argument is the access representing where a variable was declared*)
+(*Second argument is the level where the variable is being accessed*)
+  fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
+                makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
         let
-        (*TODO: Make this a recursive function that takes two levels as arguments*)
-          fun createExp = case accessType of
-                          InReg(t) => Tree.CONST 0
-                          InFrame(offset) => if accessUnq = curUnq then Tree.MEM(MipsFrame.FP)
-                                                                  else
-
+          val exp = case accessType of
+                          MipsFrame.InReg(t) => T.CONST 0
+                        | MipsFrame.InFrame(offset) => traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
+                                                            makeLevel{frame=curFrame, parent=curParent, unq=curUnq})
         in
-          MipsFrame.exp(accessType)(createExp)*)
+          MipsFrame.exp(accessType)(exp)
+        end
 
-
-
-
-
-end
-
-structure T = Tree
-
-(* exp -> Tree.exp *)
+(* exp -> T.exp *)
 fun unEx (Ex e) = e
   | unEx (Cx genstm) =
     let val r = Temp.newtemp()
 	val t = Temp.newlabel() and f = Temp.newlabel()
-    in T.ESEQ(seq[T.MOVE(T.TEMP r, T.CONST 1),
+    in T.ESEQ(T.seq[T.MOVE(T.TEMP r, T.CONST 1),
 		  genstm(t,f),
 		  T.LABEL f,
 		  T.MOVE(T.TEMP r, T.CONST 0),
@@ -103,3 +108,36 @@ fun unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NEQ, e, T.CONST 0, t, f))
   | unCx (Nx _) = raise ErrorMsg.Error
   | unCx (Cx c) = c
 	
+  (* exp -> T.stm
+  fun unNx (Ex e) =
+    | unNx (Nx n) = n
+    | unNx (Cx x) =*)
+
+  (*Translation for an ArrayExp*)
+  (*Assume that the external function initArray will initialize the array and return its base addr in a temp*)
+  fun arrayCreate(size, initValue) =
+  let
+   val baseAddr = Temp.newtemp()
+   val getBaseAddr = MipsFrame.externalCall("initArray", [size, initValue])
+   val storeBaseAddr = T.MOVE(T.TEMP(baseAddr), getBaseAddr)
+  in T.ESEQ(storeBaseAddr, baseAddr)
+
+ (*Translation for a RecordExp*)
+ (*Assume that malloc returns base address in a temp*)
+ (*WARNING: This function uses REFS for convenience...Saumya got lazy*)
+  fun recCreate(fieldList, numFields) =
+   let
+    val baseAddr = Temp.newtemp()
+    val getBaseAddr = MipsFrame.externalCall("malloc",[T.CONST(numFields*MipsFrame.wordsize)])
+    val storeBaseAddr = T.MOVE(T.TEMP(baseAddr), getBaseAddr)
+    val offset = ref 0
+    fun genMove(offsetRef, field) = (offset := (!offset) + 1;
+                                    T.MOVE(T.MEM(T.BINOP(T.PLUS, T.TEMP(baseAddr), T.CONST((!offset-1)*MipsFrame.wordsize))), field))
+    val moveList = map genMove fieldList
+    val statements = storeBaseAddr::moveList
+  in
+    T.ESEQ(T.seq(statements), T.TEMP(baseAddr))
+  end
+
+end
+>>>>>>> 6ddbea3d4c20793e18f9a7b00307d545077270c4
