@@ -8,6 +8,7 @@ Step 6: Modify Semant to use the simplevar function in Translate
 Step 7: Write functions in Translate to generate IR for all different kinds of Tiger exps
 Step 8: Modify Semant to call Translate functions
 Step 9: Do fragment stuff??
+Step 10: Handle errors: In case of ill-typed tiger, return junk IR but make sure that the compiler doesn't crash
 
 
 
@@ -70,10 +71,8 @@ Mostly simple. Not sure about unary complement.
 IfExp:
   -Appel says to unEx both clauses and do MOVES on them
     -If both clauses are Nx, then don't do the MOVES. Just create a SEQ(CJUMP(), truelabel, trueclause, falselabel, falseclause, JUMP to "join" label)
-
   -QUESTION: In the case that both are Cx, what do we set t and f to be?
-  -QUESTION: The book makes it sound like all IfExps should be SEQs...what if the IfExp is an r-value,
-    and we need to make it an exp?
+
 
 Variable definitions:
  - Should we generate Assign statements for each variable in AST,or in IR? --> In IR makes more sense
@@ -82,7 +81,9 @@ While loops:
 Given translatedBody and translatedTest, my guess is that we do
  Create labels: test, done
  SEQ(test, CJUMP(EQ, translatedTest, CONST 0, done, body), LABEL body, translatedBody, JUMP(NAME test, test::[]), done)
-(QUESTION: Just have Drew look at this)
+(QUESTION: Just have Drew look at this...especially the done label. Can we have a label that doesn't have anyting after it?)
 
 For loops:
 Just translate to while loops and translate that
+
+FunctionDec:
