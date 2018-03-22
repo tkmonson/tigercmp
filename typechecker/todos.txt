@@ -19,5 +19,3 @@ Conceptually hard stuff: Getting started.
 
 FindEscape questions:
 - Why do RecordTys have a list of fields that escape?
-
-Ask: do we need an unCx(Nx _ ) pattern match?
