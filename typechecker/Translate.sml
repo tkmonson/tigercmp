@@ -39,14 +39,14 @@ struct
                 |Cx of Temp.label*Temp.label -> Tree.stm
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
-  fun newLevel({parent:level, name:Temp.label, formals:bool list}) =
+  fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
     let
       val fr = MipsFrame.newFrame{formals=formals, name=Temp.newlabel()}
     in
     makeLevel{frame=fr, parent=parent,unq=ref ()}
     end
 
-  fun formals(makeLevel{frame, parent, unq}) =
+  fun formals (makeLevel{frame, parent, unq}) =
     let val accList = MipsFrame.formals(frame)
         val l = makeLevel{frame=frame, parent=parent, unq=unq}
         fun accWrapper(a:MipsFrame.access) = makeAccess{acc=a, lev=l}
@@ -92,14 +92,14 @@ fun unEx (Ex e) = e
   | unEx (Nx s) = T.ESEQ(s,T.CONST 0)
 
 (* exp -> Tree.stm *)
-fun unNx (Ex e) =
-  | unNx (Nx n) = n
-  | unNx (Cx x) = 
+fun unNx (Ex e) = T.EXP e
+  | unNx (Nx s) = s
+  | unNx (Cx c) = let val t = Temp.newlabel() in c(t,t); T.LABEL t end
 
 (* exp -> (Temp.label * Temp.label -> Tree.stm) *)
-fun unCx (Ex e) = fn (t,f) => CJUMP(NEQ, e, CONST 0, t, f)
-  | unCx (Ex (CONST 0)) = fn(t,f) => JUMP(NAME f, [f])
-  | unCx (Ex (CONST 1)) = fn(t,f) => JUMP(NAME t, [t])
-    (* Nx pattern match necessary? *)				 
+fun unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NEQ, e, T.CONST 0, t, f))
+  | unCx (Ex (T.CONST 0)) = (fn(t,f) => T.JUMP(T.NAME f, [f]))
+  | unCx (Ex (T.CONST 1)) = (fn(t,f) => T.JUMP(T.NAME t, [t]))
+  | unCx (Nx _) = raise ErrorMsg.Error
   | unCx (Cx c) = c
 	
