@@ -1,5 +1,3 @@
-structure T = Tree
-
 signature TRANSLATE =
 sig
 
@@ -12,9 +10,9 @@ sig
   (* Associated with a variable: Keeps track of how to access that variable, and what level it was declared *)
   datatype access = makeAccess of {acc:MipsFrame.access, lev:level}
 
-  datatype exp = Ex of T.exp
-                |Nx of T.stm
-                |Cx of Temp.label*Temp.label -> T.stm
+  datatype exp = Ex of Tree.exp
+                |Nx of Tree.stm
+                |Cx of Temp.label*Temp.label -> Tree.stm
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   val newLevel : {parent:level, name:Temp.label, formals:bool list} -> level
@@ -27,6 +25,9 @@ end
 
 structure Translate:TRANSLATE =
 struct
+
+  structure T = Tree
+
   (*Associated with a function *)
   (*Static link: One example of static link following is MEM(MEM(FP))*)
   (*See pg 143 for description of outermost level*)
@@ -41,7 +42,7 @@ struct
                 |Cx of Temp.label*Temp.label -> T.stm
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
-  fun newLevel({parent:level, name:Temp.label, formals:bool list}) =
+  fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
     let
       val fr = MipsFrame.newFrame{formals=formals, name=Temp.newlabel()}
     in
@@ -83,34 +84,30 @@ struct
         end
 
 (* exp -> T.exp *)
-fun unEx (Ex e) = e
-  | unEx (Cx genstm) =
-    let val r = Temp.newtemp()
-	val t = Temp.newlabel() and f = Temp.newlabel()
-    in T.ESEQ(T.seq[T.MOVE(T.TEMP r, T.CONST 1),
-		  genstm(t,f),
-		  T.LABEL f,
-		  T.MOVE(T.TEMP r, T.CONST 0),
-		  T.LABEL t],
-	      T.TEMP r)
-    end
-  | unEx (Nx s) = T.ESEQ(s,T.CONST 0)
+  fun unEx (Ex e) = e
+    | unEx (Nx s) = T.ESEQ(s,T.CONST 0)
+    | unEx (Cx genstm) =
+        let val r = Temp.newtemp()
+            val t = Temp.newlabel() and f = Temp.newlabel()
+        in T.ESEQ(T.seq[T.MOVE(T.TEMP r, T.CONST 1),
+		        genstm(t,f),
+		        T.LABEL f,
+		        T.MOVE(T.TEMP r, T.CONST 0),
+		        T.LABEL t],
+	                T.TEMP r)
+        end
 
+(* exp -> Tree.stm *)
+fun unNx (Ex e) = T.EXP e
+  | unNx (Nx s) = s
+  | unNx (Cx c) = let val t = Temp.newlabel() in c(t,t); T.LABEL t end
 
-  (* exp -> (Temp.label * Temp.label -> T.stm) *)
-  (* Nx pattern match necessary? *)
-  fun unCx (Ex(e)) = (case e of
-                      T.CONST(0) => (fn(t,f) => T.JUMP(T.NAME f, [f]))
-                    | T.CONST(1) => (fn(t,f) => T.JUMP(T.NAME t, [t]))
-                    |  _         => (fn(t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f)))
-    | unCx (Cx(c)) = c
-
-
-
-  (* exp -> T.stm
-  fun unNx (Ex e) =
-    | unNx (Nx n) = n
-    | unNx (Cx x) =*)
+(* exp -> (Temp.label * Temp.label -> Tree.stm) *)
+fun unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f))
+  | unCx (Ex (T.CONST 0)) = (fn(t,f) => T.JUMP(T.NAME f, [f]))
+  | unCx (Ex (T.CONST 1)) = (fn(t,f) => T.JUMP(T.NAME t, [t]))
+  | unCx (Nx _) = raise ErrorMsg.Error
+  | unCx (Cx c) = c
 
   (*Translation for an ArrayExp*)
   (*Assume that the external function initArray will initialize the array and return its base addr in a temp*)

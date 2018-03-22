@@ -1,38 +1,48 @@
 structure S = Symbol
+structure T = Types
+structure R = Translate
 
 signature ENV =
 sig
-  type access
-  datatype enventry = VarEntry of {ty:Types.ty, isCounter:bool}
-                    | FunEntry of {formals: Types.ty list, result:Types.ty}
+	     
+    datatype enventry = VarEntry of {access: Translate.access, ty:T.ty, isCounter:bool}
+                      | FunEntry of {level: Translate.level, label: Temp.label, formals: T.ty list, result:T.ty}
 
-  val base_tenv : Types.ty S.table
-  val base_venv : enventry S.table
+    val base_tenv : T.ty S.table
+    val base_venv : enventry S.table
 
 end
 
 structure Env :> ENV =
 struct
 
-  type access = bool
-  type ty = Types.ty
+    datatype enventry = VarEntry of {access: R.access, ty:T.ty, isCounter:bool}
+                      | FunEntry of {level: R.level, label: Temp.label, formals: T.ty list, result:T.ty}
 
-  datatype enventry = VarEntry of {ty:ty, isCounter:bool}
-                    | FunEntry of {formals: ty list, result:ty}
+    (*Basic type environment contains int and string -- DOES THIS NEED NIL?*)
+    val base_tenv = S.enter(S.enter(S.enter(S.empty, S.symbol "int", T.INT), S.symbol "string", T.STRING),S.symbol "nil", T.NIL)
 
-  (*Basic type environment contains int and string*)
-  val base_tenv = S.enter(S.enter(S.enter(S.empty, S.symbol "int", Types.INT), S.symbol "string", Types.STRING),S.symbol "nil", Types.NIL)
+    type fun_info = string * T.ty list * T.ty
 
-  val v1 = S.enter(S.empty, S.symbol "print", FunEntry {formals=[Types.STRING], result=Types.UNIT});
-  val v1 = S.enter(v1, S.symbol "flush", FunEntry {formals=[], result=Types.UNIT});
-  val v1 = S.enter(v1, S.symbol "getchar", FunEntry {formals=[], result=Types.STRING});
-  val v1 = S.enter(v1, S.symbol "ord", FunEntry {formals=[Types.STRING], result=Types.INT});
-  val v1 = S.enter(v1, S.symbol "chr", FunEntry {formals=[Types.INT], result=Types.STRING});
-  val v1 = S.enter(v1, S.symbol "substring", FunEntry {formals=[Types.STRING, Types.INT, Types.INT], result=Types.STRING});
-  val v1 = S.enter(v1, S.symbol "concat", FunEntry {formals=[Types.STRING, Types.STRING], result=Types.STRING});
-  val v1 = S.enter(v1, S.symbol "not", FunEntry {formals=[Types.INT], result=Types.INT});
-  val v1 = S.enter(v1, S.symbol "exit", FunEntry {formals=[Types.INT], result=Types.UNIT});
+    val base_funs : fun_info list =
+	[("print",[T.STRING],T.UNIT),
+         ("flush",[],T.UNIT),
+	 ("getchar",[],T.STRING),
+	 ("ord",[T.STRING],T.INT),
+	 ("chr",[T.INT],T.INT),
+	 ("substring",[T.STRING,T.INT,T.INT],T.STRING),
+	 ("concat",[T.STRING,T.STRING],T.STRING),
+	 ("not",[T.INT],T.INT),
+	 ("exit",[T.INT],T.UNIT)]
 
-  val base_venv = v1
-
+    val base_venv = List.foldr (fn ((name,formals,result),env) =>
+				   S.enter(env,
+					   S.symbol name,
+					   FunEntry{level   = R.newlevel{parent  = R.outermost,
+									 name    = Temp.namedlabel(name),
+									 formals = map (fn _ => false) formals},
+						    label   = Temp.namedlabel(name),
+						    formals = formals,
+						    result  = result})
+			       ) S.empty base_funs
 end

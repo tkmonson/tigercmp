@@ -40,6 +40,7 @@ FunctionDec
 
 
 FindEscape questions:
+
 - Only have to worry about let statements, forexp, vardec, field
 - Similarly to Semant, we check headers first then go through bodies- does this mean that we just look for for loops, lets, etc. and then check the stuff inside of them later?
 - confirm: traverse exp checks fields within the exp itself, but what actually traverses tree? (traverseexp pattern matches on exps listed above)
