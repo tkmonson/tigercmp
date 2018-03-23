@@ -1,13 +1,11 @@
-structure Semant : SEMANT =
+structure Semant =
 struct
 
-structure A = Absyn
-structure E = Env
-structure T = Types
 structure S = Symbol
-
-(*A dummy Translate structure to use for this step*)
-structure Translate = struct type exp = unit end
+structure A = Absyn
+structure R = Translate
+structure T = Types
+structure E = Env
 
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
