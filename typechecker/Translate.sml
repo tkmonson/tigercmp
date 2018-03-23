@@ -31,10 +31,12 @@ sig
   val assignExp : exp*exp -> exp
   val seqExp : exp list -> exp
   val whileLoop : exp*exp*Temp.label -> exp
+  val breakExp : Temp.label -> exp
   val recCreate : exp list * int -> exp
   val arrayCreate : exp*exp -> exp
   val IntExp : int -> exp
   val NilExp : exp
+  val StringExp : string -> exp
   val relop : Absyn.oper*exp*exp -> exp
   val binop : Absyn.oper*exp*exp -> exp
 
@@ -159,12 +161,12 @@ structure F = MipsFrame
 
   fun IntExp (n:int) : exp = Ex(Tr.CONST n)
 
-(*)  fun StringExp (s:string) : exp =
+  fun StringExp (s:string) : exp =
       let
 	  (* Find a fragment that corresponds to s (or don't find one) in fraglist, return exp *)
-	  val f = List.find (fn (x) => case (_,str) of
-					   F.PROC => false
-					 | F.STRING => s=str) (!fraglistref)
+	  val f = List.find (fn (fragment) => case fragment of
+					   F.PROC(arg) => false
+					 | F.STRING(label, str) => s=str) (!fraglistref)
       in
 	  case f of
 	      (* Didn't find fragment, make new label, put new fragment in fraglist *)
@@ -172,13 +174,13 @@ structure F = MipsFrame
 	          let
 		      val lab = Temp.newlabel()
  	          in
-                      fraglistref := F.STRING(lab,s)::!fraglistref;
+                      fraglistref := F.STRING(lab,s)::(!fraglistref);
 		      Ex(Tr.NAME(lab))
 		  end
 	      (* Found fragment, return exp *)
             |  SOME(F.STRING(lab,_)) => Ex(Tr.NAME(lab))
       end
-*)
+
   (*First argument is the access representing where a variable was declared*)
   (*Second argument is the level where the variable is being accessed*)
   fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
@@ -243,7 +245,7 @@ structure F = MipsFrame
       Nx(Tr.MOVE(Tr.MEM(unEx(location)), unEx(exp)))
 
   (*just go to label from while loop*)
-  (* fun breakExp(label) = Tr.JUMP(label,[label])*)
+  fun breakExp(label) = Nx(Tr.JUMP(Tr.NAME label,[label]))
 
   (*need level where fun was declared, then level where it was called*)
   (*Need level of f and level of fn calling f to compute static link*)
