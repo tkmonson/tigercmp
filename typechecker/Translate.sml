@@ -150,7 +150,7 @@ struct
    val baseAddr = Temp.newtemp()
    val getBaseAddr = MipsFrame.externalCall("initArray", [size, initValue])
    val storeBaseAddr = T.MOVE(T.TEMP(baseAddr), getBaseAddr)
-  in T.ESEQ(storeBaseAddr, baseAddr)
+  in T.ESEQ(storeBaseAddr, T.TEMP(baseAddr))
   end
 
  (*Translation for a RecordExp*)
@@ -168,6 +168,20 @@ struct
     val statements = storeBaseAddr::moveList
   in
     T.ESEQ(T.seq(statements), T.TEMP(baseAddr))
+  end
+
+(*test and body are both Translate.exp*)
+(*ldone is the done label for this loop, which is created in Semant
+  because Semant needs it to be able to translate BreakExps*)
+  fun whileLoop(test, body, ldone) =
+  let
+    val lbody = Temp.newlabel()
+    val ltest = Temp.newlabel()
+    val cond = unCx(test)
+    val bodyNx = unNx(body)
+    val jumpToTest = T.JUMP(T.NAME ltest, [ltest])
+  in
+    Tree.seq([T.LABEL ltest, cond(lbody, ldone), T.LABEL lbody, bodyNx, jumpToTest, T.LABEL ldone])
   end
 
 end
