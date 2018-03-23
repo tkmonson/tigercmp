@@ -301,7 +301,7 @@ structure F = MipsFrame
     allGood: Do nothing
 
   *)
-  fun subscript(baseAddr, index) =
+  fun subscript (baseAddr, index) =
   let
     val arrSize = Tr.MEM(Tr.BINOP(Tr.MINUS, unEx(baseAddr), Tr.CONST 4))
     val ifBelowZero = Temp.newlabel()
@@ -318,6 +318,19 @@ structure F = MipsFrame
            retVal))
   end
 
-
+  fun fieldVar (baseAddr, name, flist) : exp =
+      let
+	  fun findIndex (index, name, fhead::ftail) =
+	      if fhead = name
+	      then index
+	      else findIndex(index + 1, name, ftail)
+      in
+	  Ex(Tr.MEM(
+		  Tr.BINOP(Tr.PLUS,
+			   unEx(baseAddr),
+                           Tr.BINOP(Tr.MUL,
+				    Tr.CONST(F.wordsize),
+				    Tr.CONST(findIndex(0,name,flist))))))
+      end
 
 end

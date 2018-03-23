@@ -439,7 +439,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
 		(* 4. Make sure that type of body matches expected return type of function *)
 		val expectedReturnType = case result of SOME(rSym,rPos) => actualType(tenvLookUp (tenv, rSym, rPos), pos)
-					 																| NONE            => T.UNIT
+					              | NONE            => T.UNIT
 	  val actualReturnType = actualType(ty, pos)
 
     val checkBodyType =
