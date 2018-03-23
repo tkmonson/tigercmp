@@ -269,14 +269,17 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 		 if elsety <> T.UNIT
 		 then
                      if thenty = elsety
-                     then {exp = (), ty = thenty}
+                     then {exp = ((*translateIfThen(thenexp, elseexp)*)), ty = thenty}
                      else (printError("Type mismatch in then and else statements", p); {exp = (), ty = T.BOTTOM})
 
      (*If elsety is UNIT, thenty must also be unit*)
-     else (if thenty <> T.UNIT then printError("Then clause of an if/then statement can not return a value", p) else (); {exp = (), ty = T.UNIT})
+     else (if thenty <> T.UNIT then printError("Then clause of an if/then statement can not return a value", p)
+                               else (); {exp = ((*translateIf(thenexp)*)), ty = T.UNIT})
              end)
 
           | trexp (A.WhileExp{test=t, body=b, pos=p}) = (
+        (*Before translating the body, we'll have to create a doneLabel for this loop, and we'll pass that
+          same donelabel when we call Translate.whileLoop*)
 	      checkInt(t, p);
 	      checkUnitTy(b, p);
 	      {exp = (), ty = T.UNIT})

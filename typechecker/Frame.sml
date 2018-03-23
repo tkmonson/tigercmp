@@ -35,7 +35,7 @@ struct
                    | InReg   of Temp.temp
 
   and       frag = PROC of {body:Tree.stm, frame:frame}
-                 | STRING of Temp.label * string 
+                 | STRING of Temp.label * string
 
   val FP = Temp.newtemp()
   val wordsize = 32

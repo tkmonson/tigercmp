@@ -57,12 +57,13 @@ structure Tr = Tree
     in case accList of
       [] => []
     | a::l => map accWrapper l
-    end
+    end)
+   |  formals(outermost) = (ErrorMsg.error 0 ("Trying to access formals of outermost level!") ; [])
 
-  (*QUESTION: What to do here if called on outermost level? *)
   fun allocLocal(makeLevel{frame=frame, parent=parent, unq=unq}) =
-      fn(x:bool) => makeAccess{acc=MipsFrame.allocLocal(frame) (x),
-                               lev=makeLevel{frame=frame,parent=parent,unq=unq}}
+      (fn(x:bool) => makeAccess{acc=MipsFrame.allocLocal(frame) (x),
+                               lev=makeLevel{frame=frame,parent=parent,unq=unq}})
+    | allocLocal(outermost) = fn(x:bool) => (;makeAccess(MipsFrame., outermost))
 
  (*Give two levels, returns IR sequence that traverses from one level to another*)
   fun traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
@@ -122,7 +123,11 @@ structure Tr = Tree
 		| Absyn.GtOp => Tr.GT
 		| Absyn.GeOp => Tr.GE
       in
+<<<<<<< HEAD
 	  Cx(fn (t,f) => Tr.CJUMP(TreeOper,unEx(lexp),unEx(rexp),t,f))
+=======
+	  Cx(fn (t,f) => T.CJUMP(TreeOper,unEx(lexp),unEx(rexp),t,f))
+>>>>>>> 8b4e0b48e20108f07182ae3b46f13f271f73ac95
       end
 
   (*First argument is the access representing where a variable was declared*)
@@ -146,12 +151,14 @@ structure Tr = Tree
 
   (*Translation for an ArrayExp*)
   (*Assume that the external function initArray will initialize the array and return its base addr in a temp*)
+  (*Stores array size in index -1 *)
   fun arrayCreate(size, initValue) =
   let
    val baseAddr = Temp.newtemp()
-   val getBaseAddr = MipsFrame.externalCall("initArray", [size, initValue])
-   val storeBaseAddr = Tr.MOVE(Tr.TEMP(baseAddr), getBaseAddr)
-  in Tr.ESEQ(storeBaseAddr, Tr.TEMP(baseAddr))
+   val getBaseAddr = MipsFrame.externalCall("initArray", [T.CONST(size+1), T.CONST(initValue)])
+   val storeBaseAddr = T.MOVE(T.TEMP(baseAddr), T.BINOP(T.PLUS, T.CONST 4, getBaseAddr))
+   val storeArrSize = T.MOVE(T.MEM(T.BINOP(T.MINUS, T.TEMP(baseAddr), T.CONST 4)), T.CONST(size))
+  in T.ESEQ(T.seq([storeBaseAddr, storeArrSize]), T.TEMP(baseAddr))
   end
 
  (*Translation for a RecordExp*)
@@ -204,5 +211,37 @@ structure Tr = Tree
   (* fun varDec (translatedExp, ) = assignExp(translatedExp, ) *)
   (*translate.alloc local in Semant to create frame
     transvar called to accumulate list of exps*)
+
+  fun translateIfThenElse(test, thenExp, elseExp) =
+  let val testCx = unCx(test)
+      val thenEx = unEx(thenExp)
+      val elseEx = unEx(elseExp)
+      val tLabel = Temp.newlabel()
+      val fLabel = Temp.newlabel()
+      val retVal = Temp.newtemp()
+      val joinLabel = Temp.newlabel()
+      val join = T.JUMP(T.NAME(joinLabel),[joinLabel])
+  in
+      T.ESEQ(
+              T.seq [testCx(tLabel, fLabel), T.LABEL(tLabel), T.MOVE(T.TEMP(retVal), thenEx), join,
+                                             T.LABEL(fLabel), T.MOVE(T.TEMP(retVal), elseEx), join, T.LABEL(joinLabel)],
+              T.TEMP(retVal))
+  end
+
+  fun translateIfThen(test, thenExp) =
+  let val testCx = unCx(test)
+      val thenEx = unEx(thenExp)
+      val tLabel = Temp.newlabel()
+      val fLabel = Temp.newlabel()
+      val retVal = Temp.newtemp()
+      val joinLabel = Temp.newlabel()
+      val join = T.JUMP(T.NAME(joinLabel),[joinLabel])
+  in
+      T.ESEQ(
+              T.seq [testCx(tLabel, fLabel), T.LABEL(tLabel), T.MOVE(T.TEMP(retVal), thenEx), join,
+                                             T.LABEL(fLabel), join, T.LABEL(joinLabel)],
+              T.TEMP(retVal))
+  end
+
 
 end

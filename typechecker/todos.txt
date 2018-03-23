@@ -5,11 +5,17 @@ Step 4: Write unEx, unCx, unNx in Translate (TOMMY)
 Step 5: Write a function in Translate to translate simple variables (this involves handling static links) (SAUMYA)
 
 Step 6: Modify Semant to use the simplevar function in Translate
-Step 7: Write functions in Translate to generate IR for all different kinds of Tiger exps
+Step 7: Write functions in Translate to generate IR for all different kinds of Tiger exps and decs
 Step 8: Modify Semant to call Translate functions
-Step 9: Do fragment stuff??
+Step 9: Create tig_main frame and create fragments for it
 Step 10: Handle errors: In case of ill-typed tiger, return junk IR but make sure that the compiler doesn't crash
 
+
+in transVarDec:
+-call allocLocal, put it in VarEntry
+-Create an A.SimpleVar for the variable being declared
+-Create an A.AssignExp for the variable and its initial value
+-Translate that A.AssignExp --> This is the IR we want!
 
 
 IR Functions:
@@ -36,7 +42,8 @@ VarDec
 
 Together:
 FunctionDec
-
+SubscriptVar
+FieldVar
 
 
 FindEscape questions:
@@ -68,7 +75,7 @@ Mostly simple. Not sure about unary complement.
 
 IfExp:
   -Appel says to unEx both clauses and do MOVES on them
-    -If both clauses are Nx, then don't do the MOVES. Just create a SEQ(CJUMP(), truelabel, trueclause, falselabel, falseclause, JUMP to "join" label)
+   Optional: -If both clauses are Nx, then don't do the MOVES. Just create a SEQ(CJUMP(), truelabel, trueclause, falselabel, falseclause, JUMP to "join" label)
   -QUESTION: In the case that both are Cx, what do we set t and f to be?
 
 
@@ -76,10 +83,6 @@ Variable definitions:
  - Should we generate Assign statements for each variable in AST,or in IR? --> In IR makes more sense
 
 While loops:
-Given translatedBody and translatedTest, my guess is that we do
- Create labels: test, done
- SEQ(test, CJUMP(EQ, translatedTest, CONST 0, done, body), LABEL body, translatedBody, JUMP(NAME test, test::[]), done)
-(QUESTION: Just have Drew look at this...especially the done label. Can we have a label that doesn't have anyting after it?)
 
 For loops:
 Just translate to while loops and translate that
