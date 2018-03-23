@@ -26,6 +26,7 @@ end
 structure Translate:TRANSLATE =
 struct
 
+  structure A = Absyn
   structure T = Tree
 
   (*Associated with a function *)
@@ -50,7 +51,7 @@ struct
     end
 
  (*Given the level for some function, formals returns the Translate.access for each of its formals, except for the static link*)
-  fun formals(makeLevel{frame=frame, parent=parent, unq=unq}) =
+  fun formals (makeLevel{frame=frame, parent=parent, unq=unq}) =
     let val accList = MipsFrame.formals(frame)
         val l = makeLevel{frame=frame, parent=parent, unq=unq}
         fun accWrapper(a:MipsFrame.access) = makeAccess{acc=a, lev=l}
@@ -111,6 +112,65 @@ struct
           MipsFrame.exp(accessType)(exp)
         end
 
+(* exp -> T.exp *)
+  fun unEx (Ex e) = e
+    | unEx (Nx s) = T.ESEQ(s,T.CONST 0)
+    | unEx (Cx genstm) =
+        let val r = Temp.newtemp()
+            val t = Temp.newlabel() and f = Temp.newlabel()
+        in T.ESEQ(T.seq[T.MOVE(T.TEMP r, T.CONST 1),
+		        genstm(t,f),
+		        T.LABEL f,
+		        T.MOVE(T.TEMP r, T.CONST 0),
+		        T.LABEL t],
+	                T.TEMP r)
+        end
+
+  (* exp -> Tree.stm *)
+  fun unNx (Ex e) = T.EXP e
+    | unNx (Nx s) = s
+    | unNx (Cx c) = let val t = Temp.newlabel() in c(t,t); T.LABEL t end
+
+  (* exp -> (Temp.label * Temp.label -> Tree.stm) *)
+  fun unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f))
+    | unCx (Ex (T.CONST 0)) = (fn(t,f) => T.JUMP(T.NAME f, [f]))
+    | unCx (Ex (T.CONST 1)) = (fn(t,f) => T.JUMP(T.NAME t, [t]))
+    | unCx (Nx _) = raise ErrorMsg.Error
+    | unCx (Cx c) = c
+
+  val NilExp = Ex(T.CONST 0)
+
+  fun IntExp (n:int) : exp = Ex(T.CONST n)
+
+  fun StringExp (s:string) : unit = ()
+
+  (* binop and relop handle OpExp *)
+  fun binop (oper,lexp,rexp) : exp =
+      let
+	  val TreeOper =
+	      case oper of
+		  A.PlusOp => T.PLUS
+		| A.MinusOp => T.MINUS
+		| A.TimesOp => T.MUL
+		| A.DivideOp => T.DIV
+      in
+	  Ex(T.BINOP(TreeOper,unEx(lexp),unEx(rexp)))
+      end
+
+  fun relop (oper,lexp,rexp) : exp =
+      let
+	  val TreeOper =
+	      case oper of
+		  A.EqOp => T.EQ
+		| A.NeqOp => T.NE
+		| A.LtOp => T.LT
+		| A.LeOp => T.LE
+		| A.GtOp => T.GT
+		| A.GeOp => T.GE
+      in
+	  Cx(fn (t,f) => T.CJUMP(TreeOper,unEx(lexp),unEx(rexp),t,f))
+      end
+
   (*Translation for an ArrayExp*)
   (*Assume that the external function initArray will initialize the array and return its base addr in a temp*)
   fun arrayCreate(size, initValue) =
@@ -138,11 +198,24 @@ struct
     T.ESEQ(T.seq(statements), T.TEMP(baseAddr))
   end
 
+  (*test and body are both Translate.exp*)
+  (*ldone is the done label for this loop, which is created in Semant
+    because Semant needs it to be able to translate BreakExps*)
+    fun whileLoop(test, body, ldone) =
+    let
+      val lbody = Temp.newlabel()
+      val ltest = Temp.newlabel()
+      val cond = unCx(test)
+      val bodyNx = unNx(body)
+      val jumpToTest = T.JUMP(T.NAME ltest, [ltest])
+    in
+      Tree.seq([T.LABEL ltest, cond(lbody, ldone), T.LABEL lbody, bodyNx, jumpToTest, T.LABEL ldone])
+    end
   (*make eseq to turn everything but last one into statement and return last one as exp*)
   fun seqExp (elist) = (map unNx take (elist, (List.length elist) - 1)) :: List.last(elist)
 
   (*location comes from transvar call in semant, exp comes from recursivecall in semant*)
-  fun assignExp (location, exp) = 
+  fun assignExp (location, exp) =
       T.MOVE(T.MEM(location), unEx(exp))
 
   (*just go to label from while loop*)

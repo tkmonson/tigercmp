@@ -34,34 +34,37 @@ struct
   and      access =  InFrame of int
                    | InReg   of Temp.temp
 
+  and       frag = PROC of {body:Tree.stm, frame:frame}
+                 | STRING of Temp.label * string 
+
   val FP = Temp.newtemp()
   val wordsize = 32
 
-  fun newFrame({name:Temp.label, formals:bool list}) =
+  fun newFrame ({name:Temp.label, formals:bool list}) =
       let val oset = ref 0
           val allFormals = true::formals
-          fun createAccess(esc:bool):access = if esc then (oset:=(!oset)+1; InFrame ((!oset)-1)) else InReg (Temp.newtemp())
+          fun createAccess (esc:bool):access = if esc then (oset:=(!oset)+1; InFrame ((!oset)-1)) else InReg (Temp.newtemp())
           val accessList = map createAccess formals
       in makeFrame({name=name, formals=accessList, offset=oset})
       end
 
-  fun name(makeFrame{name, formals, offset}) = name
-  fun formals(makeFrame{name, formals, offset}) = formals
+  fun name (makeFrame{name, formals, offset}) = name
+  fun formals (makeFrame{name, formals, offset}) = formals
   val funclabel = Temp.newlabel()
 
-  fun allocLocal(makeFrame{name, formals, offset}) = fn(x:bool) => if x then (offset:=(!offset)+1; InFrame ((!offset)-1)) else InReg(Temp.newtemp())
+  fun allocLocal (makeFrame{name, formals, offset}) = fn(x:bool) => if x then (offset:=(!offset)+1; InFrame ((!offset)-1)) else InReg(Temp.newtemp())
 
-  fun exp(a:access) = fn(e:Tree.exp) => case a of
-                                        InReg(t:Temp.temp) => Tree.TEMP(t)
-                                      | InFrame(offset)    => Tree.MEM(Tree.BINOP(Tree.PLUS, e, Tree.CONST(offset)))
+  fun exp (a:access) = fn(e:Tree.exp) => case a of
+                                         InReg(t:Temp.temp) => Tree.TEMP(t)
+                                       | InFrame(offset)    => Tree.MEM(Tree.BINOP(Tree.PLUS, e, Tree.CONST(offset)))
 
   (*This is part of the view shift*)
   (*From caller's perspective, args are in reg a0-a3. For the callee, they need to be moved from a0-a3 into various temps and frame slots. You
     can do this in this phase or in the next phase. *)
     (*TODO: Make this actually do something*)
-  fun procEntryExit1(makeFrame{name, formals, offset}, stat:Tree.stm) = stat
+  fun procEntryExit1 (makeFrame{name, formals, offset}, stat:Tree.stm) = stat
 
-  fun externalCall(fname, argList) = Tree.CALL(Tree.NAME(Temp.namedlabel(fname)), argList)
+  fun externalCall (fname, argList) = Tree.CALL(Tree.NAME(Temp.namedlabel(fname)), argList)
 
 
 end

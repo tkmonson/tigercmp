@@ -183,16 +183,16 @@ fun transTy (tenv, Absyn.TypeDec(tylist)) = let val newTenv = processTypeDecBodi
 
 fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
   (*fn(e:Absyn.exp) => {exp=(), ty=T.UNIT}*)
-    let fun trexp (A.NilExp) = {exp = (), ty = T.NIL}
+    let fun trexp (A.NilExp) = {exp = R.NilExp, ty = T.NIL}
 
-          | trexp (A.IntExp(num)) = {exp = (), ty = T.INT}
+          | trexp (A.IntExp(num)) = {exp = R.IntExp(num), ty = T.INT}
 
           | trexp (A.BreakExp(p)) =
 	    if isLoop
 	    then {exp = (), ty = T.UNIT}
             else (printError("Can't call break outside of a loop body", p); {exp=(), ty=T.UNIT})
 
-          | trexp (A.StringExp(s,p)) = {exp = (), ty = T.STRING}
+          | trexp (A.StringExp(s,p)) = {exp = R.StringExp(s), ty = T.STRING}
 
           | trexp (A.VarExp(v)) = {exp = (), ty = trvar v}
 
@@ -239,9 +239,9 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 
 	    in
 		case classify(oper) of
-		    ARITH => (checkArith(); {exp=(), ty=T.INT})
-		  | COMP  => (checkComp();  {exp=(), ty=T.INT})
-		  | EQ    => (checkEq();    {exp=(), ty=T.INT})
+		    ARITH => (checkArith(); {exp=R.binop(oper,lexp,rexp), ty=T.INT})
+		  | COMP  => (checkComp();  {exp=R.relop(oper,lexp,rexp), ty=T.INT})
+		  | EQ    => (checkEq();    {exp=R.relop(oper,lexp,rexp), ty=T.INT})
 	    end
 
 
@@ -307,10 +307,10 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 	  | trexp (A.CallExp{func:A.symbol, args: A.exp list, pos:A.pos}) =
 	    let
 		val fs = case S.look(venv:E.enventry S.table,func) of
-		             SOME(E.FunEntry{formals=fs, result=rt}) => fs
+		             SOME(E.FunEntry{level=lvl, label=lbl, formals=fs, result=rt}) => fs
 		           | NONE => T.UNIT::[]
 		val rt = case S.look(venv,func) of
-		             SOME(E.FunEntry{formals=fs, result=rt}) => rt
+		             SOME(E.FunEntry{level=lvl, label=lbl, formals=fs, result=rt}) => rt
 		           | NONE => (printError("Function " ^ Symbol.name func ^ " is not accessible in current scope", pos);T.BOTTOM)
 
 		fun length l  = foldr (fn(x,y) => 1+y) 0 l
@@ -403,7 +403,10 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 		checkDups(map getNameFromField params, map getPosFromField params);
 
 		(* 4. Return venv with FunEntry *)
-                (S.enter(venv, name, E.FunEntry{formals = types, result = rt}),tenv)
+                (S.enter(venv, name, E.FunEntry{level= R.newLevel{parent=level,name=name,formals=es},
+						label=name,
+						formals = types,
+						result = rt}), tenv)
 	    end
 
 	and processFunDecBody ({name, params, result, body, pos}:A.fundec,(venv,tenv)) =

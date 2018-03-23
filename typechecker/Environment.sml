@@ -4,7 +4,7 @@ structure R = Translate
 
 signature ENV =
 sig
-	     
+
     datatype enventry = VarEntry of {access: Translate.access, ty:T.ty, isCounter:bool}
                       | FunEntry of {level: Translate.level, label: Temp.label, formals: T.ty list, result:T.ty}
 
@@ -38,7 +38,7 @@ struct
     val base_venv = List.foldr (fn ((name,formals,result),env) =>
 				   S.enter(env,
 					   S.symbol name,
-					   FunEntry{level   = R.newlevel{parent  = R.outermost,
+					   FunEntry{level   = R.newLevel{parent  = R.outermost,
 									 name    = Temp.namedlabel(name),
 									 formals = map (fn _ => false) formals},
 						    label   = Temp.namedlabel(name),
