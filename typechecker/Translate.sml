@@ -123,11 +123,7 @@ structure Tr = Tree
 		| Absyn.GtOp => Tr.GT
 		| Absyn.GeOp => Tr.GE
       in
-<<<<<<< HEAD
 	  Cx(fn (t,f) => Tr.CJUMP(TreeOper,unEx(lexp),unEx(rexp),t,f))
-=======
-	  Cx(fn (t,f) => T.CJUMP(TreeOper,unEx(lexp),unEx(rexp),t,f))
->>>>>>> 8b4e0b48e20108f07182ae3b46f13f271f73ac95
       end
 
   (*First argument is the access representing where a variable was declared*)
@@ -155,10 +151,10 @@ structure Tr = Tree
   fun arrayCreate(size, initValue) =
   let
    val baseAddr = Temp.newtemp()
-   val getBaseAddr = MipsFrame.externalCall("initArray", [T.CONST(size+1), T.CONST(initValue)])
-   val storeBaseAddr = T.MOVE(T.TEMP(baseAddr), T.BINOP(T.PLUS, T.CONST 4, getBaseAddr))
-   val storeArrSize = T.MOVE(T.MEM(T.BINOP(T.MINUS, T.TEMP(baseAddr), T.CONST 4)), T.CONST(size))
-  in T.ESEQ(T.seq([storeBaseAddr, storeArrSize]), T.TEMP(baseAddr))
+   val getBaseAddr = MipsFrame.externalCall("initArray", [Tr.CONST(size+1), Tr.CONST(initValue)])
+   val storeBaseAddr = Tr.MOVE(Tr.TEMP(baseAddr), Tr.BINOP(Tr.PLUS, Tr.CONST 4, getBaseAddr))
+   val storeArrSize = Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.MINUS, Tr.TEMP(baseAddr), Tr.CONST 4)), Tr.CONST(size))
+  in Tr.ESEQ(Tr.seq([storeBaseAddr, storeArrSize]), Tr.TEMP(baseAddr))
   end
 
  (*Translation for a RecordExp*)
@@ -220,12 +216,12 @@ structure Tr = Tree
       val fLabel = Temp.newlabel()
       val retVal = Temp.newtemp()
       val joinLabel = Temp.newlabel()
-      val join = T.JUMP(T.NAME(joinLabel),[joinLabel])
+      val join = Tr.JUMP(Tr.NAME(joinLabel),[joinLabel])
   in
-      T.ESEQ(
-              T.seq [testCx(tLabel, fLabel), T.LABEL(tLabel), T.MOVE(T.TEMP(retVal), thenEx), join,
-                                             T.LABEL(fLabel), T.MOVE(T.TEMP(retVal), elseEx), join, T.LABEL(joinLabel)],
-              T.TEMP(retVal))
+      Tr.ESEQ(
+              Tr.seq [testCx(tLabel, fLabel), Tr.LABEL(tLabel), Tr.MOVE(Tr.TEMP(retVal), thenEx), join,
+                                             Tr.LABEL(fLabel), Tr.MOVE(Tr.TEMP(retVal), elseEx), join, Tr.LABEL(joinLabel)],
+              Tr.TEMP(retVal))
   end
 
   fun translateIfThen(test, thenExp) =
@@ -235,12 +231,12 @@ structure Tr = Tree
       val fLabel = Temp.newlabel()
       val retVal = Temp.newtemp()
       val joinLabel = Temp.newlabel()
-      val join = T.JUMP(T.NAME(joinLabel),[joinLabel])
+      val join = Tr.JUMP(Tr.NAME(joinLabel),[joinLabel])
   in
-      T.ESEQ(
-              T.seq [testCx(tLabel, fLabel), T.LABEL(tLabel), T.MOVE(T.TEMP(retVal), thenEx), join,
-                                             T.LABEL(fLabel), join, T.LABEL(joinLabel)],
-              T.TEMP(retVal))
+      Tr.ESEQ(
+              Tr.seq [testCx(tLabel, fLabel), Tr.LABEL(tLabel), Tr.MOVE(Tr.TEMP(retVal), thenEx), join,
+                                             Tr.LABEL(fLabel), join, Tr.LABEL(joinLabel)],
+              Tr.TEMP(retVal))
   end
 
 
