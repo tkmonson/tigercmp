@@ -244,7 +244,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
           | trexp (A.LetExp{decs=d, body=b, pos=p}) =
             let val (venv', tenv') = transDecs (venv, tenv, d)
-            in  transExp(venv', tenv', false) b
+            in  transExp(venv', tenv', false, level) b
             end
 
           | trexp (A.RecordExp(rexp)) = {exp=(), ty=checkRecordExp(A.RecordExp(rexp))}
@@ -345,7 +345,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	    end
 
 	and checkBody (venv':E.enventry S.table, b:A.exp, v, pos:A.pos) =
-	    let val {exp=_, ty=bTy} = transExp (venv', tenv, true) b
+	    let val {exp=_, ty=bTy} = transExp (venv', tenv, true, level) b
 	    in
 		if bTy = T.UNIT then () else (printError("Unit return type expected; received " ^ printType bTy, pos);())
 	    end
@@ -384,9 +384,9 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	  | transDec (venv, tenv, Absyn.TypeDec(td)) = (venv, transTy(tenv, Absyn.TypeDec td))
 	  | transDec (venv, tenv, Absyn.FunctionDec(fundecs))  = (transFunDec (venv, tenv, Absyn.FunctionDec fundecs), tenv)
 
-	and processFunDecHead ({name, params, result, body, pos}:A.fundec, (venv, tenv)) =
+	and processFunDecHead ({name, params, result, body, pos}:A.fundec, (venv, tenv, level)) =
 	    let
-		(* 1. Check that result has valid type *)
+		(* 1. Check that resu, lt has valid type *)
 		val rt = case result of
 	                     NONE => T.UNIT
 			   | SOME (typ, pos) => tenvLookUp(tenv, typ, pos)
@@ -395,6 +395,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
 		val names = map getNameFromField params
 		val types = map transparam params
+    val escapes = map (fn({name=n, escape=e, typ=t, pos=p}) => !e) params
+    val funLevel = R.newLevel({parent=level, name=name, formals=escapes})
 
 	    in
 
@@ -402,13 +404,13 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		checkDups(map getNameFromField params, map getPosFromField params);
 
 		(* 4. Return venv with FunEntry *)
-                (S.enter(venv, name, E.FunEntry{level= R.newLevel{parent=level,name=name,formals=es},
+                (S.enter(venv, name, E.FunEntry{level= funLevel,
 						label=name,
 						formals = types,
-						result = rt}), tenv)
+						result = rt}), tenv, funLevel)
 	    end
 
-	and processFunDecBody ({name, params, result, body, pos}:A.fundec,(venv,tenv)) =
+	and processFunDecBody ({name, params, result, body, pos}:A.fundec,(venv,tenv, funLevel)) =
 	    let
 		(* 1. Make sure parameters have valid types  *)
 		fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
@@ -422,9 +424,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		  | combineLists(a::aTail, b::bTail) = (a,b) :: combineLists(aTail, bTail)
 
   		val venv' = foldr enterVars venv (combineLists(names, vEntries));
-
 		(* 3. Make sure body variables are in scope and evaluate the overall result type of the function's body *)
-		val {exp,ty} = transExp(venv', tenv, false) body
+		val {exp,ty} = transExp(venv', tenv, false, funLevel) body
 
 		(* 4. Make sure that type of body matches expected return type of function *)
 		val expectedReturnType = case result of SOME(rSym,rPos) => actualType(tenvLookUp (tenv, rSym, rPos), pos)
@@ -441,14 +442,14 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		(venv,tenv)
 	    end
 
-	and transFunDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.FunctionDec fundecs) =
+	and transFunDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.FunctionDec fundecs, level) =
 	    let
   		(* 1. processFunDecHead takes a function header and updates the venv to include the function *)
-		val (venv',tenv) = foldl processFunDecHead (venv,tenv) fundecs
+		val (venv',tenv, funLevel) = foldl processFunDecHead (venv,tenv, level) fundecs
 	    in
 		(*2.  Make sure body variables have valid type and are in scope, compare body and header result types
 	              This function is strictly side-effecting for the purpose of returning error messages *)
-		foldl processFunDecBody (venv',tenv) fundecs;
+		foldl processFunDecBody (venv',tenv, funLevel) fundecs;
 
   		(* 3. Check that there are no identical function names *)
   		checkDups(map getNameFromFunDec fundecs, map getPosFromFunDec fundecs);
@@ -458,7 +459,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	    end
 
 	and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
-            let val {exp=exp, ty=exptype} = transExp(venv, tenv, false) i
+            let val {exp=exp, ty=exptype} = transExp(venv, tenv, false, level) i
 		val venv' = S.enter(venv, varname, Env.VarEntry{access=access, ty=exptype, isCounter=false})
 		val venv'' = S.enter(venv, varname, Env.VarEntry{access=access, ty=T.BOTTOM, isCounter=false})
             in
@@ -474,12 +475,13 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	trexp
     end
 
-fun transProg exp = (transExp (Env.base_venv, Env.base_tenv, false) exp; ())
+(*fun transProg exp = (transExp (Env.base_venv, Env.base_tenv, false) exp; ())*)
 
 structure Main =
 struct
   fun translate filename =
-    transExp(Env.base_venv, Env.base_tenv, false) (Parse.parse filename);
+    let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
+    transExp(Env.base_venv, Env.base_tenv, false, mainLevel) (Parse.parse filename);
 end
 
 end
