@@ -52,9 +52,6 @@ varexp - if you come accross the var at a lower level then mark as escaping, if 
 
 figure out if we're giving errors for vars that are used before or without declaration in findescapes OR in semant
 
-
-Ask: do we need an unCx(Nx _ ) pattern match?
-
 Record/Array Creation: Done
 
 AssignExps: Just MOVEs
