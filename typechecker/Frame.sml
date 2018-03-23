@@ -4,6 +4,8 @@ sig
   datatype frame = makeFrame of {name: Temp.label, formals:access list, offset: int ref}
   and      access =  InFrame of int
                    | InReg   of Temp.temp
+  and       frag = PROC of {body:Tree.stm, frame:frame}
+               | STRING of Temp.label * string
 
   val FP : Temp.temp
   val wordsize : int
