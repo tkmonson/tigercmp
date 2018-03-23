@@ -34,4 +34,4 @@ $/smlnj-lib.cm
 $/ml-yacc-lib.cm
 $/basis.cm
 
-Semant.sml
+(*Semant.sml*)
