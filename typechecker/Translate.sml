@@ -263,7 +263,7 @@ structure Tr = Tree
   in
       Tr.ESEQ(
               Tr.seq [testCx(tLabel, fLabel), Tr.LABEL(tLabel), Tr.MOVE(Tr.TEMP(retVal), thenEx), join,
-                                              Tr.LABEL(fLabel), Tr.MOVE(Tr.TEMP(retVal), elseEx), join, Tr.LABEL(joinLabel)],
+                                             Tr.LABEL(fLabel), Tr.MOVE(Tr.TEMP(retVal), elseEx), join, Tr.LABEL(joinLabel)],
               Tr.TEMP(retVal))
   end
 
@@ -278,7 +278,7 @@ structure Tr = Tree
   in
       Tr.ESEQ(
               Tr.seq [testCx(tLabel, fLabel), Tr.LABEL(tLabel), Tr.MOVE(Tr.TEMP(retVal), thenEx), join,
-                                              Tr.LABEL(fLabel), join, Tr.LABEL(joinLabel)],
+                                             Tr.LABEL(fLabel), join, Tr.LABEL(joinLabel)],
               Tr.TEMP(retVal))
   end
 

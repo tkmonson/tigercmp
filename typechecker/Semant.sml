@@ -243,8 +243,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
 
           | trexp (A.LetExp{decs=d, body=b, pos=p}) =
-            let val (venv', tenv') = transDecs (venv, tenv, d)
-            in  transExp(venv', tenv', false, level) b
+            let val (venv', tenv', ir) = transDecs (venv, tenv, d, [])
+            in  transExp(venv', tenv', false) b
             end
 
           | trexp (A.RecordExp(rexp)) = {exp=(), ty=checkRecordExp(A.RecordExp(rexp))}
@@ -375,14 +375,15 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		 | _    => (printError("Trying to set fields of something that is not a record type", p);T.BOTTOM)
 	    end
 
-	and transDecs (venv:E.enventry S.table, tenv:T.ty S.table, []) = (venv, tenv)
-	  | transDecs (venv:E.enventry S.table, tenv:T.ty S.table, a::l:Absyn.dec list) =
-            let val (v', t') = transDec (venv, tenv, a)
-            in transDecs(v', t', l) end
+      and transDecs (venv:E.enventry S.table, tenv:T.ty S.table, [], irList) = (venv, tenv, irList)
+        | transDecs (venv:E.enventry S.table, tenv:T.ty S.table, a::l:Absyn.dec list, irList) =
+                let val (v', t') = transDec (venv, tenv, a, irList)
+                in transDecs(v', t', l, irList) end
 
-	and transDec (venv, tenv, Absyn.VarDec(vd)) = (transVarDec(venv, tenv, Absyn.VarDec vd), tenv)
-	  | transDec (venv, tenv, Absyn.TypeDec(td)) = (venv, transTy(tenv, Absyn.TypeDec td))
-	  | transDec (venv, tenv, Absyn.FunctionDec(fundecs))  = (transFunDec (venv, tenv, Absyn.FunctionDec fundecs), tenv)
+      and transDec (venv, tenv, Absyn.VarDec(vd), irList) = (let val (venv', ir) = transVarDec(venv, tenv, Absyn.VarDec vd)
+                                                             in (venv', tenv, irList@[ir]) end
+        | transDec (venv, tenv, Absyn.TypeDec(td), irList) = (venv, transTy(tenv, Absyn.TypeDec td), irList)
+        | transDec (venv, tenv, Absyn.FunctionDec(fundecs), irList)  = (transFunDec (venv, tenv, Absyn.FunctionDec fundecs), tenv, irList)
 
 	and processFunDecHead ({name, params, result, body, pos}:A.fundec, (venv, tenv, level)) =
 	    let
@@ -458,19 +459,20 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		venv'
 	    end
 
-	and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
-            let val {exp=exp, ty=exptype} = transExp(venv, tenv, false, level) i
-		val venv' = S.enter(venv, varname, Env.VarEntry{access=access, ty=exptype, isCounter=false})
-		val venv'' = S.enter(venv, varname, Env.VarEntry{access=access, ty=T.BOTTOM, isCounter=false})
-            in
-		case vartype of
-		    SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
-		                                     SOME(expectedtype) => if isCompatible(exptype, actualType(expectedtype, p))
-									   then venv'
-									   else (printError("Variable type does not meet expected type", p);venv'')
-						   | NONE => (printError("Could not find type in type environment",p);venv''))
-		  | NONE => if exptype = T.NIL then (printError("Implicitly typed variables can not be declared as NIL", p); venv'') else venv'
-            end
+      and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}, level) =
+         let val {exp=exp, ty=exptype} = transExp(venv, tenv, false, level) i
+             val access = R.allocLocal(level)(*call alloc local to get access takes level*)
+             val venv' = S.enter(venv, varname, Env.VarEntry{access, ty=exptype, isCounter=false})
+             val venv'' = S.enter(venv, varname, Env.VarEntry{access, ty=T.BOTTOM, isCounter=false})
+             val ir = R.assignExp(access, i)
+         in
+                    case vartype of
+                        SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
+                                                         SOME(expectedtype) => if isCompatible(exptype, actualType(expectedtype, p))
+                                                                               then (venv', ir) else (printError("Variable type does not meet expected type", p);venv'')
+                                                         | NONE => (printError("Could not find type in type environment",p);(venv'', ir)))
+                       | NONE => if exptype = T.NIL then (printError("Implicitly typed variables can not be declared as NIL", p); (venv'', ir)) else venv'
+         end
     in
 	trexp
     end
