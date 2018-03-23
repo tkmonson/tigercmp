@@ -29,6 +29,7 @@ sig
   val translateIfThenElse : exp*exp*exp -> exp
   val callExp : level*level*Temp.label*exp list -> exp
   val assignExp : exp*exp -> exp
+  val varDec : access*exp -> exp
   val seqExp : exp list -> exp
   val whileLoop : exp*exp*Temp.label -> exp
   val breakExp : Temp.label -> exp
@@ -39,12 +40,15 @@ sig
   val StringExp : string -> exp
   val relop : Absyn.oper*exp*exp -> exp
   val binop : Absyn.oper*exp*exp -> exp
+  val fieldVar : exp*Symbol.symbol*Symbol.symbol list -> exp
 
   val unCx : exp -> Tree.label*Tree.label -> Tree.stm
   val unNx : exp -> Tree.stm
   val unEx : exp -> Tree.exp
 
   val dummy : exp
+
+  val concat:exp list*exp -> exp
 
 end
 
@@ -129,6 +133,9 @@ structure F = MipsFrame
     | unCx (Ex e) = (fn (t,f) => Tr.CJUMP(Tr.NE, e, Tr.CONST 0, t, f))
     | unCx (Nx _) = raise ErrorMsg.Error
     | unCx (Cx c) = c
+
+
+    fun concat(elist, e2) = Ex(Tr.ESEQ(Tr.seq (map unNx elist), unEx(e2)))
 
   (* binop and relop handle OpExp *)
   fun binop (oper,lexp,rexp) : exp =
@@ -241,8 +248,7 @@ structure F = MipsFrame
   fun seqExp (elist) = Ex(Tr.ESEQ (Tr.seq (map unNx (List.take (elist, (List.length elist) - 1))), unEx (List.last(elist))))
 
   (*location comes from transvar call in semant, exp comes from recursivecall in semant*)
-  fun assignExp (location, exp) =
-      Nx(Tr.MOVE(Tr.MEM(unEx(location)), unEx(exp)))
+  fun assignExp (IRexp, exp) = Nx(Tr.MOVE(unEx(IRexp), unEx(exp)))
 
   (*just go to label from while loop*)
   fun breakExp(label) = Nx(Tr.JUMP(Tr.NAME label,[label]))
@@ -254,7 +260,7 @@ structure F = MipsFrame
 
   (*return exp of assignment expression to initialize var
     do we call assignExp on the var...?*)
-  (* fun varDec (translatedExp, ) = assignExp(translatedExp, ) *)
+  fun varDec (makeAccess{acc=access, lev=level}, exp) = Nx(Tr.MOVE((MipsFrame.exp access (Tr.TEMP MipsFrame.FP)), unEx(exp)))
   (*translate.alloc local in Semant to create frame
     transvar called to accumulate list of exps*)
 
@@ -318,6 +324,7 @@ structure F = MipsFrame
            retVal))
   end
 
+(*Takes baseAddr of record, name of field, list of field names*)
   fun fieldVar (baseAddr, name, flist) : exp =
       let
 	  fun findIndex (index, name, fhead::ftail) =
