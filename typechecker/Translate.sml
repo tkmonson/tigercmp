@@ -159,12 +159,12 @@ structure F = MipsFrame
 
   fun IntExp (n:int) : exp = Ex(Tr.CONST n)
 
-(*)  fun StringExp (s:string) : exp =
+ fun StringExp (s:string) : exp =
       let
 	  (* Find a fragment that corresponds to s (or don't find one) in fraglist, return exp *)
-	  val f = List.find (fn (x) => case (_,str) of
-					   F.PROC => false
-					 | F.STRING => s=str) (!fraglistref)
+	  val f = List.find (fn (fragment) => case fragment of
+					   F.PROC _ => false
+					 | F.STRING(_,str) => s=str) (!fraglistref)
       in
 	  case f of
 	      (* Didn't find fragment, make new label, put new fragment in fraglist *)
@@ -172,13 +172,13 @@ structure F = MipsFrame
 	          let
 		      val lab = Temp.newlabel()
  	          in
-                      fraglistref := F.STRING(lab,s)::!fraglistref;
+                      fraglistref := F.STRING(lab,s) :: !fraglistref;
 		      Ex(Tr.NAME(lab))
 		  end
 	      (* Found fragment, return exp *)
             |  SOME(F.STRING(lab,_)) => Ex(Tr.NAME(lab))
       end
-*)
+
   (*First argument is the access representing where a variable was declared*)
   (*Second argument is the level where the variable is being accessed*)
   fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
@@ -299,7 +299,7 @@ structure F = MipsFrame
     allGood: Do nothing
 
   *)
-  fun subscript(baseAddr, index) =
+  fun subscript (baseAddr, index) =
   let
     val arrSize = Tr.MEM(Tr.BINOP(Tr.MINUS, unEx(baseAddr), Tr.CONST 4))
     val ifBelowZero = Temp.newlabel()
@@ -316,6 +316,19 @@ structure F = MipsFrame
            retVal))
   end
 
-
+  fun fieldVar (baseAddr, name, flist) : exp =
+      let
+	  fun findIndex (index, name, fhead::ftail) =
+	      if fhead = name
+	      then index
+	      else findIndex(index + 1, name, ftail)
+      in
+	  Ex(Tr.MEM(
+		  Tr.BINOP(Tr.PLUS,
+			   unEx(baseAddr),
+                           Tr.BINOP(Tr.MUL,
+				    Tr.CONST(F.wordsize),
+				    Tr.CONST(findIndex(0,name,flist))))))
+      end
 
 end
