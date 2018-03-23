@@ -52,7 +52,7 @@ struct
 
  (*Given the level for some function, formals returns the Translate.access for each of its formals, except for the static link*)
   fun formals (makeLevel{frame=frame, parent=parent, unq=unq}) =
-    let val accList = MipsFrame.formals(frame)
+    (let val accList = MipsFrame.formals(frame)
         val l = makeLevel{frame=frame, parent=parent, unq=unq}
         fun accWrapper(a:MipsFrame.access) = makeAccess{acc=a, lev=l}
     in case accList of
@@ -64,7 +64,6 @@ struct
   fun allocLocal(makeLevel{frame=frame, parent=parent, unq=unq}) =
       (fn(x:bool) => makeAccess{acc=MipsFrame.allocLocal(frame) (x),
                                lev=makeLevel{frame=frame,parent=parent,unq=unq}})
-    | allocLocal(outermost) = fn(x:bool) => (;makeAccess(MipsFrame., outermost))
 
   fun traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
                      makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
@@ -105,9 +104,9 @@ struct
     | unNx (Cx c) = let val t = Temp.newlabel() in c(t,t); T.LABEL t end
 
   (* exp -> (Temp.label * Temp.label -> Tree.stm) *)
-  fun unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f))
-    | unCx (Ex (T.CONST 0)) = (fn(t,f) => T.JUMP(T.NAME f, [f]))
+  fun unCx (Ex (T.CONST 0)) = (fn(t,f) => T.JUMP(T.NAME f, [f]))
     | unCx (Ex (T.CONST 1)) = (fn(t,f) => T.JUMP(T.NAME t, [t]))
+    | unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f))
     | unCx (Nx _) = raise ErrorMsg.Error
     | unCx (Cx c) = c
 
@@ -150,9 +149,9 @@ struct
   fun arrayCreate(size, initValue) =
   let
    val baseAddr = Temp.newtemp()
-   val getBaseAddr = MipsFrame.externalCall("initArray", [T.CONST(size+1), T.CONST(initValue)])
+   val getBaseAddr = MipsFrame.externalCall("initArray", [T.BINOP(T.PLUS, T.CONST 1, unEx(size)), unEx(initValue)])
    val storeBaseAddr = T.MOVE(T.TEMP(baseAddr), T.BINOP(T.PLUS, T.CONST 4, getBaseAddr))
-   val storeArrSize = T.MOVE(T.MEM(T.BINOP(T.MINUS, T.TEMP(baseAddr), T.CONST 4)), T.CONST(size))
+   val storeArrSize = T.MOVE(T.MEM(T.BINOP(T.MINUS, T.TEMP(baseAddr), T.CONST 4)), unEx(size))
   in T.ESEQ(T.seq([storeBaseAddr, storeArrSize]), T.TEMP(baseAddr))
   end
 
@@ -166,7 +165,7 @@ struct
     val storeBaseAddr = T.MOVE(T.TEMP(baseAddr), getBaseAddr)
     val offset = ref 0
     fun genMove(offsetRef, field) = (offset := (!offset) + 1;
-                                    T.MOVE(T.MEM(T.BINOP(T.PLUS, T.TEMP(baseAddr), T.CONST((!offset-1)*MipsFrame.wordsize))), field))
+                                    T.MOVE(T.MEM(T.BINOP(T.PLUS, T.TEMP(baseAddr), T.CONST((!offset-1)*MipsFrame.wordsize))), unEx(field)))
     val moveList = map genMove fieldList
     val statements = storeBaseAddr::moveList
   in
@@ -217,6 +216,36 @@ struct
                                              T.LABEL(fLabel), join, T.LABEL(joinLabel)],
               T.TEMP(retVal))
   end
+
+
+
+  (* If index < 0: Jump to ifBelowZer
+     else:         Jump to ifAboveZero
+
+     ifBelowZero: exit
+     ifAboveZero: if index >= array size jump to ifOutOFBounds
+                  else:                  jump to allGood
+    ifOutOFBounds: exit
+    allGood: Do nothing
+
+  *)
+  fun subscript(baseAddr, index) =
+  let
+    val arrSize = Tr.MEM(Tr.BINOP(Tr.MINUS, unEx(baseAddr), Tr.CONST 4))
+    val ifBelowZero = Temp.newlabel()
+    val ifAboveZero = Temp.newlabel()
+    val ifOutOFBounds = Temp.newlabel()
+    val allGood = Temp.newlabel()
+    val checkOutOfBounds = Tr.CJUMP(Tr.GE, unEx(index), arrSize, ifOutOFBounds, allGood)
+    val checkBelowZero = Tr.CJUMP(Tr.LT, unEx(index), Tr.CONST 0, ifBelowZero, ifAboveZero)
+    val retVal = Tr.MEM(Tr.BINOP(Tr.PLUS, unEx(baseAddr), unEx(index)))
+    val exit = Tr.EXP(MipsFrame.externalCall("exit", [Tr.CONST 1]))
+  in
+    Tr.ESEQ(Tr.seq [checkBelowZero, Tr.LABEL ifBelowZero, exit, Tr.LABEL ifAboveZero,
+                    checkOutOfBounds, Tr.LABEL ifOutOFBounds, exit, Tr.LABEL allGood],
+           retVal)
+  end
+
 
 
 end
