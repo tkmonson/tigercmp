@@ -1,13 +1,11 @@
-structure Semant : SEMANT =
+structure Semant =
 struct
 
-structure A = Absyn
-structure E = Env
-structure T = Types
 structure S = Symbol
-
-(*A dummy Translate structure to use for this step*)
-structure Translate = struct type exp = unit end
+structure A = Absyn
+structure R = Translate
+structure T = Types
+structure E = Env
 
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
@@ -89,7 +87,8 @@ fun lookupFieldType (Types.RECORD(fieldlist, u), s, pos) = traverseFieldList (fi
                                             Types.BOTTOM)
 
 (* venv*tenv*Absyn.var -> Types.ty *)
-(* Tells you the type of a variable*)
+(* Tells you the type of a variable
+TODO: RETURN IR IN ADDITION*)
 fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p)) = actualType (lookupArrayType ((transVar(venv, tenv, v),p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (lookupFieldType ((transVar (venv, tenv, v),s,p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p)) = case S.look (venv, s) of
@@ -268,14 +267,17 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		 if elsety <> T.UNIT
 		 then
                      if thenty = elsety
-                     then {exp = (), ty = thenty}
+                     then {exp = ((*translateIfThen(thenexp, elseexp)*)), ty = thenty}
                      else (printError("Type mismatch in then and else statements", p); {exp = (), ty = T.BOTTOM})
 
      (*If elsety is UNIT, thenty must also be unit*)
-     else (if thenty <> T.UNIT then printError("Then clause of an if/then statement can not return a value", p) else (); {exp = (), ty = T.UNIT})
+     else (if thenty <> T.UNIT then printError("Then clause of an if/then statement can not return a value", p)
+                               else (); {exp = ((*translateIf(thenexp)*)), ty = T.UNIT})
              end)
 
           | trexp (A.WhileExp{test=t, body=b, pos=p}) = (
+        (*Before translating the body, we'll have to create a doneLabel for this loop, and we'll pass that
+          same donelabel when we call Translate.whileLoop*)
 	      checkInt(t, p);
 	      checkUnitTy(b, p);
 	      {exp = (), ty = T.UNIT})
@@ -311,7 +313,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		           | NONE => (printError("Function " ^ Symbol.name func ^ " is not accessible in current scope", pos);T.BOTTOM)
 
 		fun length l  = foldr (fn(x,y) => 1+y) 0 l
-					 
+
 		fun listCompatible ([], [], pos:int) = true
 		  | listCompatible (a::aTail, b::bTail, pos:int) =
 		    if isCompatible(a,b)

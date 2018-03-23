@@ -1,6 +1,6 @@
-structure S = Symbol
 structure T = Types
 structure R = Translate
+structure S = Symbol
 
 signature ENV =
 sig
