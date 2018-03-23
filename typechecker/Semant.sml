@@ -20,7 +20,7 @@ fun getPosFromTypeDec  ({name, ty, pos}) = pos
 fun printError(msg, pos) = ErrorMsg.error pos (msg)
 
 fun checkLoopCounter(venv, A.SimpleVar(s,p)) = (case S.look (venv, s) of
-                                            SOME(E.VarEntry{ty=vartype, isCounter=c}) =>
+                                            SOME(E.VarEntry{access=access, ty=vartype, isCounter=c}) =>
                                                 if c then printError("Error: Can not assign value to for loop counter", p) else ()
                                           | NONE => ())
   | checkLoopCounter(venv, v:A.var) = ()
@@ -38,8 +38,6 @@ fun printType ty = case ty of
 fun tenvLookUp (tenv, n, pos) = case S.look(tenv, n) of
                  SOME x => x
 	       | NONE => (printError("Type does not exist in type environment.", pos); T.BOTTOM)
-
-fun makeVarEntry (typ:Types.ty) = E.VarEntry {ty=typ, isCounter=false}
 
 fun checkDups (nil, nil) = ()
   | checkDups (name::others, pos::poss) =
@@ -94,7 +92,7 @@ TODO: RETURN IR IN ADDITION*)
 fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p)) = actualType (lookupArrayType ((transVar(venv, tenv, v),p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (lookupFieldType ((transVar (venv, tenv, v),s,p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p)) = case S.look (venv, s) of
-                                              SOME(E.VarEntry{ty=vartype, isCounter=c}) => actualType(vartype, p)
+                                              SOME(E.VarEntry{acces=access, ty=vartype, isCounter=c}) => actualType(vartype, p)
                                             | NONE => (printError("Could not find variable " ^ S.name(s) ^ " in the current scope", p);T.BOTTOM)
 
 (*Checks whether a is the same type as, or a subtype of, b*)
@@ -179,7 +177,7 @@ fun transTy (tenv, Absyn.TypeDec(tylist)) = let val newTenv = processTypeDecBodi
   * trvar: A.var -> T.ty
   *)
 
-fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
+fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoop) =
   (*fn(e:Absyn.exp) => {exp=(), ty=T.UNIT}*)
     let fun trexp (A.NilExp) = {exp = R.NilExp, ty = T.NIL}
 
@@ -288,7 +286,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
           | trexp (A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p}) = (
               checkInt(l, p);
               checkInt(h, p);
-              checkBody(S.enter (venv, v, Env.VarEntry{ty=T.INT, isCounter=true}), b, v, p);
+              checkBody(S.enter (venv, v, Env.VarEntry{access=access, ty=T.INT, isCounter=true}), b, v, p);
               {exp = (), ty = T.UNIT})
 
           | trexp (A.ArrayExp{typ=t, size=s, init=i, pos=p}) =

@@ -14,11 +14,14 @@ sig
                 |Nx of Tree.stm
                 |Cx of Temp.label*Temp.label -> Tree.stm
 
+  type frag = Frame.frag
+
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   val newLevel : {parent:level, name:Temp.label, formals:bool list} -> level
 
   val formals : level -> access list
   val allocLocal : level -> bool -> access
+  val fragments : frag list ref
   (*val simpleVar : access*level -> exp*)
 
 end
@@ -40,6 +43,8 @@ structure Tr = Tree
   datatype exp = Ex of Tr.exp
                 |Nx of Tr.stm
                 |Cx of Temp.label*Temp.label -> Tr.stm
+
+  type frag = F.frag
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
@@ -69,22 +74,37 @@ structure Tr = Tree
                      makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
     if curUnq = accessUnq then Tr.TEMP(MipsFrame.FP)
                           else let val subexp = traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}, curParent)
-                          in Tr.CONST(1)
-                          end
+                          in T.CONST(1)
+                               end
+				   
+  val fraglistref : frag list ref = ref nil
+				   
+(*First argument is the access representing where a variable was declared*)
+(*Second argument is the level where the variable is being accessed*)
+  fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
+                makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
+        let
+          val exp = case accessType of
+                          MipsFrame.InReg(t) => T.CONST 0
+                        | MipsFrame.InFrame(offset) => traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
+                                                            makeLevel{frame=curFrame, parent=curParent, unq=curUnq})
+        in
+          MipsFrame.exp(accessType)(exp)
+        end
 
-  (* exp -> Tr.exp *)
-    fun unEx (Ex e) = e
-      | unEx (Nx s) = Tr.ESEQ(s,Tr.CONST 0)
-      | unEx (Cx genstm) =
-          let val r = Temp.newtemp()
-              val t = Temp.newlabel() and f = Temp.newlabel()
-          in Tr.ESEQ(Tr.seq[Tr.MOVE(Tr.TEMP r, Tr.CONST 1),
-  		        genstm(t,f),
-  		        Tr.LABEL f,
-  		        Tr.MOVE(Tr.TEMP r, Tr.CONST 0),
-  		        Tr.LABEL t],
-  	                Tr.TEMP r)
-          end
+(* exp -> T.exp *)
+  fun unEx (Ex e) = e
+    | unEx (Nx s) = T.ESEQ(s,T.CONST 0)
+    | unEx (Cx genstm) =
+        let val r = Temp.newtemp()
+            val t = Temp.newlabel() and f = Temp.newlabel()
+        in T.ESEQ(T.seq[T.MOVE(T.TEMP r, T.CONST 1),
+		        genstm(t,f),
+		        T.LABEL f,
+		        T.MOVE(T.TEMP r, T.CONST 0),
+		        T.LABEL t],
+	                T.TEMP r)
+        end
 
   (* exp -> Tree.stm *)
   fun unNx (Ex e) = Tr.EXP e
@@ -92,12 +112,36 @@ structure Tr = Tree
     | unNx (Cx c) = let val t = Temp.newlabel() in c(t,t); Tr.LABEL t end
 
   (* exp -> (Temp.label * Temp.label -> Tree.stm) *)
-  fun unCx (Ex (Tr.CONST 0)) = (fn(t,f) => Tr.JUMP(Tr.NAME f, [f]))
-    | unCx (Ex (Tr.CONST 1)) = (fn(t,f) => Tr.JUMP(Tr.NAME t, [t]))
-    | unCx (Ex e) = (fn (t,f) => Tr.CJUMP(Tr.NE, e, Tr.CONST 0, t, f))
+  fun unCx (Ex (T.CONST 0)) = (fn(t,f) => T.JUMP(T.NAME f, [f]))
+    | unCx (Ex (T.CONST 1)) = (fn(t,f) => T.JUMP(T.NAME t, [t]))
+    | unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f))
     | unCx (Nx _) = raise ErrorMsg.Error
     | unCx (Cx c) = c
 
+  val NilExp = Ex(T.CONST 0)
+
+  fun IntExp (n:int) : exp = Ex(T.CONST n)
+
+  fun StringExp (s:string) : exp =
+      let
+	  (* Find a fragment that corresponds to s (or don't find one) in fraglist, return exp *)
+	  val f = List.find (fn (x) => case (_,str) of
+					   F.PROC => false
+					 | F.STRING => s=str) (!fraglistref)
+      in
+	  case f of
+	      (* Didn't find fragment, make new label, put new fragment in fraglist *)
+	      NONE =>
+	          let
+		      val lab = Temp.newlabel()
+ 	          in
+                      fraglistref := F.STRING(lab,s)::!fraglistref;
+		      Ex(Tr.NAME(lab))
+		  end
+	      (* Found fragment, return exp *)
+              SOME(F.STRING(lab,_)) => Ex(Tr.NAME(lab))
+      end
+	  
   (* binop and relop handle OpExp *)
   fun binop (oper,lexp,rexp) : exp =
       let
