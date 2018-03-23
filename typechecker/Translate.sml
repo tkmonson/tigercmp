@@ -22,7 +22,27 @@ sig
   val formals : level -> access list
   val allocLocal : level -> bool -> access
   val fraglistref : frag list ref
-  (*val simpleVar : access*level -> exp*)
+
+  val simpleVar : access*level -> exp
+  val subscript : exp*exp -> exp
+  val translateIfThen : exp*exp -> exp
+  val translateIfThenElse : exp*exp*exp -> exp
+  val callExp : level*level*Temp.label*exp list -> exp
+  val assignExp : exp*exp -> exp
+  val seqExp : exp list -> exp
+  val whileLoop : exp*exp*Temp.label -> exp
+  val recCreate : exp list * int -> exp
+  val arrayCreate : exp*exp -> exp
+  val IntExp : int -> exp
+  val NilExp : exp
+  val relop : Absyn.oper*exp*exp -> exp
+  val binop : Absyn.oper*exp*exp -> exp
+
+  val unCx : exp -> Tree.label*Tree.label -> Tree.stm
+  val unNx : exp -> Tree.stm
+  val unEx : exp -> Tree.exp
+
+  val dummy : exp
 
 end
 
@@ -46,6 +66,8 @@ structure F = MipsFrame
                 |Cx of Temp.label*Temp.label -> Tr.stm
 
   type frag = F.frag
+
+  val dummy = Ex (Tr.CONST 12345)
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
@@ -79,22 +101,6 @@ structure F = MipsFrame
                                end
 
   val fraglistref : frag list ref = ref nil
-<<<<<<< HEAD
-
-(*First argument is the access representing where a variable was declared*)
-(*Second argument is the level where the variable is being accessed*)
-  fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
-                makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
-        let
-          val exp = case accessType of
-                          MipsFrame.InReg(t) => Tr.CONST 0
-                        | MipsFrame.InFrame(offset) => traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
-                                                            makeLevel{frame=curFrame, parent=curParent, unq=curUnq})
-        in
-          MipsFrame.exp(accessType)(exp)
-        end
-=======
->>>>>>> bc43a52cd038c10a6fe41949dd0f3e3738098cb8
 
 (* exp -> Tr.exp *)
   fun unEx (Ex e) = e
@@ -149,11 +155,11 @@ structure F = MipsFrame
 	  Cx(fn (t,f) => Tr.CJUMP(TreeOper,unEx(lexp),unEx(rexp),t,f))
       end
 
-  val NilExp = Ex(T.CONST 0)
+  val NilExp = Ex(Tr.CONST 0)
 
-  fun IntExp (n:int) : exp = Ex(T.CONST n)
+  fun IntExp (n:int) : exp = Ex(Tr.CONST n)
 
-  fun StringExp (s:string) : exp =
+(*)  fun StringExp (s:string) : exp =
       let
 	  (* Find a fragment that corresponds to s (or don't find one) in fraglist, return exp *)
 	  val f = List.find (fn (x) => case (_,str) of
@@ -170,9 +176,9 @@ structure F = MipsFrame
 		      Ex(Tr.NAME(lab))
 		  end
 	      (* Found fragment, return exp *)
-              SOME(F.STRING(lab,_)) => Ex(Tr.NAME(lab))
+            |  SOME(F.STRING(lab,_)) => Ex(Tr.NAME(lab))
       end
-
+*)
   (*First argument is the access representing where a variable was declared*)
   (*Second argument is the level where the variable is being accessed*)
   fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
@@ -183,7 +189,7 @@ structure F = MipsFrame
                         | MipsFrame.InFrame(offset) => traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
                                                             makeLevel{frame=curFrame, parent=curParent, unq=curUnq})
         in
-          MipsFrame.exp(accessType)(exp)
+          Ex(MipsFrame.exp(accessType)(exp))
         end
  (*TODO: fun field(access, level)*)
 
@@ -196,7 +202,7 @@ structure F = MipsFrame
    val getBaseAddr = MipsFrame.externalCall("initArray", [Tr.BINOP(Tr.PLUS, Tr.CONST 1, unEx(size)), unEx(initValue)])
    val storeBaseAddr = Tr.MOVE(Tr.TEMP(baseAddr), Tr.BINOP(Tr.PLUS, Tr.CONST 4, getBaseAddr))
    val storeArrSize = Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.MINUS, Tr.TEMP(baseAddr), Tr.CONST 4)), unEx(size))
-  in Tr.ESEQ(Tr.seq([storeBaseAddr, storeArrSize]), Tr.TEMP(baseAddr))
+  in Ex(Tr.ESEQ(Tr.seq([storeBaseAddr, storeArrSize]), Tr.TEMP(baseAddr)))
   end
 
  (*Translation for a RecordExp*)
@@ -208,12 +214,12 @@ structure F = MipsFrame
     val getBaseAddr = MipsFrame.externalCall("malloc",[Tr.CONST(numFields*MipsFrame.wordsize)])
     val storeBaseAddr = Tr.MOVE(Tr.TEMP(baseAddr), getBaseAddr)
     val offset = ref 0
-    fun genMove(offsetRef, field) = (offset := (!offset) + 1;
-                                    Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.PLUS, Tr.TEMP(baseAddr), Tr.CONST((!offset-1)*MipsFrame.wordsize))), field))
+    fun genMove(field) = (offset := (!offset) + 1;
+                                    Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.PLUS, Tr.TEMP(baseAddr), Tr.CONST((!offset-1)*MipsFrame.wordsize))), unEx(field)))
     val moveList = map genMove fieldList
     val statements = storeBaseAddr::moveList
   in
-    Tr.ESEQ(Tr.seq(statements), Tr.TEMP(baseAddr))
+    Ex(Tr.ESEQ(Tr.seq(statements), Tr.TEMP(baseAddr)))
   end
 
   (*test and body are both Translate.exp*)
@@ -227,14 +233,14 @@ structure F = MipsFrame
       val bodyNx = unNx(body)
       val jumpToTest = Tr.JUMP(Tr.NAME ltest, [ltest])
     in
-      Tree.seq([Tr.LABEL ltest, cond(lbody, ldone), Tr.LABEL lbody, bodyNx, jumpToTest, Tr.LABEL ldone])
+      Nx(Tree.seq([Tr.LABEL ltest, cond(lbody, ldone), Tr.LABEL lbody, bodyNx, jumpToTest, Tr.LABEL ldone]))
     end
   (*make eseq to turn everything but last one into statement and return last one as exp*)
-  fun seqExp (elist) = Tr.ESEQ (Tr.seq (map unNx (List.take (elist, (List.length elist) - 1))), unEx (List.last(elist)))
+  fun seqExp (elist) = Ex(Tr.ESEQ (Tr.seq (map unNx (List.take (elist, (List.length elist) - 1))), unEx (List.last(elist))))
 
   (*location comes from transvar call in semant, exp comes from recursivecall in semant*)
   fun assignExp (location, exp) =
-      Tr.MOVE(Tr.MEM(location), unEx(exp))
+      Nx(Tr.MOVE(Tr.MEM(unEx(location)), unEx(exp)))
 
   (*just go to label from while loop*)
   (* fun breakExp(label) = Tr.JUMP(label,[label])*)
@@ -242,7 +248,7 @@ structure F = MipsFrame
   (*need level where fun was declared, then level where it was called*)
   (*Need level of f and level of fn calling f to compute static link*)
   fun callExp (makeLevel{frame=frame, parent=level, unq=_}, currLevel, label:Temp.label, argExpList) =
-      Tr.CALL(Tr.NAME label, (traverseLevels(level, currLevel)::(map unEx argExpList)))
+      Ex(Tr.CALL(Tr.NAME label, (traverseLevels(level, currLevel)::(map unEx argExpList))))
 
   (*return exp of assignment expression to initialize var
     do we call assignExp on the var...?*)
@@ -260,10 +266,10 @@ structure F = MipsFrame
       val joinLabel = Temp.newlabel()
       val join = Tr.JUMP(Tr.NAME(joinLabel),[joinLabel])
   in
-      Tr.ESEQ(
+      Ex(Tr.ESEQ(
               Tr.seq [testCx(tLabel, fLabel), Tr.LABEL(tLabel), Tr.MOVE(Tr.TEMP(retVal), thenEx), join,
                                              Tr.LABEL(fLabel), Tr.MOVE(Tr.TEMP(retVal), elseEx), join, Tr.LABEL(joinLabel)],
-              Tr.TEMP(retVal))
+              Tr.TEMP(retVal)))
   end
 
   fun translateIfThen(test, thenExp) =
@@ -275,10 +281,10 @@ structure F = MipsFrame
       val joinLabel = Temp.newlabel()
       val join = Tr.JUMP(Tr.NAME(joinLabel),[joinLabel])
   in
-      Tr.ESEQ(
+      Ex(Tr.ESEQ(
               Tr.seq [testCx(tLabel, fLabel), Tr.LABEL(tLabel), Tr.MOVE(Tr.TEMP(retVal), thenEx), join,
                                              Tr.LABEL(fLabel), join, Tr.LABEL(joinLabel)],
-              Tr.TEMP(retVal))
+              Tr.TEMP(retVal)))
   end
 
 
@@ -305,9 +311,9 @@ structure F = MipsFrame
     val retVal = Tr.MEM(Tr.BINOP(Tr.PLUS, unEx(baseAddr), unEx(index)))
     val exit = Tr.EXP(MipsFrame.externalCall("exit", [Tr.CONST 1]))
   in
-    Tr.ESEQ(Tr.seq [checkBelowZero, Tr.LABEL ifBelowZero, exit, Tr.LABEL ifAboveZero,
+    Ex (Tr.ESEQ(Tr.seq [checkBelowZero, Tr.LABEL ifBelowZero, exit, Tr.LABEL ifAboveZero,
                     checkOutOfBounds, Tr.LABEL ifOutOFBounds, exit, Tr.LABEL allGood],
-           retVal)
+           retVal))
   end
 
 
