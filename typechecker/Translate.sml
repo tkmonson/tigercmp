@@ -76,21 +76,8 @@ structure Tr = Tree
                           else let val subexp = traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}, curParent)
                           in T.CONST(1)
                                end
-				   
+
   val fraglistref : frag list ref = ref nil
-				   
-(*First argument is the access representing where a variable was declared*)
-(*Second argument is the level where the variable is being accessed*)
-  fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
-                makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
-        let
-          val exp = case accessType of
-                          MipsFrame.InReg(t) => T.CONST 0
-                        | MipsFrame.InFrame(offset) => traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
-                                                            makeLevel{frame=curFrame, parent=curParent, unq=curUnq})
-        in
-          MipsFrame.exp(accessType)(exp)
-        end
 
 (* exp -> T.exp *)
   fun unEx (Ex e) = e
@@ -118,30 +105,6 @@ structure Tr = Tree
     | unCx (Nx _) = raise ErrorMsg.Error
     | unCx (Cx c) = c
 
-  val NilExp = Ex(T.CONST 0)
-
-  fun IntExp (n:int) : exp = Ex(T.CONST n)
-
-  fun StringExp (s:string) : exp =
-      let
-	  (* Find a fragment that corresponds to s (or don't find one) in fraglist, return exp *)
-	  val f = List.find (fn (x) => case (_,str) of
-					   F.PROC => false
-					 | F.STRING => s=str) (!fraglistref)
-      in
-	  case f of
-	      (* Didn't find fragment, make new label, put new fragment in fraglist *)
-	      NONE =>
-	          let
-		      val lab = Temp.newlabel()
- 	          in
-                      fraglistref := F.STRING(lab,s)::!fraglistref;
-		      Ex(Tr.NAME(lab))
-		  end
-	      (* Found fragment, return exp *)
-              SOME(F.STRING(lab,_)) => Ex(Tr.NAME(lab))
-      end
-	  
   (* binop and relop handle OpExp *)
   fun binop (oper,lexp,rexp) : exp =
       let
@@ -169,25 +132,44 @@ structure Tr = Tree
 	  Cx(fn (t,f) => Tr.CJUMP(TreeOper,unEx(lexp),unEx(rexp),t,f))
       end
 
+  val NilExp = Ex(T.CONST 0)
+
+  fun IntExp (n:int) : exp = Ex(T.CONST n)
+
+  fun StringExp (s:string) : exp =
+      let
+	  (* Find a fragment that corresponds to s (or don't find one) in fraglist, return exp *)
+	  val f = List.find (fn (x) => case (_,str) of
+					   F.PROC => false
+					 | F.STRING => s=str) (!fraglistref)
+      in
+	  case f of
+	      (* Didn't find fragment, make new label, put new fragment in fraglist *)
+	      NONE =>
+	          let
+		      val lab = Temp.newlabel()
+ 	          in
+                      fraglistref := F.STRING(lab,s)::!fraglistref;
+		      Ex(Tr.NAME(lab))
+		  end
+	      (* Found fragment, return exp *)
+              SOME(F.STRING(lab,_)) => Ex(Tr.NAME(lab))
+      end
+
   (*First argument is the access representing where a variable was declared*)
   (*Second argument is the level where the variable is being accessed*)
-    fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
-                  makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
-          let
-            val exp = case accessType of
-                            MipsFrame.InReg(t) => Tr.CONST 0
-                          | MipsFrame.InFrame(offset) => traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
-                                                              makeLevel{frame=curFrame, parent=curParent, unq=curUnq})
-          in
-            MipsFrame.exp(accessType)(exp)
-          end
-
-    val NilExp = Ex(Tr.CONST 0)
-
-    fun IntExp (n:int) : exp = Ex(Tr.CONST n)
-
-    fun StringExp (s:string) : unit = ()
-
+  fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
+                makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
+        let
+          val exp = case accessType of
+                          MipsFrame.InReg(t) => Tr.CONST 0
+                        | MipsFrame.InFrame(offset) => traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
+                                                            makeLevel{frame=curFrame, parent=curParent, unq=curUnq})
+        in
+          MipsFrame.exp(accessType)(exp)
+        end
+ (*TODO: fun field(access, level)*)
+ 
   (*Translation for an ArrayExp*)
   (*Assume that the external function initArray will initialize the array and return its base addr in a temp*)
   (*Stores array size in index -1 *)
