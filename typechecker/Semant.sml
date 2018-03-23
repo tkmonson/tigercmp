@@ -245,7 +245,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 
 
           | trexp (A.LetExp{decs=d, body=b, pos=p}) =
-            let val (venv', tenv') = transDecs (venv, tenv, d)
+            let val (venv', tenv', ir) = transDecs (venv, tenv, d, [])
             in  transExp(venv', tenv', false) b
             end
 
@@ -334,144 +334,146 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 	    end
 
 
-	and trvar (v:A.var) = (transVar (venv, tenv, v))
+    	and trvar (v:A.var) = (transVar (venv, tenv, v))
 
-	and trseq [] = {exp=(), ty=T.UNIT} (*This should be unit and not bottom!*)
-          | trseq ((a,p)::[]) = trexp a
-          | trseq ((a,p)::l) = (trexp a; trseq l) (*Call trexp on a for side effects*)
+    	and trseq [] = {exp=(), ty=T.UNIT} (*This should be unit and not bottom!*)
+              | trseq ((a,p)::[]) = trexp a
+              | trseq ((a,p)::l) = (trexp a; trseq l) (*Call trexp on a for side effects*)
 
-	and checkInt (e:A.exp, pos) =
-	    let val {exp=_, ty=eTy} = trexp e
-	    in
-		if isCompatible(actualType(eTy, pos), T.INT) then () else (printError("Expression is not an int!!", pos))
-	    end
+    	and checkInt (e:A.exp, pos) =
+    	    let val {exp=_, ty=eTy} = trexp e
+    	    in
+    		if isCompatible(actualType(eTy, pos), T.INT) then () else (printError("Expression is not an int!!", pos))
+    	    end
 
-	and checkBody (venv':E.enventry S.table, b:A.exp, v, pos:A.pos) =
-	    let val {exp=_, ty=bTy} = transExp (venv', tenv, true) b
-	    in
-		if bTy = T.UNIT then () else (printError("Unit return type expected; received " ^ printType bTy, pos);())
-	    end
+    	and checkBody (venv':E.enventry S.table, b:A.exp, v, pos:A.pos) =
+    	    let val {exp=_, ty=bTy} = transExp (venv', tenv, true) b
+    	    in
+    		if bTy = T.UNIT then () else (printError("Unit return type expected; received " ^ printType bTy, pos);())
+    	    end
 
-	and checkUnitTy (e:A.exp, pos:A.pos) =
-	    let val {exp=_, ty=eTy} = trexp e
-	    in
-		if eTy = T.UNIT then () else (printError("Unit return type expected; received " ^ printType eTy, pos);())
-	    end
+    	    and checkUnitTy (e:A.exp, pos:A.pos) =
+    	        let val {exp=_, ty=eTy} = trexp e
+    	        in
+    	    	if eTy = T.UNIT then () else (printError("Unit return type expected; received " ^ printType eTy, pos);())
+    	        end
 
-	and checkRecordFields ([], []) = ()
-	  | checkRecordFields ((rectypename, rectype)::l1, (recname, recval, pos)::l2) =
-	    let val {exp=e, ty=recvaltype} = trexp recval
-	    in
-		if rectypename <> recname then (printError("Expected field " ^ S.name(recname) ^ " but received " ^ S.name(rectypename), pos))
-		else (if isCompatible(actualType(recvaltype,pos), actualType(rectype,pos))
-		      then checkRecordFields(l1, l2)
-		      else printError("Record fields are not compatible for field " ^ S.name(recname) ^
-				      ". Expected " ^ printType rectype ^ " and received " ^ printType recvaltype , pos))
-	    end
-	  | checkRecordFields (_,_) = ()
+    	and checkRecordFields ([], []) = ()
+    	  | checkRecordFields ((rectypename, rectype)::l1, (recname, recval, pos)::l2) =
+    	    let val {exp=e, ty=recvaltype} = trexp recval
+    	    in
+    		if rectypename <> recname then (printError("Expected field " ^ S.name(recname) ^ " but received " ^ S.name(rectypename), pos))
+    		else (if isCompatible(actualType(recvaltype,pos), actualType(rectype,pos))
+    		      then checkRecordFields(l1, l2)
+    		      else printError("Record fields are not compatible for field " ^ S.name(recname) ^
+    				      ". Expected " ^ printType rectype ^ " and received " ^ printType recvaltype , pos))
+    	    end
+    	  | checkRecordFields (_,_) = ()
 
-	and checkRecordExp (A.RecordExp({fields=fieldlist, typ=typename, pos=p})) =
-	    let val recordType = actualType(tenvLookUp(tenv, typename, p), p)
-	    in case recordType of
-		   Types.RECORD (fieldtypelist, unq) => (checkRecordFields(fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
-		 | _    => (printError("Trying to set fields of something that is not a record type", p);T.BOTTOM)
-	    end
+    	and checkRecordExp (A.RecordExp({fields=fieldlist, typ=typename, pos=p})) =
+    	    let val recordType = actualType(tenvLookUp(tenv, typename, p), p)
+    	    in case recordType of
+    		   Types.RECORD (fieldtypelist, unq) => (checkRecordFields(fieldtypelist, fieldlist);Types.RECORD(fieldtypelist, unq))
+    		 | _    => (printError("Trying to set fields of something that is not a record type", p);T.BOTTOM)
+    	    end
 
-	and transDecs (venv:E.enventry S.table, tenv:T.ty S.table, []) = (venv, tenv)
-	  | transDecs (venv:E.enventry S.table, tenv:T.ty S.table, a::l:Absyn.dec list) =
-            let val (v', t') = transDec (venv, tenv, a)
-            in transDecs(v', t', l) end
+	    and transDecs (venv:E.enventry S.table, tenv:T.ty S.table, [], irList) = (venv, tenv, irList)
+	      | transDecs (venv:E.enventry S.table, tenv:T.ty S.table, a::l:Absyn.dec list, irList) =
+                let val (v', t') = transDec (venv, tenv, a, irList)
+                in transDecs(v', t', l, irList) end
 
-	and transDec (venv, tenv, Absyn.VarDec(vd)) = (transVarDec(venv, tenv, Absyn.VarDec vd), tenv)
-	  | transDec (venv, tenv, Absyn.TypeDec(td)) = (venv, transTy(tenv, Absyn.TypeDec td))
-	  | transDec (venv, tenv, Absyn.FunctionDec(fundecs))  = (transFunDec (venv, tenv, Absyn.FunctionDec fundecs), tenv)
+    	and transDec (venv, tenv, Absyn.VarDec(vd), irList) = (let val (venv', ir) = transVarDec(venv, tenv, Absyn.VarDec vd)
+                                                             in (venv', tenv, irList@[ir]) end
+    	  | transDec (venv, tenv, Absyn.TypeDec(td), irList) = (venv, transTy(tenv, Absyn.TypeDec td), irList)
+    	  | transDec (venv, tenv, Absyn.FunctionDec(fundecs), irList)  = (transFunDec (venv, tenv, Absyn.FunctionDec fundecs), tenv, irList)
 
-	and processFunDecHead ({name, params, result, body, pos}:A.fundec, (venv, tenv)) =
-	    let
-		(* 1. Check that result has valid type *)
-		val rt = case result of
-	                     NONE => T.UNIT
-			   | SOME (typ, pos) => tenvLookUp(tenv, typ, pos)
+    	and processFunDecHead ({name, params, result, body, pos}:A.fundec, (venv, tenv)) =
+    	    let
+    		(* 1. Check that result has valid type *)
+    		val rt = case result of
+    	                     NONE => T.UNIT
+    			   | SOME (typ, pos) => tenvLookUp(tenv, typ, pos)
 
-		(* 2. Check that params have valid types *)
-		fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
-		val names = map getNameFromField params
-		val types = map transparam params
+    		(* 2. Check that params have valid types *)
+    		fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
+    		val names = map getNameFromField params
+    		val types = map transparam params
 
-	    in
+    	    in
 
-  		(* 3. Check that no params share a name *)
-		checkDups(map getNameFromField params, map getPosFromField params);
+      		(* 3. Check that no params share a name *)
+    		checkDups(map getNameFromField params, map getPosFromField params);
 
-		(* 4. Return venv with FunEntry *)
-                (S.enter(venv, name, E.FunEntry{level= R.newLevel{parent=level,name=name,formals=es},
-						label=name,
-						formals = types,
-						result = rt}), tenv)
-	    end
+    		(* 4. Return venv with FunEntry *)
+                    (S.enter(venv, name, E.FunEntry{level= R.newLevel{parent=level,name=name,formals=es},
+    						label=name,
+    						formals = types,
+    						result = rt}), tenv)
+    	    end
 
-	and processFunDecBody ({name, params, result, body, pos}:A.fundec,(venv,tenv)) =
-	    let
-		(* 1. Make sure parameters have valid types  *)
-		fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
-  		val names = map getNameFromField params
-  		val types = map transparam params
+	    and processFunDecBody ({name, params, result, body, pos}:A.fundec,(venv,tenv)) =
+	        let
+	    	(* 1. Make sure parameters have valid types  *)
+	    	fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
+      		val names = map getNameFromField params
+      		val types = map transparam params
 
-		(* 2. Declare the parameters to be in scope within the body of the function *)
-  		val vEntries = map makeVarEntry types
-  		fun enterVars ((name:S.symbol, vEntry:E.enventry), venv: E.enventry S.table) = S.enter(venv,name,vEntry)
-  		fun combineLists ([], []) = []
-		  | combineLists(a::aTail, b::bTail) = (a,b) :: combineLists(aTail, bTail)
+	    	(* 2. Declare the parameters to be in scope within the body of the function *)
+      		val vEntries = map makeVarEntry types
+      		fun enterVars ((name:S.symbol, vEntry:E.enventry), venv: E.enventry S.table) = S.enter(venv,name,vEntry)
+      		fun combineLists ([], []) = []
+	    	  | combineLists(a::aTail, b::bTail) = (a,b) :: combineLists(aTail, bTail)
 
-  		val venv' = foldr enterVars venv (combineLists(names, vEntries));
+      		val venv' = foldr enterVars venv (combineLists(names, vEntries));
 
-		(* 3. Make sure body variables are in scope and evaluate the overall result type of the function's body *)
-		val {exp,ty} = transExp(venv', tenv, false) body
+	    	(* 3. Make sure body variables are in scope and evaluate the overall result type of the function's body *)
+	    	val {exp,ty} = transExp(venv', tenv, false) body
 
-		(* 4. Make sure that type of body matches expected return type of function *)
-		val expectedReturnType = case result of SOME(rSym,rPos) => actualType(tenvLookUp (tenv, rSym, rPos), pos)
-					 																| NONE            => T.UNIT
-	  val actualReturnType = actualType(ty, pos)
+	    	(* 4. Make sure that type of body matches expected return type of function *)
+	    	val expectedReturnType = case result of SOME(rSym,rPos) => actualType(tenvLookUp (tenv, rSym, rPos), pos)
+	    				 																| NONE            => T.UNIT
+	      val actualReturnType = actualType(ty, pos)
 
-    val checkBodyType =
-		case expectedReturnType of
-		  T.UNIT   => if actualReturnType = T.UNIT then () else printError("Void function should not be returning a value", pos)
-		| _        =>	if isCompatible(actualReturnType, expectedReturnType) then () else printError("Result type of function header does not match result type of function body.", pos)
+        val checkBodyType =
+	    	case expectedReturnType of
+	    	  T.UNIT   => if actualReturnType = T.UNIT then () else printError("Void function should not be returning a value", pos)
+	    	| _        =>	if isCompatible(actualReturnType, expectedReturnType) then () else printError("Result type of function header does not match result type of function body.", pos)
 
-		in
-		(* 5. Result is unimportant, this function is strictly side-effecting *)
-		(venv,tenv)
-	    end
+	    	in
+	    	(* 5. Result is unimportant, this function is strictly side-effecting *)
+	    	(venv,tenv)
+	        end
 
-	and transFunDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.FunctionDec fundecs) =
-	    let
-  		(* 1. processFunDecHead takes a function header and updates the venv to include the function *)
-		val (venv',tenv) = foldl processFunDecHead (venv,tenv) fundecs
-	    in
-		(*2.  Make sure body variables have valid type and are in scope, compare body and header result types
-	              This function is strictly side-effecting for the purpose of returning error messages *)
-		foldl processFunDecBody (venv',tenv) fundecs;
+	    and transFunDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.FunctionDec fundecs) =
+	        let
+      		(* 1. processFunDecHead takes a function header and updates the venv to include the function *)
+	    	val (venv',tenv) = foldl processFunDecHead (venv,tenv) fundecs
+	        in
+	    	(*2.  Make sure body variables have valid type and are in scope, compare body and header result types
+	                  This function is strictly side-effecting for the purpose of returning error messages *)
+	    	foldl processFunDecBody (venv',tenv) fundecs;
 
-  		(* 3. Check that there are no identical function names *)
-  		checkDups(map getNameFromFunDec fundecs, map getPosFromFunDec fundecs);
+      		(* 3. Check that there are no identical function names *)
+      		checkDups(map getNameFromFunDec fundecs, map getPosFromFunDec fundecs);
 
-		(* 4. Return the venv outside of the function body's scope *)
-		venv'
-	    end
+	    	(* 4. Return the venv outside of the function body's scope *)
+	    	venv'
+	        end
 
-	and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
-            let val {exp=exp, ty=exptype} = transExp(venv, tenv, false) i
-		val venv' = S.enter(venv, varname, Env.VarEntry{ty=exptype, isCounter=false})
-		val venv'' = S.enter(venv, varname, Env.VarEntry{ty=T.BOTTOM, isCounter=false})
-            in
-		case vartype of
-		    SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
-		                                     SOME(expectedtype) => if isCompatible(exptype, actualType(expectedtype, p))
-									   then venv'
-									   else (printError("Variable type does not meet expected type", p);venv'')
-						   | NONE => (printError("Could not find type in type environment",p);venv''))
-		  | NONE => if exptype = T.NIL then (printError("Implicitly typed variables can not be declared as NIL", p); venv'') else venv'
-            end
+	    and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}, level) =
+         let val {exp=exp, ty=exptype} = transExp(venv, tenv, false) i
+             val access = R.allocLocal(level)(*call alloc local to get access takes level*)
+	           val venv' = S.enter(venv, varname, Env.VarEntry{access, ty=exptype, isCounter=false})
+	           val venv'' = S.enter(venv, varname, Env.VarEntry{access, ty=T.BOTTOM, isCounter=false})
+             val ir = R.assignExp(access, i)
+         in
+	                	case vartype of
+	                	    SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
+	                	                                     SOME(expectedtype) => if isCompatible(exptype, actualType(expectedtype, p))
+	                								                                             then (venv', ir) else (printError("Variable type does not meet expected type", p);venv'')
+	                					                             | NONE => (printError("Could not find type in type environment",p);(venv'', ir)))
+	                	   | NONE => if exptype = T.NIL then (printError("Implicitly typed variables can not be declared as NIL", p); (venv'', ir)) else venv'
+         end
     in
 	trexp
     end

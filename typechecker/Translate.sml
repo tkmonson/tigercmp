@@ -51,7 +51,7 @@ structure Tr = Tree
 
  (*Given the level for some function, formals returns the Translate.access for each of its formals, except for the static link*)
   fun formals (makeLevel{frame=frame, parent=parent, unq=unq}) =
-    let val accList = MipsFrame.formals(frame)
+    (let val accList = MipsFrame.formals(frame)
         val l = makeLevel{frame=frame, parent=parent, unq=unq}
         fun accWrapper(a:MipsFrame.access) = makeAccess{acc=a, lev=l}
     in case accList of
@@ -63,7 +63,6 @@ structure Tr = Tree
   fun allocLocal(makeLevel{frame=frame, parent=parent, unq=unq}) =
       (fn(x:bool) => makeAccess{acc=MipsFrame.allocLocal(frame) (x),
                                lev=makeLevel{frame=frame,parent=parent,unq=unq}})
-    | allocLocal(outermost) = fn(x:bool) => (;makeAccess(MipsFrame., outermost))
 
  (*Give two levels, returns IR sequence that traverses from one level to another*)
   fun traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq},
@@ -151,9 +150,9 @@ structure Tr = Tree
   fun arrayCreate(size, initValue) =
   let
    val baseAddr = Temp.newtemp()
-   val getBaseAddr = MipsFrame.externalCall("initArray", [Tr.CONST(size+1), Tr.CONST(initValue)])
+   val getBaseAddr = MipsFrame.externalCall("initArray", [Tr.BINOP(Tr.PLUS, Tr.CONST 1, unEx(size)), unEx(initValue)])
    val storeBaseAddr = Tr.MOVE(Tr.TEMP(baseAddr), Tr.BINOP(Tr.PLUS, Tr.CONST 4, getBaseAddr))
-   val storeArrSize = Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.MINUS, Tr.TEMP(baseAddr), Tr.CONST 4)), Tr.CONST(size))
+   val storeArrSize = Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.MINUS, Tr.TEMP(baseAddr), Tr.CONST 4)), unEx(size))
   in Tr.ESEQ(Tr.seq([storeBaseAddr, storeArrSize]), Tr.TEMP(baseAddr))
   end
 
@@ -238,6 +237,36 @@ structure Tr = Tree
                                              Tr.LABEL(fLabel), join, Tr.LABEL(joinLabel)],
               Tr.TEMP(retVal))
   end
+
+
+
+  (* If index < 0: Jump to ifBelowZer
+     else:         Jump to ifAboveZero
+
+     ifBelowZero: exit
+     ifAboveZero: if index >= array size jump to ifOutOFBounds
+                  else:                  jump to allGood
+    ifOutOFBounds: exit
+    allGood: Do nothing
+
+  *)
+  fun subscript(baseAddr, index) =
+  let
+    val arrSize = Tr.MEM(Tr.BINOP(Tr.MINUS, unEx(baseAddr), Tr.CONST 4))
+    val ifBelowZero = Temp.newlabel()
+    val ifAboveZero = Temp.newlabel()
+    val ifOutOFBounds = Temp.newlabel()
+    val allGood = Temp.newlabel()
+    val checkOutOfBounds = Tr.CJUMP(Tr.GE, unEx(index), arrSize, ifOutOFBounds, allGood)
+    val checkBelowZero = Tr.CJUMP(Tr.LT, unEx(index), Tr.CONST 0, ifBelowZero, ifAboveZero)
+    val retVal = Tr.MEM(Tr.BINOP(Tr.PLUS, unEx(baseAddr), unEx(index)))
+    val exit = Tr.EXP(MipsFrame.externalCall("exit", [Tr.CONST 1]))
+  in
+    Tr.ESEQ(Tr.seq [checkBelowZero, Tr.LABEL ifBelowZero, exit, Tr.LABEL ifAboveZero,
+                    checkOutOfBounds, Tr.LABEL ifOutOFBounds, exit, Tr.LABEL allGood],
+           retVal)
+  end
+
 
 
 end
