@@ -103,9 +103,9 @@ fun unNx (Ex e) = T.EXP e
   | unNx (Cx c) = let val t = Temp.newlabel() in c(t,t); T.LABEL t end
 
 (* exp -> (Temp.label * Temp.label -> Tree.stm) *)
-fun unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f))
-  | unCx (Ex (T.CONST 0)) = (fn(t,f) => T.JUMP(T.NAME f, [f]))
+fun unCx (Ex (T.CONST 0)) = (fn(t,f) => T.JUMP(T.NAME f, [f]))
   | unCx (Ex (T.CONST 1)) = (fn(t,f) => T.JUMP(T.NAME t, [t]))
+  | unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f))
   | unCx (Nx _) = raise ErrorMsg.Error
   | unCx (Cx c) = c
 
@@ -134,6 +134,20 @@ fun unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f))
     val statements = storeBaseAddr::moveList
   in
     T.ESEQ(T.seq(statements), T.TEMP(baseAddr))
+  end
+
+(*test and body are both Translate.exp*)
+(*ldone is the done label for this loop, which is created in Semant
+  because Semant needs it to be able to translate BreakExps*)
+  fun whileLoop(test, body, ldone) =
+  let
+    val lbody = Temp.newlabel()
+    val ltest = Temp.newlabel()
+    val cond = unCx(test)
+    val bodyNx = unNx(body)
+    val jumpToTest = T.JUMP(T.NAME ltest, [ltest])
+  in
+    Tree.seq([T.LABEL ltest, cond(lbody, ldone), T.LABEL lbody, bodyNx, jumpToTest, T.LABEL ldone])
   end
 
 end
