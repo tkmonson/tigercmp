@@ -381,12 +381,14 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	  | checkRecordFields (_,_) = ()
 
 	and checkRecordExp (A.RecordExp({fields=fieldlist, typ=typename, pos=p})) =
-	    let val recordType = actualType(tenvLookUp(tenv, typename, p), p)
-          val fieldExs = map (fn(sym, ex, pos) => let val {ty=t, exp=e} = trexp ex in e end) fieldList
-          val numFields = foldl (fn(a,b) => a+1) 0 fieldlist
-	    in (case recordType of
-		   Types.RECORD (fieldtypelist, unq) => (checkRecordFields(fieldtypelist, fieldlist);{ty=Types.RECORD(fieldtypelist, unq), exp=R.recCreate(fieldExs, numFields)})
-		 | _    => (printError("Trying to set fields of something that is not a record type", p);{exp=R.dummy, ty=T.BOTTOM}))
+	    let
+		val recordType = actualType(tenvLookUp(tenv, typename, p), p)
+                val fieldExs = map (fn(sym, ex, pos) => let val {ty=t, exp=e} = trexp ex in e end) fieldlist
+                val numFields = foldl (fn(a,b) => b+1) 0 fieldlist
+	    in
+		case recordType of
+		    Types.RECORD (fieldtypelist, unq) => (checkRecordFields(fieldtypelist, fieldlist); Types.RECORD(fieldtypelist, unq)) (*exp=R.recCreate(fieldExs, numFields)*)
+		  | _    => printError("Trying to set fields of something that is not a record type", p); T.BOTTOM
 	    end
 
   and transDecs (venv:E.enventry S.table, tenv:T.ty S.table, [], irList, level) = (venv, tenv, irList)
@@ -434,7 +436,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
       val accesses = map (fn({name=n, escape=e, typ=t, pos=p}) => R.allocLocal(funLevel)(e))
 
 		(* 2. Declare the parameters to be in scope within the body of the function *)
-  		val vEntries = map (fn (a:R.access, t:T.y) => E.VarEntry {access=a, ty=t, isCounter=false}) combineLists(accesses, types)
+  		val vEntries = map (fn (a:R.access, t:T.y) => E.VarEntry {access=a, ty=t, isCounter=false}) (combineLists(accesses, types))
   		fun enterVars ((name:S.symbol, vEntry:E.enventry), venv: E.enventry S.table) = S.enter(venv,name,vEntry)
   		fun combineLists ([], []) = []
 		  | combineLists(a::aTail, b::bTail) = (a,b) :: combineLists(aTail, bTail)
@@ -445,7 +447,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
 		(* 4. Make sure that type of body matches expected return type of function *)
 		val expectedReturnType = case result of SOME(rSym,rPos) => actualType(tenvLookUp (tenv, rSym, rPos), pos)
-					 																| NONE            => T.UNIT
+					              | NONE            => T.UNIT
 	  val actualReturnType = actualType(ty, pos)
 
     val checkBodyType =
