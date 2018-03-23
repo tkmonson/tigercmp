@@ -1,13 +1,11 @@
-structure Semant : SEMANT =
+structure Semant =
 struct
 
-structure A = Absyn
-structure E = Env
-structure T = Types
 structure S = Symbol
-
-(*A dummy Translate structure to use for this step*)
-structure Translate = struct type exp = unit end
+structure A = Absyn
+structure R = Translate
+structure T = Types
+structure E = Env
 
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
@@ -91,7 +89,8 @@ fun lookupFieldType (Types.RECORD(fieldlist, u), s, pos) = traverseFieldList (fi
                                             Types.BOTTOM)
 
 (* venv*tenv*Absyn.var -> Types.ty *)
-(* Tells you the type of a variable*)
+(* Tells you the type of a variable
+TODO: RETURN IR IN ADDITION*)
 fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p)) = actualType (lookupArrayType ((transVar(venv, tenv, v),p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (lookupFieldType ((transVar (venv, tenv, v),s,p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p)) = case S.look (venv, s) of

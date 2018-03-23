@@ -1,9 +1,11 @@
-structure A = Absyn
-structure E = Env
-structure T = Types
+structure Semant =
+struct
 
-(*A dummy Translate structure to use for this step*)
-structure Translate = struct type exp = unit end
+structure S = Symbol
+structure A = Absyn
+structure R = Translate
+structure T = Types
+structure E = Env
 
 (*A defintion of expty that uses the dummy Translate for now*)
 type expty = {exp: Translate.exp, ty:Types.ty}
@@ -469,4 +471,5 @@ structure Main =
 struct
   fun translate filename =
     transExp(Env.base_venv, Env.base_tenv, false) (Parse.parse filename);
+end
 end

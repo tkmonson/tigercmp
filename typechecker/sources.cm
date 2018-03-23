@@ -25,6 +25,8 @@ temp.sig
 temp.sml
 tree.sml
 
+IRSemant.sml
+
 (*Frame and Translate*)
 Frame.sml
 Translate.sml
@@ -33,5 +35,3 @@ Translate.sml
 $/smlnj-lib.cm
 $/ml-yacc-lib.cm
 $/basis.cm
-
-(*Semant.sml*)
