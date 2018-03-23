@@ -88,12 +88,17 @@ fun lookupFieldType (Types.RECORD(fieldlist, u), s, pos) = traverseFieldList (fi
 
 (* venv*tenv*Absyn.var -> Types.ty *)
 (* Tells you the type of a variable
-TODO: RETURN IR IN ADDITION*)
-fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p)) = actualType (lookupArrayType ((transVar(venv, tenv, v),p)), p)
-  | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (lookupFieldType ((transVar (venv, tenv, v),s,p)), p)
-  | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p)) = case S.look (venv, s) of
-                                              SOME(E.VarEntry{acces=access, ty=vartype, isCounter=c}) => actualType(vartype, p)
-                                            | NONE => (printError("Could not find variable " ^ S.name(s) ^ " in the current scope", p);T.BOTTOM)
+TODO: Typecheck array index? *)
+fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p),  level, isLoop) = let val (ty, ir) = transVar(venv, tenv, v, level)
+                                                                                                  val {exp=index, ty=_} = transExp(venv, tenv, e, level, isLoop)
+                                                                                              in {ty=actualType (lookupArrayType ((ty,p)), p), exp=R.subscript(ir, index)} end
+
+  | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p), level) = let val (ty, ir) = transVar(venv, tenv, v, level)
+                                                                                          in {ty=actualType (lookupFieldType ((ty,s,p)), p), exp=R.field(ir)} end
+
+  | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p), level) = case S.look (venv, s) of
+                                              SOME(E.VarEntry{access=access, ty=vartype, isCounter=c}) => {ty=actualType(vartype, p), exp=R.simpleVar(access, level)}
+                                            | NONE => (printError("Could not find variable " ^ S.name(s) ^ " in the current scope", p); {ty=T.BOTTOM, exp=())}
 
 (*Checks whether a is the same type as, or a subtype of, b*)
 fun isCompatible (T.BOTTOM, b:Types.ty) = true
@@ -190,7 +195,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
           | trexp (A.StringExp(s,p)) = {exp = R.StringExp(s), ty = T.STRING}
 
-          | trexp (A.VarExp(v)) = {exp = (), ty = trvar v}
+          | trexp (A.VarExp(v)) = trvar v
 
           | trexp (A.OpExp{left=l, oper=oper, right=r, pos=p}) =
 
@@ -253,10 +258,10 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
             let val {exp=e, ty=exptype} = trexp(e)
 		            val vartype = trvar(v)
 		            val compat = isCompatible(actualType(exptype, p), actualType(vartype, p))
-            in checkLoopCounter(venv,v); if compat then {exp=(), ty=T.UNIT} else (printError("Assign statement type incompatible", p); {exp=(), ty=T.UNIT})
+            in checkLoopCounter(venv,v); if compat then {exp=(), ty=T.UNIT} else (printError("Assign statement type incompatible", p); {exp=R.assignExp(e), ty=T.UNIT})
             end
 
-          | trexp (A.SeqExp(elist)) = trseq elist
+          | trexp (A.SeqExp(elist)) = {R.seqExp(elist), trseq elist}
 
           | trexp (A.IfExp{test=t, then'=thencase, else'=elsecase, pos=p}) = (checkInt(t, p);
              let val {exp=thenexp, ty=thenty} = trexp thencase;
@@ -332,9 +337,9 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	    end
 
 
-	and trvar (v:A.var) = (transVar (venv, tenv, v))
+	and trvar (v:A.var) = (transVar (venv, tenv, v, level, isLoop))
 
-	and trseq [] = {exp=(), ty=T.UNIT} (*This should be unit and not bottom!*)
+	and trseq [] = ty=T.UNIT (*This should be unit and not bottom!*)
           | trseq ((a,p)::[]) = trexp a
           | trseq ((a,p)::l) = (trexp a; trseq l) (*Call trexp on a for side effects*)
 
@@ -461,7 +466,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
       and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}, level) =
          let val {exp=exp, ty=exptype} = transExp(venv, tenv, false, level) i
-             val access = R.allocLocal(level)(*call alloc local to get access takes level*)
+             val access = R.allocLocal(level) esc(*call alloc local to get access takes level*)
              val venv' = S.enter(venv, varname, Env.VarEntry{access, ty=exptype, isCounter=false})
              val venv'' = S.enter(venv, varname, Env.VarEntry{access, ty=T.BOTTOM, isCounter=false})
              val ir = R.assignExp(access, i)
