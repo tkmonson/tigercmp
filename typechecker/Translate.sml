@@ -14,11 +14,14 @@ sig
                 |Nx of Tree.stm
                 |Cx of Temp.label*Temp.label -> Tree.stm
 
+  type frag = Frame.frag
+
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   val newLevel : {parent:level, name:Temp.label, formals:bool list} -> level
 
   val formals : level -> access list
   val allocLocal : level -> bool -> access
+  val fragments : frag list ref
   (*val simpleVar : access*level -> exp*)
 
 end
@@ -27,6 +30,7 @@ structure Translate:TRANSLATE =
 struct
 
   structure A = Absyn
+  structure F = Frame
   structure T = Tree
 
   (*Associated with a function *)
@@ -41,6 +45,8 @@ struct
   datatype exp = Ex of T.exp
                 |Nx of T.stm
                 |Cx of Temp.label*Temp.label -> T.stm
+
+  type frag = F.frag
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
@@ -70,7 +76,10 @@ struct
     if curUnq = accessUnq then T.TEMP(MipsFrame.FP)
                           else let val subexp = traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}, curParent)
                           in T.CONST(1)
-                          end
+                               end
+  val fraglistref : frag list ref = ref nil
+
+				   
 (*First argument is the access representing where a variable was declared*)
 (*Second argument is the level where the variable is being accessed*)
   fun simpleVar(makeAccess{acc=accessType, lev=accLevel as makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}},
@@ -104,9 +113,9 @@ struct
     | unNx (Cx c) = let val t = Temp.newlabel() in c(t,t); T.LABEL t end
 
   (* exp -> (Temp.label * Temp.label -> Tree.stm) *)
-  fun unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f))
-    | unCx (Ex (T.CONST 0)) = (fn(t,f) => T.JUMP(T.NAME f, [f]))
+  fun unCx (Ex (T.CONST 0)) = (fn(t,f) => T.JUMP(T.NAME f, [f]))
     | unCx (Ex (T.CONST 1)) = (fn(t,f) => T.JUMP(T.NAME t, [t]))
+    | unCx (Ex e) = (fn (t,f) => T.CJUMP(T.NE, e, T.CONST 0, t, f))
     | unCx (Nx _) = raise ErrorMsg.Error
     | unCx (Cx c) = c
 
@@ -114,7 +123,26 @@ struct
 
   fun IntExp (n:int) : exp = Ex(T.CONST n)
 
-  fun StringExp (s:string) : unit = ()
+  fun StringExp (s:string) : exp =
+      let
+	  (* Find a fragment that corresponds to s (or don't find one) in fraglist, return exp *)
+	  val f = List.find (fn (x) => case (_,str) of
+					   F.PROC => false
+					 | F.STRING => s=str) (!fraglistref)
+      in
+	  case f of
+	      (* Didn't find fragment, make new label, put new fragment in fraglist *)
+	      NONE =>
+	          let
+		      val lab = Temp.newlabel()
+ 	          in
+                      fraglistref := F.STRING(lab,s)::!fraglistref;
+		      Ex(T.NAME(lab))
+		  end
+	      (* Found fragment, return exp *)
+              SOME(F.STRING(lab,_)) => Ex(T.NAME(lab))
+      end
+	  
 
   (* binop and relop handle OpExp *)
   fun binop (oper,lexp,rexp) : exp =

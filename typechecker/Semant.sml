@@ -22,7 +22,7 @@ fun getPosFromTypeDec  ({name, ty, pos}) = pos
 fun printError(msg, pos) = ErrorMsg.error pos (msg)
 
 fun checkLoopCounter(venv, A.SimpleVar(s,p)) = (case S.look (venv, s) of
-                                            SOME(E.VarEntry{ty=vartype, isCounter=c}) =>
+                                            SOME(E.VarEntry{access=access, ty=vartype, isCounter=c}) =>
                                                 if c then printError("Error: Can not assign value to for loop counter", p) else ()
                                           | NONE => ())
   | checkLoopCounter(venv, v:A.var) = ()
@@ -40,8 +40,6 @@ fun printType ty = case ty of
 fun tenvLookUp (tenv, n, pos) = case S.look(tenv, n) of
                  SOME x => x
 	       | NONE => (printError("Type does not exist in type environment.", pos); T.BOTTOM)
-
-fun makeVarEntry (typ:Types.ty) = E.VarEntry {ty=typ, isCounter=false}
 
 fun checkDups (nil, nil) = ()
   | checkDups (name::others, pos::poss) =
@@ -95,7 +93,7 @@ fun lookupFieldType (Types.RECORD(fieldlist, u), s, pos) = traverseFieldList (fi
 fun transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SubscriptVar(v,e,p)) = actualType (lookupArrayType ((transVar(venv, tenv, v),p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p)) =   actualType (lookupFieldType ((transVar (venv, tenv, v),s,p)), p)
   | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p)) = case S.look (venv, s) of
-                                              SOME(E.VarEntry{ty=vartype, isCounter=c}) => actualType(vartype, p)
+                                              SOME(E.VarEntry{acces=access, ty=vartype, isCounter=c}) => actualType(vartype, p)
                                             | NONE => (printError("Could not find variable " ^ S.name(s) ^ " in the current scope", p);T.BOTTOM)
 
 (*Checks whether a is the same type as, or a subtype of, b*)
@@ -180,7 +178,7 @@ fun transTy (tenv, Absyn.TypeDec(tylist)) = let val newTenv = processTypeDecBodi
   * trvar: A.var -> T.ty
   *)
 
-fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
+fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoop) =
   (*fn(e:Absyn.exp) => {exp=(), ty=T.UNIT}*)
     let fun trexp (A.NilExp) = {exp = R.NilExp, ty = T.NIL}
 
@@ -286,7 +284,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
           | trexp (A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p}) = (
               checkInt(l, p);
               checkInt(h, p);
-              checkBody(S.enter (venv, v, Env.VarEntry{ty=T.INT, isCounter=true}), b, v, p);
+              checkBody(S.enter (venv, v, Env.VarEntry{access=access, ty=T.INT, isCounter=true}), b, v, p);
               {exp = (), ty = T.UNIT})
 
           | trexp (A.ArrayExp{typ=t, size=s, init=i, pos=p}) =
@@ -416,7 +414,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
   		val types = map transparam params
 
 		(* 2. Declare the parameters to be in scope within the body of the function *)
-  		val vEntries = map makeVarEntry types
+  		val vEntries = map (fn (a:R.access, t:T.y) => E.VarEntry {access=a, ty=t, isCounter=false}) types
   		fun enterVars ((name:S.symbol, vEntry:E.enventry), venv: E.enventry S.table) = S.enter(venv,name,vEntry)
   		fun combineLists ([], []) = []
 		  | combineLists(a::aTail, b::bTail) = (a,b) :: combineLists(aTail, bTail)
@@ -459,8 +457,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, isLoop) =
 
 	and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}) =
             let val {exp=exp, ty=exptype} = transExp(venv, tenv, false) i
-		val venv' = S.enter(venv, varname, Env.VarEntry{ty=exptype, isCounter=false})
-		val venv'' = S.enter(venv, varname, Env.VarEntry{ty=T.BOTTOM, isCounter=false})
+		val venv' = S.enter(venv, varname, Env.VarEntry{access=access, ty=exptype, isCounter=false})
+		val venv'' = S.enter(venv, varname, Env.VarEntry{access=access, ty=T.BOTTOM, isCounter=false})
             in
 		case vartype of
 		    SOME(vartypename,varpos) => (case S.look(tenv, vartypename) of
