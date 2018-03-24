@@ -1,11 +1,14 @@
 How to test:
 -CM.make "sources.cm";
--Semant.Main.Translate "sample.tig"
+-Semant.Main.translate "sample.tig"
 
 DONE:
 Int
 Ops
-
+-vardec
+-typedec: named, array, and record
+-functiondec
+-function call
 
 PENDING:
 If/Then/Else
@@ -18,7 +21,3 @@ while loop
 breaks
 
 Lets, including:
--vardec
--typedec: named, array, and record
--functiondec
--function call

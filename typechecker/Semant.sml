@@ -339,7 +339,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
 	and trvar (v:A.var) = transVar (venv, tenv, v, level, isLoop)
 
-	and trseq expList = case expList of [] => {exp=R.dummy, ty=T.UNIT}
+	and trseq expList = case expList of [] =>(printError("Empty sequence expression", 1); {exp=R.dummy, ty=T.UNIT})
                                       | a::l => List.last(map (fn (exp, pos) => trexp exp) expList)
   (* {exp=R.dummy, ty=T.UNIT} (*This should be unit and not bottom!*)
           | trseq ((a,p)::[]) = trexp a
@@ -389,7 +389,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
             in transDecs(v', t', l, irList, level) end
 
   and transDec (venv, tenv, Absyn.VarDec(vd), irList, level) = (let val (venv', ir) = transVarDec(venv, tenv, Absyn.VarDec vd, level)
-                                                         in (venv', tenv, irList@[ir]) end)
+                                                         in (venv', tenv, ir::irList) end)
     | transDec (venv, tenv, Absyn.TypeDec(td), irList, level) = (venv, transTy(tenv, Absyn.TypeDec td), irList)
     | transDec (venv, tenv, Absyn.FunctionDec(fundecs), irList, level)  = (transFunDec (venv, tenv, Absyn.FunctionDec fundecs, level), tenv, irList)
 
@@ -484,7 +484,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
                                                          SOME(expectedtype) => if isCompatible(exptype, actualType(expectedtype, p))
                                                                                then (venv', ir) else (printError("Variable type does not meet expected type", p); (venv'', R.dummy))
                                                          | NONE => (printError("Could not find type in type environment",p);(venv'', ir)))
-                       | NONE => if exptype = T.NIL then (printError("Implicitly typed variables can not be declared as NIL", p); (venv'', ir)) else (venv', (R.dummy))
+                       | NONE => if exptype = T.NIL then (printError("Implicitly typed variables can not be declared as NIL", p); (venv'', ir)) else (venv', ir)
          end
          (* venv*tenv*Absyn.var -> Types.ty *)
          (* Tells you the type of a variable*)
@@ -494,7 +494,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
         | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p), level, isLoop) = let val {ty=ty, exp=ir} = transVar(venv, tenv, v, level, isLoop)
                                                                                                             val varType = actualType (lookupFieldType ((ty,s,p)), p)
-                                                                                                            val fieldsList = case varType of
+                                                                                                            val fieldsList = case ty of
                                                                                                                             T.BOTTOM => []
                                                                                                                           | T.RECORD(flist, unq) => map (fn(s,t) => s) flist
                                                                                                     in {ty=varType, exp=R.fieldVar(ir, s, fieldsList)} end

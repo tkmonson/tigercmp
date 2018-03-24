@@ -1,6 +1,7 @@
 Group is
 
 errormsg.sml
+printtree.sml
 
 (*For symbols and environments*)
 types.sml
@@ -25,7 +26,7 @@ temp.sig
 temp.sml
 tree.sml
 
-IRSemant.sml
+Semant.sml
 
 (*Frame and Translate*)
 Frame.sml
