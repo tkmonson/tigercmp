@@ -16,6 +16,9 @@ sig
 
   type frag = MipsFrame.frag
 
+  val makeFunction : exp*level -> unit
+  val getResult : unit -> frag list
+
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   val newLevel : {parent:level, name:Temp.label, formals:bool list} -> level
 
@@ -74,7 +77,6 @@ structure F = MipsFrame
   type frag = F.frag
 
   val dummy = Ex (Tr.CONST 12345)
-
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
     let
@@ -245,7 +247,7 @@ structure F = MipsFrame
     in
       Nx(Tree.seq([Tr.LABEL ltest, cond(lbody, ldone), Tr.LABEL lbody, bodyNx, jumpToTest, Tr.LABEL ldone]))
     end
-	    
+
   (*make eseq to turn everything but last one into statement and return last one as exp*)
   fun seqExp (elist) = Ex(Tr.ESEQ (Tr.seq (map unNx (List.take (elist, (List.length elist) - 1))), unEx (List.last(elist))))
 
@@ -341,5 +343,12 @@ structure F = MipsFrame
 				    Tr.CONST(F.wordsize),
 				    Tr.CONST(findIndex(0,name,flist))))))
       end
+
+  fun makeFunction(funBody, makeLevel{frame=f, parent=p, unq=u}) =
+  let val funFrag = MipsFrame.PROC({body=unNx(funBody), frame=f})
+  in fraglistref := funFrag :: !fraglistref
+  end
+
+  fun getResult() = !fraglistref
 
 end
