@@ -105,8 +105,9 @@ structure F = MipsFrame
                      makeLevel{frame=curFrame, parent=curParent, unq=curUnq}) =
     if curUnq = accessUnq then Tr.TEMP(MipsFrame.FP)
                           else let val subexp = traverseLevels(makeLevel{frame=accessFrame, parent=accessParent, unq=accessUnq}, curParent)
-                          in Tr.CONST(1)
+                          in Tr.MEM(subexp)
                                end
+    | traverseLevels(_,_) = Tr.TEMP(MipsFrame.FP)
 
   val fraglistref : frag list ref = ref nil
 
@@ -329,7 +330,8 @@ structure F = MipsFrame
   end
 
 (*Takes baseAddr of record, name of field, list of field names*)
-  fun fieldVar (baseAddr, name, flist) : exp =
+  fun fieldVar(baseAddr, name, []) : exp = (ErrorMsg.error 0 ("No fields declared"); dummy)
+  | fieldVar (baseAddr, name, flist) : exp =
       let
 	  fun findIndex (index, name, fhead::ftail) =
 	      if fhead = name
@@ -343,7 +345,7 @@ structure F = MipsFrame
 				    Tr.CONST(F.wordsize),
 				    Tr.CONST(findIndex(0,name,flist))))))
       end
-      | fieldVar(baseAddr, name, []) : exp = ErrorMsg.error 0 ("No fields declared"); R.dummy
+
 
   fun makeFunction(funBody, makeLevel{frame=f, parent=p, unq=u}) =
   let val funFrag = MipsFrame.PROC({body=unNx(funBody), frame=f})

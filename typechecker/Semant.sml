@@ -523,6 +523,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
                                                                                                             val fieldsList = case ty of
                                                                                                                             T.BOTTOM => []
                                                                                                                           | T.RECORD(flist, unq) => map (fn(s,t) => s) flist
+                                                                                                                          | _ => (printError("Field var error shouldn't happen in well typed code!", p);[])
+
                                                                                                     in {ty=varType, exp=R.fieldVar(ir, s, fieldsList)} end
 
         | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.SimpleVar(s,p), level, isLoop) = case S.look (venv, s) of
