@@ -135,7 +135,8 @@ structure F = MipsFrame
     | unCx (Cx c) = c
 
 
-    fun concat(elist, e2) = Ex(Tr.ESEQ(Tr.seq (map unNx elist), unEx(e2)))
+    fun concat([], e2) = e2
+        | concat (elist, e2) = Ex(Tr.ESEQ(Tr.seq (map unNx elist), unEx(e2)))
 
   (* binop and relop handle OpExp *)
   fun binop (oper,lexp,rexp) : exp =

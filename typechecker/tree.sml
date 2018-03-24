@@ -58,6 +58,8 @@ struct
        (*WARNING: Nonexhaustive because we should never have a seq of < 2 stms TODO: throw error*)
        fun seq(s1::s2::[]) = SEQ(s1, s2)
           |seq(s1::s2::l)  = seq(SEQ(s1, s2)::l)
+          |seq(a::[]) = a (*This could happen in other cases, so it's worth keeping here*)
+          (* |[] = (*I think we should deal with this in concat?*) *)
 
        (* Is this correct?  *)
        fun notRel (r:relop) : relop =

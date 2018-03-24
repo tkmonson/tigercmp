@@ -245,8 +245,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
             let val {exp=e, ty=exptype} = trexp(e)
 		            val {exp=varExp, ty=vartype} = trvar(v)
 		            val compat = isCompatible(actualType(exptype, p), actualType(vartype, p))
-            in checkLoopCounter(venv,v); if compat then {exp=R.dummy, ty=T.UNIT}
-                                         else (printError("Assign statement type incompatible", p); {exp=R.assignExp(varExp, e), ty=T.UNIT})
+            in checkLoopCounter(venv,v); if compat then {exp=R.assignExp(varExp, e), ty=T.UNIT}
+                                         else (printError("Assign statement type incompatible", p); {exp=R.dummy, ty=T.UNIT})
             end
 
           | trexp (A.SeqExp(elist)) = let val {ty=seqTy, exp=_} = trseq elist
@@ -329,36 +329,36 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
              end)
 
 	  | trexp (A.CallExp{func:A.symbol, args: A.exp list, pos:A.pos}) =
-	    let
-		val fs = case S.look(venv:E.enventry S.table,func) of
-		             SOME(E.FunEntry{level=lvl, label=lbl, formals=fs, result=rt}) => fs
-		           | NONE => T.UNIT::[]
-		val rt = case S.look(venv,func) of
-		             SOME(E.FunEntry{level=lvl, label=lbl, formals=fs, result=rt}) => rt
-		           | NONE => (printError("Function " ^ Symbol.name func ^ " is not accessible in current scope", pos);T.BOTTOM)
+        let val funEntry = S.look(venv,func) in
+	          case funEntry of
+		            SOME(E.FunEntry{level=lvl, label=lbl, formals=fs, result=rt}) =>
+                    let
+                    fun length l  = foldr (fn(x,y) => 1+y) 0 l
 
-		fun length l  = foldr (fn(x,y) => 1+y) 0 l
+          		      fun listCompatible ([], [], pos:int) = true
+          		        | listCompatible (a::aTail, b::bTail, pos:int) =
+          		          if isCompatible(a,b)
+          		          then listCompatible(aTail, bTail, pos)
+          		          else (printError("Argument type does not match parameter type in function declaration.", pos); false)
+          		        | listCompatible (_,_,pos) = (printError("Number of arguments does not equal number of parameters, expected " ^
+          		      					   Int.toString(length fs) ^ " arguments, recieved " ^
+          		      					   Int.toString(length args)  ^ " arguments.", pos); false)
 
-		fun listCompatible ([], [], pos:int) = true
-		  | listCompatible (a::aTail, b::bTail, pos:int) =
-		    if isCompatible(a,b)
-		    then listCompatible(aTail, bTail, pos)
-		    else (printError("Argument type does not match parameter type in function declaration.", pos); false)
-		  | listCompatible (_,_,pos) = (printError("Number of arguments does not equal number of parameters, expected " ^
-							   Int.toString(length fs) ^ " arguments, recieved " ^
-							   Int.toString(length args)  ^ " arguments.", pos); false)
+          		      fun actualTypeWrapper typ = actualType(typ, pos)
 
-		fun actualTypeWrapper typ = actualType(typ, pos)
-	    in
-      (*Arg1: Actual type of every argument
-        Arg2: Actual type of every formal*)
-		listCompatible(map actualTypeWrapper (map (fn {exp,ty} => ty) (map trexp args)), map actualTypeWrapper fs, pos);
-		{exp=R.dummy, ty = rt}
-	    end
+                    val argExps = map trexp args
+                    in
+                        (*Arg1: Actual type of every argument
+                        Arg2: Actual type of every formal*)
+                       (listCompatible(map actualTypeWrapper (map (fn {exp,ty} => ty) argExps), map actualTypeWrapper fs, pos);
+                       {exp=R.callExp(lvl, level, lbl, map (fn {exp,ty} => exp) argExps), ty = rt})
+                    end
+		            | NONE => (printError("Function " ^ Symbol.name func ^ " is not accessible in current scope", pos);{exp=R.dummy, ty=T.BOTTOM})
+	      end
 
 	and trvar (v:A.var) = transVar (venv, tenv, v, level, isLoop)
 
-	and trseq expList = case expList of [] => {exp=R.dummy, ty=T.UNIT}
+	and trseq expList = case expList of [] =>(printError("Empty sequence expression", 1); {exp=R.dummy, ty=T.UNIT})
                                       | a::l => List.last(map (fn (exp, pos) => trexp exp) expList)
   (* {exp=R.dummy, ty=T.UNIT} (*This should be unit and not bottom!*)
           | trseq ((a,p)::[]) = trexp a
@@ -408,7 +408,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
             in transDecs(v', t', l, irList, level) end
 
   and transDec (venv, tenv, Absyn.VarDec(vd), irList, level) = (let val (venv', ir) = transVarDec(venv, tenv, Absyn.VarDec vd, level)
-                                                         in (venv', tenv, irList@[ir]) end)
+                                                         in (venv', tenv, ir::irList) end)
     | transDec (venv, tenv, Absyn.TypeDec(td), irList, level) = (venv, transTy(tenv, Absyn.TypeDec td), irList)
     | transDec (venv, tenv, Absyn.FunctionDec(fundecs), irList, level)  = (transFunDec (venv, tenv, Absyn.FunctionDec fundecs, level), tenv, irList)
 
@@ -503,7 +503,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
                                                          SOME(expectedtype) => if isCompatible(exptype, actualType(expectedtype, p))
                                                                                then (venv', ir) else (printError("Variable type does not meet expected type", p); (venv'', R.dummy))
                                                          | NONE => (printError("Could not find type in type environment",p);(venv'', ir)))
-                       | NONE => if exptype = T.NIL then (printError("Implicitly typed variables can not be declared as NIL", p); (venv'', ir)) else (venv', (R.dummy))
+                       | NONE => if exptype = T.NIL then (printError("Implicitly typed variables can not be declared as NIL", p); (venv'', ir)) else (venv', ir)
          end
          (* venv*tenv*Absyn.var -> Types.ty *)
          (* Tells you the type of a variable*)
@@ -513,7 +513,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
         | transVar (venv:E.enventry S.table, tenv:T.ty S.table, Absyn.FieldVar(v,s,p), level, isLoop) = let val {ty=ty, exp=ir} = transVar(venv, tenv, v, level, isLoop)
                                                                                                             val varType = actualType (lookupFieldType ((ty,s,p)), p)
-                                                                                                            val fieldsList = case varType of
+                                                                                                            val fieldsList = case ty of
                                                                                                                             T.BOTTOM => []
                                                                                                                           | T.RECORD(flist, unq) => map (fn(s,t) => s) flist
                                                                                                     in {ty=varType, exp=R.fieldVar(ir, s, fieldsList)} end
@@ -531,8 +531,8 @@ structure Main =
 struct
   fun translate filename =
     let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
-    in
-    transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (Parse.parse filename)
+        val {ty=progTy, exp=progIR} = transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (Parse.parse filename)
+   in Printtree.printtree(TextIO.stdOut, Translate.unNx(progIR))
     end
 end
 
