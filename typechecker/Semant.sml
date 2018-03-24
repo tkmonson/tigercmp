@@ -310,32 +310,32 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
              end)
 
 	  | trexp (A.CallExp{func:A.symbol, args: A.exp list, pos:A.pos}) =
-	    let
-		val fs = case S.look(venv:E.enventry S.table,func) of
-		             SOME(E.FunEntry{level=lvl, label=lbl, formals=fs, result=rt}) => fs
-		           | NONE => T.UNIT::[]
-		val rt = case S.look(venv,func) of
-		             SOME(E.FunEntry{level=lvl, label=lbl, formals=fs, result=rt}) => rt
-		           | NONE => (printError("Function " ^ Symbol.name func ^ " is not accessible in current scope", pos);T.BOTTOM)
+        let val funEntry = S.look(venv,func) in
+	          case funEntry of
+		            SOME(E.FunEntry{level=lvl, label=lbl, formals=fs, result=rt}) =>
+                    let
+                    fun length l  = foldr (fn(x,y) => 1+y) 0 l
 
-		fun length l  = foldr (fn(x,y) => 1+y) 0 l
+          		      fun listCompatible ([], [], pos:int) = true
+          		        | listCompatible (a::aTail, b::bTail, pos:int) =
+          		          if isCompatible(a,b)
+          		          then listCompatible(aTail, bTail, pos)
+          		          else (printError("Argument type does not match parameter type in function declaration.", pos); false)
+          		        | listCompatible (_,_,pos) = (printError("Number of arguments does not equal number of parameters, expected " ^
+          		      					   Int.toString(length fs) ^ " arguments, recieved " ^
+          		      					   Int.toString(length args)  ^ " arguments.", pos); false)
 
-		fun listCompatible ([], [], pos:int) = true
-		  | listCompatible (a::aTail, b::bTail, pos:int) =
-		    if isCompatible(a,b)
-		    then listCompatible(aTail, bTail, pos)
-		    else (printError("Argument type does not match parameter type in function declaration.", pos); false)
-		  | listCompatible (_,_,pos) = (printError("Number of arguments does not equal number of parameters, expected " ^
-							   Int.toString(length fs) ^ " arguments, recieved " ^
-							   Int.toString(length args)  ^ " arguments.", pos); false)
+          		      fun actualTypeWrapper typ = actualType(typ, pos)
 
-		fun actualTypeWrapper typ = actualType(typ, pos)
-	    in
-      (*Arg1: Actual type of every argument
-        Arg2: Actual type of every formal*)
-		listCompatible(map actualTypeWrapper (map (fn {exp,ty} => ty) (map trexp args)), map actualTypeWrapper fs, pos);
-		{exp=R.dummy, ty = rt}
-	    end
+                    val argExps = map trexp args
+                    in
+                        (*Arg1: Actual type of every argument
+                        Arg2: Actual type of every formal*)
+                       (listCompatible(map actualTypeWrapper (map (fn {exp,ty} => ty) argExps), map actualTypeWrapper fs, pos);
+                       {exp=R.callExp(lvl, level, lbl, map (fn {exp,ty} => exp) argExps), ty = rt})
+                    end
+		            | NONE => (printError("Function " ^ Symbol.name func ^ " is not accessible in current scope", pos);{exp=R.dummy, ty=T.BOTTOM})
+	      end
 
 	and trvar (v:A.var) = transVar (venv, tenv, v, level, isLoop)
 
