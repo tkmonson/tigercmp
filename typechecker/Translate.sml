@@ -234,7 +234,7 @@ structure F = MipsFrame
   (*test and body are both Translate.exp*)
   (*ldone is the done label for this loop, which is created in Semant
     because Semant needs it to be able to translate BreakExps*)
-    fun whileLoop(test, body, ldone) =
+    fun whileLoop (test, body, ldone) =
     let
       val lbody = Temp.newlabel()
       val ltest = Temp.newlabel()
@@ -244,6 +244,7 @@ structure F = MipsFrame
     in
       Nx(Tree.seq([Tr.LABEL ltest, cond(lbody, ldone), Tr.LABEL lbody, bodyNx, jumpToTest, Tr.LABEL ldone]))
     end
+	    
   (*make eseq to turn everything but last one into statement and return last one as exp*)
   fun seqExp (elist) = Ex(Tr.ESEQ (Tr.seq (map unNx (List.take (elist, (List.length elist) - 1))), unEx (List.last(elist))))
 
@@ -251,7 +252,7 @@ structure F = MipsFrame
   fun assignExp (IRexp, exp) = Nx(Tr.MOVE(unEx(IRexp), unEx(exp)))
 
   (*just go to label from while loop*)
-  fun breakExp(label) = Nx(Tr.JUMP(Tr.NAME label,[label]))
+  fun breakExp (label) = Nx(Tr.JUMP(Tr.NAME label,[label]))
 
   (*need level where fun was declared, then level where it was called*)
   (*Need level of f and level of fn calling f to compute static link*)
@@ -264,7 +265,7 @@ structure F = MipsFrame
   (*translate.alloc local in Semant to create frame
     transvar called to accumulate list of exps*)
 
-  fun translateIfThenElse(test, thenExp, elseExp) =
+  fun translateIfThenElse (test, thenExp, elseExp) =
   let val testCx = unCx(test)
       val thenEx = unEx(thenExp)
       val elseEx = unEx(elseExp)
@@ -280,7 +281,7 @@ structure F = MipsFrame
               Tr.TEMP(retVal)))
   end
 
-  fun translateIfThen(test, thenExp) =
+  fun translateIfThen (test, thenExp) =
   let val testCx = unCx(test)
       val thenEx = unEx(thenExp)
       val tLabel = Temp.newlabel()
