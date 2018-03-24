@@ -245,7 +245,7 @@ structure F = MipsFrame
     in
       Nx(Tree.seq([Tr.LABEL ltest, cond(lbody, ldone), Tr.LABEL lbody, bodyNx, jumpToTest, Tr.LABEL ldone]))
     end
-	    
+
   (*make eseq to turn everything but last one into statement and return last one as exp*)
   fun seqExp (elist) = Ex(Tr.ESEQ (Tr.seq (map unNx (List.take (elist, (List.length elist) - 1))), unEx (List.last(elist))))
 
@@ -341,5 +341,6 @@ structure F = MipsFrame
 				    Tr.CONST(F.wordsize),
 				    Tr.CONST(findIndex(0,name,flist))))))
       end
+      | fieldVar(baseAddr, name, []) : exp = ErrorMsg.error 0 ("No fields declared"); R.dummy
 
 end
