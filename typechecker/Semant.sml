@@ -245,8 +245,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
             let val {exp=e, ty=exptype} = trexp(e)
 		            val {exp=varExp, ty=vartype} = trvar(v)
 		            val compat = isCompatible(actualType(exptype, p), actualType(vartype, p))
-            in checkLoopCounter(venv,v); if compat then {exp=R.dummy, ty=T.UNIT}
-                                         else (printError("Assign statement type incompatible", p); {exp=R.assignExp(varExp, e), ty=T.UNIT})
+            in checkLoopCounter(venv,v); if compat then {exp=R.assignExp(varExp, e), ty=T.UNIT}
+                                         else (printError("Assign statement type incompatible", p); {exp=R.dummy, ty=T.UNIT})
             end
 
           | trexp (A.SeqExp(elist)) = let val {ty=seqTy, exp=_} = trseq elist
