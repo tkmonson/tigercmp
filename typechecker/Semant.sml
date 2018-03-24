@@ -268,12 +268,12 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		          if elsety <> T.UNIT
 		            then
                  if thenty = elsety
-                 then {exp = R.translateIfThen(testexp, thenexp), ty = thenty}
+                 then {exp = R.translateIfThenElse(testexp, thenexp, elseexp), ty = thenty}
                  else (printError("Type mismatch in then and else statements", p); {exp=R.dummy, ty=T.BOTTOM})
               (*If elsety is UNIT, thenty must also be unit*)
               else
                 (if thenty <> T.UNIT then (printError("Then clause of an if/then statement can not return a value", p); {exp=R.dummy, ty=T.UNIT})
-                else {exp = R.translateIfThenElse(testexp, thenexp, elseexp), ty = T.UNIT})
+                else ({exp = R.translateIfThen(testexp, thenexp), ty = T.UNIT}))
               end
 
           | trexp (A.WhileExp{test=t, body=b, pos=p}) =
@@ -317,7 +317,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
                   checkBody(S.enter (venv, v, Env.VarEntry{access=R.allocLocal(level)(!e), ty=T.INT, isCounter=true}), b, v, p, Temp.newlabel());
                   trexp(A.LetExp{decs=letdecs,body=loop,pos=p})
               end
-    
+
 
           | trexp (A.ArrayExp{typ=t, size=s, init=i, pos=p}) =
             (checkInt(s, p);
@@ -476,6 +476,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		  T.UNIT   => if actualReturnType = T.UNIT then () else printError("Void function should not be returning a value", pos)
 		| _        =>	if isCompatible(actualReturnType, expectedReturnType) then () else printError("Result type of function header does not match result type of function body.", pos)
 
+    val createFunFrag = R.makeFunction(exp, funLevel)
 		in
 		(* 5. Result is unimportant, this function is strictly side-effecting *)
 		(venv,tenv, funLevel)
@@ -531,7 +532,12 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	trexp
     end
 
-(*fun transProg exp = (transExp (Env.base_venv, Env.base_tenv, false, Temp.newlabel()) exp; ())*)
+fun transProg filename =
+let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
+    val {ty=progTy, exp=progIR} = transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (Parse.parse filename)
+    val makeFrag = R.makeFunction(progIR, mainLevel)
+in R.getResult()
+end
 
 structure Main =
 struct

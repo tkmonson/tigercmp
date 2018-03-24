@@ -16,6 +16,9 @@ sig
 
   type frag = MipsFrame.frag
 
+  val makeFunction : exp*level -> unit
+  val getResult : unit -> frag list
+
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   val newLevel : {parent:level, name:Temp.label, formals:bool list} -> level
 
@@ -74,7 +77,6 @@ structure F = MipsFrame
   type frag = F.frag
 
   val dummy = Ex (Tr.CONST 12345)
-
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
     let
@@ -342,5 +344,12 @@ structure F = MipsFrame
 				    Tr.CONST(findIndex(0,name,flist))))))
       end
       | fieldVar(baseAddr, name, []) : exp = ErrorMsg.error 0 ("No fields declared"); R.dummy
+
+  fun makeFunction(funBody, makeLevel{frame=f, parent=p, unq=u}) =
+  let val funFrag = MipsFrame.PROC({body=unNx(funBody), frame=f})
+  in fraglistref := funFrag :: !fraglistref
+  end
+
+  fun getResult() = !fraglistref
 
 end
