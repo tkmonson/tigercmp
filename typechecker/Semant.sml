@@ -288,30 +288,36 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	               {exp = (R.whileLoop(testExp, bodyExp, whilelabel)), ty = T.UNIT}
                 end
 	  (*What do we do with the var? Create new scope for variable, use it in ex3 in book ONLY then take out*)
-          | trexp (A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p}) = (
+          | trexp (A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p}) =
 	      let
-		  val i = Symbol.symbol "i"
-		  val limit = Symbol.symbol "limit"
-		  val iVar = SimpleVar(i,p)
-		  val limitVar = SimpleVar(limit,p)
-                  val letdecs = [A.VarDec{name=i, escape=escape, typ=NONE, init=l, pos=p},
+		  val i = S.symbol "i"
+		  val limit = S.symbol "limit"
+		  val iVar = A.SimpleVar(i,p)
+		  val limitVar = A.SimpleVar(limit,p)
+                  val letdecs = [A.VarDec{name=i, escape=e, typ=NONE, init=l, pos=p},
 				 A.VarDec{name=limit, escape=ref false, typ=NONE, init=h, pos=p}]
-		  val loop = A.IfExp{test=A.OpExp{left=l,oper=A.LeOp,right=h},then'=
-			              A.WhileExp{test=A.OpExp{left=VarExp(iVar),oper=A.LeOp,right=VarExp(limitVar),pos=p},
-				                 body=A.SeqExp[(exp=b,pos=p),
-						      (exp=A.AssignExp{var=iVar,
-								       exp=A.OpExp{left=VarExp(iVar),
-								                   oper=A.PlusOp,
-										   right=IntExp(1),
-								       pos=p}),
-						       pos=p)]
-				                 pos=p}
+		  val loop = A.IfExp{test=  A.OpExp{left=l,oper=A.LeOp,right=h,pos=p},
+				     then'= A.WhileExp{test=A.OpExp{left=A.VarExp(iVar),
+								    oper=A.LeOp,
+								    right=A.VarExp(limitVar),
+								    pos=p},
+				                       body=A.SeqExp[(b,p),
+						                     (A.AssignExp{var=iVar,
+								                  exp=A.OpExp{left=A.VarExp(iVar),
+								                              oper=A.PlusOp,
+								  	                      right=A.IntExp(1),
+								                              pos=p},
+										  pos=p},p)],
+						       pos=p},
+				      else'= NONE,
 				      pos=p}
 	      in
                   checkInt(l, p);
                   checkInt(h, p);
                   checkBody(S.enter (venv, v, Env.VarEntry{access=R.allocLocal(level)(!e), ty=T.INT, isCounter=true}), b, v, p, Temp.newlabel());
-                  {exp=A.LetExp{decs=letdecs,body=loop,pos=p}, ty = T.UNIT})
+                  trexp(A.LetExp{decs=letdecs,body=loop,pos=p})
+              end
+    
 
           | trexp (A.ArrayExp{typ=t, size=s, init=i, pos=p}) =
             (checkInt(s, p);
