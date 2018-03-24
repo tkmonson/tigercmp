@@ -1,33 +1,24 @@
 How to test:
 -CM.make "sources.cm";
--use "Semant.sml";
--val t = Env.base_tenv;
--val v = Env.base_venv;
--transExp(v,t) (Parse.parse "Sample.tig")
--Look to see if transExp returns the correct Types.ty,
-and whether it prints error messages in cases where it should
+-Semant.Main.Translate "sample.tig"
+
+DONE:
+Int
+Ops
 
 
-Things that return correct types and throw errors correctly:
-NilExp
-IntExp
-StringExp
-OpExp
-IfExp
-Declaring and using records
-Declaring and using arrays
-Recursive records
-Mutually recursive records (tree, forest)
+PENDING:
+If/Then/Else
 
-Things that have been tested partially:
+Vardecs
+Assignments
 
+for loops
+while loop
+breaks
 
-Things to start testing:
--Function declarations and function calls
-  -Simple functions that operate on and return ints/strings
-  -Functions that operate on and return arrays/records/named types
-  -Recursive function (factorial)
-  -Mutually recursive functions
-
--For loops
--While loops
+Lets, including:
+-vardec
+-typedec: named, array, and record
+-functiondec
+-function call
