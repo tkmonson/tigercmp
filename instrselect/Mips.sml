@@ -37,6 +37,12 @@ struct
                                                            src=[],
                                                            dst=[r],
                                                            jump=NONE}))
+            | munchExp(T.MEM(exp1)) = result (fn r => emit(A.OPER{
+                                                             assem="LW 'do <- 0('s0)\n",
+                                                             src=[munchExp exp1],
+                                                             dst=[],
+                                                             jump=NONE}))
+              }))
             | munchExp(T.TEMP temp) = temp
         (*BINOP of binop * exp * exp
                 | MEM of exp
