@@ -48,10 +48,10 @@ fun eof() = let val pos = hd(!linePos) val dummy1 = checkComment pos val dummy2 
 <INITIAL> "-" => (Tokens.MINUS(yypos,yypos+1));
 <INITIAL> "+" => (Tokens.PLUS(yypos,yypos+1));
 <INITIAL> "." => (Tokens.DOT(yypos,yypos+1));
-<INITIAL> "]" => (Tokens.RBRACE(yypos,yypos+1));
-<INITIAL> "[" => (Tokens.LBRACE(yypos,yypos+1));
-<INITIAL> "}" => (Tokens.RBRACK(yypos,yypos+1));
-<INITIAL> "{" => (Tokens.LBRACK(yypos,yypos+1));
+<INITIAL> "]" => (Tokens.RBRACK(yypos,yypos+1));
+<INITIAL> "[" => (Tokens.LBRACK(yypos,yypos+1));
+<INITIAL> "}" => (Tokens.RBRACE(yypos,yypos+1));
+<INITIAL> "{" => (Tokens.LBRACE(yypos,yypos+1));
 <INITIAL> ")" => (Tokens.RPAREN(yypos,yypos+1));
 <INITIAL> "(" => (Tokens.LPAREN(yypos,yypos+1));
 <INITIAL> ";" => (Tokens.SEMICOLON(yypos,yypos+1));
@@ -82,5 +82,5 @@ fun eof() = let val pos = hd(!linePos) val dummy1 = checkComment pos val dummy2 
 <COMMENT> "/" => (continue());
 <COMMENT> "*" => (continue());
 
-<INITIAL> [\f\n\t\r\ ]+ => (continue());
+<INITIAL> [\n\t\r\ ]+ => (continue());
 .       => (ErrorMsg.error yypos ("illegal character " ^ yytext); continue());
