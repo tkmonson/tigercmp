@@ -68,14 +68,13 @@ structure A = Absyn
 
 %%
 
-program: exp			        (PrintAbsyn.print (TextIO.stdOut, exp1); exp1)
+program: exp			                      (PrintAbsyn.print (TextIO.stdOut, exp1); exp1)
 
-exp: LPAREN exp RPAREN		        (exp1)
-   | LPAREN expList RPAREN	        (A.SeqExp expList1)
+exp: LPAREN expList RPAREN	            (A.SeqExp expList1)
 
-expList: exp expTail			(expTail1 (exp1, exp1left:pos))
-expTail: SEMICOLON exp expTail (fn (e:A.exp, pos:pos) => (e, pos)::expTail1 (exp1, exp1left))
-   | (fn (e:A.exp, pos:pos) => (e, pos)::[])
+expList: exp expTail			              (expTail1 (exp1, exp1left:pos))
+expTail: SEMICOLON exp expTail          (fn (e:A.exp, pos:pos) => (e, pos)::expTail1 (exp1, exp1left))
+                                      | (fn (e:A.exp, pos:pos) => (e, pos)::[])
 
 exp: INT                                (A.IntExp INT)
    | STRING                             (A.StringExp(STRING, STRINGleft))
