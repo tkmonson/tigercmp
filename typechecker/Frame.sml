@@ -26,6 +26,7 @@ sig
   val externalCall : string*Tree.exp list -> Tree.exp
 
   val procEntryExit1 : frame * Tree.stm -> Tree.stm
+  val procEntryExit2 : frame * Assem.instr list -> Assem.instr list
 
 (*Label for the machine code of this function : Produced using Temp.newLabel()*)
   val funclabel : Temp.label
@@ -172,7 +173,12 @@ struct
   (*From caller's perspective, args are in reg a0-a3. For the callee, they need to be moved from a0-a3 into various temps and frame slots. You
     can do this in this phase or in the next phase. *)
   fun procEntryExit1 (makeFrame{name, formals, offset, moves}, stat:Tree.stm) = Tree.SEQ(Tree.seq moves, stat)
-
+ (*TODO:Why do we do jump some?*)
+  fun procEntryExit2(frame, body) =
+      body @
+      [A.OPER{assem="",
+              src=[ZERO,RA,SP]@calleesaves,
+              dst=[], jump=SOME[]}]
 
   fun externalCall (fname, argList) = Tree.CALL(Tree.NAME(Temp.namedlabel(fname)), argList)
 
