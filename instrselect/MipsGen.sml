@@ -16,16 +16,23 @@ structure Tr = Tree
                                             assem = label ^ ":\n",
                                             lab = label})
             (*TODO: Handle reg-mem, mem-reg, reg-reg moves as special cases*)
-            | munchStm(T.MOVE(T.MEM exp1, exp2) = emit (A.OPER{
+            | munchStm(T.MOVE(T.MEM exp1, exp2)) = emit (A.OPER{
                                                      src=[munchExp exp1, munchExp exp2],
                                                      dst=[]
-                                                     jump=[NONE]})
+                                                     jump=NONE})
 
             | munchStm(T.EXP(T.CALL(T.LABEL(l), argList))) = emit(A.OPER {
                                                                assem="jal" ^ Symbol.name l ^ "\n",
                                                                src=munchArgs argList,
                                                                dst=MipsFrame.calldefs,
                                                                jump=[l]})
+
+            | munchStm(T.MOVE(T.TEMP t, T.CALL(T.LABEL(l), argList))) = munchStm T.EXP T.CALL(T.LABEL(l), argList);
+                                                                        emit(A.MOVE {
+                                                                          assem="move 'd0 's0  \n",
+                                                                          src=MipsFrame.RA,
+                                                                          dst=t,
+                                                                          jump=[l]})
 
         (*This function handles insn selection for a Tree.exp
             It returns the result of the exp in a Temp, and emits MIPS as a side-effect. p. 205*)
@@ -40,7 +47,6 @@ structure Tr = Tree
                                                              src=[munchExp exp1],
                                                              dst=[],
                                                              jump=NONE}))
-              }))
             | munchExp(T.TEMP temp) = temp
 
 	    (*BINOP of binop * exp * exp
@@ -56,17 +62,18 @@ structure Tr = Tree
           It returns a list of all temps that will be passed to the CALL.
           These come from calling munchExp on the args. p. 204 *)
         fun munchArgs (i, arg::rest) =
-        let val dst = MipsFrame.getCallerArgLoc(i)
-            val src = munchExp(arg)
-        in
-  			     munchStm(Tr.MOVE(dst, T.TEMP src));
-             (*I (Saumya) think that munchArgs should return the src registers based on book p. 204*)
-             (*Tommy thinks it should be the dst registers*)
-  			     src :: munchArgs(i+i,rest)
-	    end
+          let val dst = MipsFrame.getCallerArgLoc(i)
+              val src = munchExp(arg)
+              in
+  			        (munchStm(Tr.MOVE(dst, T.TEMP src)); src :: munchArgs(i+i,rest))
+                 (*I (Saumya) think that munchArgs should return the src registers based on book p. 204*)
+                 (*Tommy thinks it should be the dst registers*)
+
+	        end
 
 
 
      in
       munchStm stm; rev(!ilist)
+      end
 end
