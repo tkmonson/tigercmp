@@ -545,7 +545,9 @@ structure Main =
 struct
   fun translate filename =
     let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
-        val {ty=progTy, exp=progIR} = transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (Parse.parse filename)
+        val prog = (Parse.parse filename)
+        val findEscapes = FindEscape.findEscape prog
+        val {ty=progTy, exp=progIR} = transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog)
    in Printtree.printtree(TextIO.stdOut, Translate.unNx(progIR))
     end
 end
