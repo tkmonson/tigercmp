@@ -18,11 +18,11 @@ struct
                                                                                       src=[munchExp exp1, munchExp exp2],
                                                                                       dst=[],
                                                                                       jump=NONE})
-            | munchStm(Tr.MOVE(Tr.MEM(exp1), Tr.MEM(exp2))) = emit (A.OPER{
-                                                   assem="SW 's0 's1\n",
-                                                   src=[munchExp Tr.MEM(exp2), munchExp (exp1)],
-                                                   dst=[]
-                                                   jump=NONE})
+            | munchStm(Tr.MOVE(exp1, Tr.MEM(Tr.BINOP(Tr.PLUS, exp2, Tr.CONST i)))) = emit (A.OPER{
+                                                                                      assem="LW 's0 " ^ int i ^ "('s1')\n",
+                                                                                      src=[munchExp exp1, munchExp exp2],
+                                                                                      dst=[],
+                                                                                      jump=NONE})
             | munchStm(Tr.MOVE(Tr.MEM(Tr.CONST i), exp1)) = emit (A.OPER{
                                                    assem="SW 's0 " ^ int i + "('s1)\n",
                                                    src=[munchExp exp1, MipsFrame.RZ],
@@ -34,16 +34,13 @@ struct
                                                  src=[munchExp exp2, munchExp exp1],
                                                  dst=[]
                                                  jump=NONE})
-            | munchStm(Tr.MOVE(Tr.TEMP temp0, Tr.Temp temp1)) = emit (A.MOVE{
-                                                 assem="move 's0 's1\n",
-                                                 src=[temp0, temp1],
-                                                 dst=[]
-                                                 jump=NONE})
-            | munchStm(Tr.MOVE(Tr.TEMP temp, exp1)) = emit (A.OPER{
-                                                   assem="SW 's0 's1\n",
-                                                   src=[munchExp exp1, munchExp exp2],
+            | munchStm(Tr.MOVE(Tr.TEMP temp, exp1)) = emit (A.MOVE{
+                                                   assem="move 's0 's1\n",
+                                                   src=[temp, munchExp exp1],
                                                    dst=[]
                                                    jump=NONE})
+            | munchStm(Tr.MOVE(_,_)) = Semant.printError("Trying to move into some exp that's not a temp or mem.
+                                                          Should never happen in well-typed code.",0)
             | munchStm(Tr.LABEL(label)) = emit (A.LABEL{
                                             assem = label ^ ":\n",
                                             lab = label})
@@ -51,11 +48,6 @@ struct
             | munchStm(Tr.LABEL(label)) = emit (A.LABEL{
                                             assem = label ^ ":\n",
                                             lab = label})
-            (*TODO: Handle reg-mem, mem-reg, reg-reg moves as special cases*)
-            | munchStm(Tr.MOVE(Tr.MEM exp1, exp2)) = emit (A.OPER{
-                                                     src=[munchExp exp1, munchExp exp2],
-                                                     dst=[]
-                                                     jump=NONE})
 
             | munchStm(Tr.EXP(Tr.CALL(Tr.LABEL(l), argList))) = emit(A.OPER {
                                                                assem="jal" ^ Symbol.name l ^ "\n",

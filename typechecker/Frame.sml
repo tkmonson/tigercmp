@@ -176,8 +176,8 @@ struct
  (*TODO:Why do we do jump some?*)
   fun procEntryExit2(frame, body) =
       body @
-      [A.OPER{assem="",
-              src=[ZERO,RA,SP]@calleesaves,
+      [Assem.OPER{assem="",
+              src=[RZ,RA,SP] @ (map getTemp calleeSaves),
               dst=[], jump=SOME[]}]
 
   fun externalCall (fname, argList) = Tree.CALL(Tree.NAME(Temp.namedlabel(fname)), argList)

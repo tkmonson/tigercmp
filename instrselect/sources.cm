@@ -33,6 +33,8 @@ Group is
 ../typechecker/Frame.sml
 ../typechecker/Translate.sml
 
+assem.sml
+
 (*SML libraries*)
 $/smlnj-lib.cm
 $/ml-yacc-lib.cm
