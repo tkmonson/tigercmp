@@ -52,21 +52,17 @@ structure Tr = Tree
           It returns a list of all temps that will be passed to the CALL.
           These come from calling munchExp on the args. p. 204 *)
         fun munchArgs (i, arg::rest) =
-	    let val len = List.length Frame.argregs
-	    in
-		if i < len then
-		    let val dst = List.nth (Frame.argsregs,i)
-			val src = munchExp(arg)
-		    in
-			munchStm(Tr.MOVE(T.TEMP dst, T.TEMP src));
-			dst :: munchArgs(i+i,rest)
-
-		else (* RAISE EXCEPTION: spilling *)
-
+        let val dst = MipsFrame.getCallerArgLoc(i)
+            val src = munchExp(arg)
+        in
+  			     munchStm(Tr.MOVE(dst, T.TEMP src));
+             (*I (Saumya) think that munchArgs should return the src registers based on book p. 204*)
+             (*Tommy thinks it should be the dst registers*)
+  			     src :: munchArgs(i+i,rest)
 	    end
 
 
-					  
+
      in
       munchStm stm; rev(!ilist)
 end

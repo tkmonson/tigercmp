@@ -6,7 +6,7 @@ sig
   type reg_info = Temp.temp * register
 
 
-  datatype frame = makeFrame of {name: Temp.label, formals:access list, offset: int ref}
+  datatype frame = makeFrame of {name: Temp.label, formals:access list, offset: int ref, moves: Tree.stm list}
   and      access =  InFrame of int
                    | InReg   of Temp.temp
   and       frag = PROC of {body:Tree.stm, frame:frame}
@@ -42,7 +42,7 @@ struct
   type reg_info = Temp.temp * register
 
   (*name of the frame, access for each formal, AND a ref int that represents the offset for the next local variable*)
-  datatype frame = makeFrame of {name: Temp.label, formals:access list, offset:int ref}
+  datatype frame = makeFrame of {name: Temp.label, formals:access list, offset:int ref, moves:Tree.stm list}
 
   (*Represents the location (in register or in frame) of any formal or local variable*)
   and      access =  InFrame of int
@@ -55,7 +55,7 @@ struct
 
   (* Zero Register *)
   val RZ = Temp.newtemp()
-		     
+
   (* Result Registers *)
   val v0 = Temp.newtemp()
   val v1 = Temp.newtemp()
@@ -120,37 +120,59 @@ struct
                       Symbol.empty
                       (argRegs @ calleeSaves @ callerSaves @ specials)
 
+  fun getTemp(temp, tempname) = temp
+
  (*This function returns a string for a temp. If that temp is used as a special register, we turn its friendly name (eg SP).
     Otherwise, we just return the temp in string form (eg 123)*)
   fun getRegName(temp) = case Symbol.look(tempMap, Symbol.symbol (Temp.makestring temp)) of
                         SOME(name) => name
                       | NONE       => Temp.makestring temp
 
+(* Tells a caller where to put argument n, either in an arg reg or on the stack *)
+(* Arguments are 0-indexed *)
+  fun getCallerArgLoc(n) =
+    if n < 4 then Tree.TEMP (getTemp (List.nth (argRegs, n)))
+    else Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.TEMP SP, Tree.CONST (wordsize*(n-4))))
+
   fun newFrame ({name:Temp.label, formals:bool list}) =
-      let val oset = ref 0
-          val allFormals = true::formals
-          fun createAccess (esc:bool):access = if esc then (oset:=(!oset)+1; InFrame ((!oset)-1)) else InReg (Temp.newtemp())
-          val accessList = map createAccess formals
-      in makeFrame({name=name, formals=accessList, offset=oset})
+    let val allFormals = true :: formals
+        val oset = ref 0
+        fun processFormals(accesses, viewshifts, count) =
+            if count = List.length allFormals then (accesses, viewshifts)
+            else let
+                   val offset = !oset
+                   val stackSlot = Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.TEMP FP, Tree.CONST(wordsize*offset)))
+                   val acc = if List.nth(allFormals, count) then (oset:=(!oset)+1; InFrame offset)
+                             else InReg(Temp.newtemp())
+
+                   val viewshift = case acc of
+                                  InReg(t)   => Tree.MOVE(Tree.TEMP t, getCallerArgLoc count)
+                                | InFrame(a) => Tree.MOVE(stackSlot, getCallerArgLoc count)
+                 in
+                  processFormals(accesses@[acc], viewshifts@[viewshift], count+1)
+                 end
+        val (accesses, viewshifts) = processFormals([],[],0)
+
+      in makeFrame({name=name, formals=accesses, offset=oset, moves=viewshifts})
       end
 
-  fun name (makeFrame{name, formals, offset}) = name
-  fun formals (makeFrame{name, formals, offset}) = formals
+  fun name (makeFrame{name, formals, offset, moves}) = name
+  fun formals (makeFrame{name, formals, offset, moves}) = formals
   val funclabel = Temp.newlabel()
 
   val isLeaf = ref false
 
-  fun allocLocal (makeFrame{name, formals, offset}) = fn(x:bool) => if x then (offset:=(!offset)+1; InFrame ((!offset)-1)) else InReg(Temp.newtemp())
+  fun allocLocal (makeFrame{name, formals, offset, moves}) = fn(x:bool) => if x then (offset:=(!offset)+1; InFrame ((!offset)-1)) else InReg(Temp.newtemp())
 
   fun exp (a:access) = fn(e:Tree.exp) => case a of
                                          InReg(t:Temp.temp) => Tree.TEMP(t)
-                                       | InFrame(offset)    => Tree.MEM(Tree.BINOP(Tree.PLUS, e, Tree.CONST(offset)))
+                                       | InFrame(offset)    => Tree.MEM(Tree.BINOP(Tree.PLUS, e, Tree.CONST(wordsize*offset)))
 
   (*This is part of the view shift*)
   (*From caller's perspective, args are in reg a0-a3. For the callee, they need to be moved from a0-a3 into various temps and frame slots. You
     can do this in this phase or in the next phase. *)
-    (*TODO: Make this actually do something*)
-  fun procEntryExit1 (makeFrame{name, formals, offset}, stat:Tree.stm) = stat
+  fun procEntryExit1 (makeFrame{name, formals, offset, moves}, stat:Tree.stm) = Tree.SEQ(Tree.seq moves, stat)
+
 
   fun externalCall (fname, argList) = Tree.CALL(Tree.NAME(Temp.namedlabel(fname)), argList)
 
