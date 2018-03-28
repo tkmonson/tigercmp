@@ -13,6 +13,7 @@ Environment.sml
 (*For ASTs*)
 prabsyn.sml
 absyn.sml
+FindEscapes.sml
 
 (*Loading lexer*)
 tiger.lex

@@ -9,20 +9,23 @@ structure Tr = Tree
         fun result(gen) = let val t = Temp.newtemp() in gen t; t end
 
         (*This function emits MIPS for a Tree.stm as a side-effect. p. 204*)
+        (*Returns unit*)
         fun munchStm(T.SEQ(stmA, stmB)) = (munchStm(stmA); munchStm(stmB))
+            | munchStm(T.EXP(e)) = (munchExp(e); ())
             | munchStm(T.LABEL(label)) = emit (A.LABEL{
                                             assem = label ^ ":\n",
                                             lab = label})
+            (*TODO: Handle reg-mem, mem-reg, reg-reg moves as special cases*)
             | munchStm(T.MOVE(T.MEM exp1, exp2) = emit (A.OPER{
                                                      src=[munchExp exp1, munchExp exp2],
                                                      dst=[]
                                                      jump=[NONE]})
-        (*SEQ of stm * stm
-                     | LABEL of label
-                     | JUMP of exp * label list
-                     | CJUMP of relop * exp * exp * label * label
-      	       | MOVE of exp * exp
-                     | EXP of exp*)
+
+            | munchStm(T.EXP(T.CALL(T.LABEL(l), argList))) = emit(A.OPER {
+                                                               assem="jal" ^ Symbol.name l ^ "\n",
+                                                               src=munchArgs argList,
+                                                               dst=MipsFrame.calldefs,
+                                                               jump=[l]})
 
         (*This function handles insn selection for a Tree.exp
             It returns the result of the exp in a Temp, and emits MIPS as a side-effect. p. 205*)
@@ -31,6 +34,7 @@ structure Tr = Tree
                                                            src=[],
                                                            dst=[r],
                                                            jump=NONE}))
+            (*TODO: Add special cases for MEM where exp1 is reg +- const or const +- reg*)
             | munchExp(T.MEM(exp1)) = result (fn r => emit(A.OPER{
                                                              assem="LW 'do <- 0('s0)\n",
                                                              src=[munchExp exp1],
@@ -52,21 +56,17 @@ structure Tr = Tree
           It returns a list of all temps that will be passed to the CALL.
           These come from calling munchExp on the args. p. 204 *)
         fun munchArgs (i, arg::rest) =
-	    let val len = List.length Frame.argregs
-	    in
-		if i < len then
-		    let val dst = List.nth (Frame.argsregs,i)
-			val src = munchExp(arg)
-		    in
-			munchStm(Tr.MOVE(T.TEMP dst, T.TEMP src));
-			dst :: munchArgs(i+i,rest)
-
-		else (* RAISE EXCEPTION: spilling *)
-
+        let val dst = MipsFrame.getCallerArgLoc(i)
+            val src = munchExp(arg)
+        in
+  			     munchStm(Tr.MOVE(dst, T.TEMP src));
+             (*I (Saumya) think that munchArgs should return the src registers based on book p. 204*)
+             (*Tommy thinks it should be the dst registers*)
+  			     src :: munchArgs(i+i,rest)
 	    end
 
 
-					  
+
      in
       munchStm stm; rev(!ilist)
 end
