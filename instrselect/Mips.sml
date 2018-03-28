@@ -18,10 +18,21 @@ struct
             | munchStm(T.LABEL(label)) = emit (A.LABEL{
                                             assem = label ^ ":\n",
                                             lab = label})
-            | munchStm(T.MOVE(T.MEM exp1, exp2) = emit (A.OPER{
+            | munchStm(T.MOVE(T.MEM (exp1), exp2) = emit (A.OPER{
+                                                     assem="SW 's0 's1'",
                                                      src=[munchExp exp1, munchExp exp2],
                                                      dst=[]
                                                      jump=[NONE]})
+            | munchStm(T.MOVE(T.MEM(exp1), T.MEM(exp2))) = emit (A.OPER{
+                                                     assem=,
+                                                     src=[munchExp exp1, munchExp exp2],
+                                                     dst=[]
+                                                     jump=[NONE]})
+            | munchStm(T.MOVE(T.CONST i), exp1) =
+            | munchStm(T.MOVE(T.TEMP temp, exp1)) =
+            | munchStm(T.MOVE(T.MEM(T.BINOP(T.PLUS, exp1, T.CONST i)), exp2)) = emit (A.OPER{
+
+              })
         (*SEQ of stm * stm
                      | LABEL of label
                      | JUMP of exp * label list
