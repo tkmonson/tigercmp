@@ -33,15 +33,42 @@ struct
             It returns the result of the exp in a Temp, and emits MIPS as a side-effect
             p205*)
         fun munchExp(T.CONST i) = result (fn r => emit(A.OPER {
-                                                           assem="ADDI 'd0 <- 'r0+" ^ int i ^ "\n",
+                                                           assem = "ADDI 'd0 'r0 " ^ int i ^ "\n",
+                                                           (* assem="ADDI 'd0 <- 'r0+" ^ int i ^ "\n", *)
                                                            src=[],
                                                            dst=[r],
                                                            jump=NONE}))
+            | munchExp(T.MEM(T.CONST i)) = result(fn r => emit(A.OPER{
+                                                                   assem="LA 'd0 " ^ int i ^ "\n",
+                                                                   src=[],
+                                                                   dst=[r],
+                                                                   jump=NONE}))
             | munchExp(T.MEM(exp1)) = result (fn r => emit(A.OPER{
-                                                             assem="LW 'do <- 0('s0)\n",
-                                                             src=[munchExp exp1],
-                                                             dst=[],
-                                                             jump=NONE}))
+                                                           assem="LW 'do 0('s0)\n",
+                                                           src=[munchExp exp1],
+                                                           dst=[r],
+                                                           jump=NONE}))
+            }))
+            | munchExp(T.MEM(T.BINOP(T.PLUS, T.CONST i, exp1) = result (fn r => emit(A.OPER{
+                                                                                    assem="LW 'd0 " ^ int i ^ "('s0)",
+                                                                                    src=[munchExp exp1],
+                                                                                    dst=[r],
+                                                                                    jump=NONE}))
+            | munchExp(T.MEM(T.BINOP(T.PLUS, exp1, T.CONST i) = result (fn r => emit(A.OPER{
+                                                                                    assem="LW 'd0 " ^ int i ^ "('s0)",
+                                                                                    src=[munchExp exp1],
+                                                                                    dst=[r],
+                                                                                    jump=NONE}))                                                                       jump=}))
+            | munchExp (T.BINOP(T.PLUS, exp1, T.CONST i)) = result(fn r => emit(A.OPER{
+                                                                                assem=,
+                                                                                src=[munchExp exp1],
+                                                                                dst=[r],
+                                                                                jump=}))
+            | munchExp (T.BINOP(T.PLUS, T.CONST i. exp1)) = result(fn r => emit(A.OPER{
+                                                                                assem=,
+                                                                                src=[],
+                                                                                dst=[],
+                                                                                jump=}))
               }))
             | munchExp(T.TEMP temp) = temp
         (*BINOP of binop * exp * exp
