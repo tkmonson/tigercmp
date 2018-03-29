@@ -78,6 +78,7 @@ structure F = MipsFrame
 
   val dummy = Ex (Tr.CONST 12345)
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
+  (*Frame.newFrame adds an extra bool param for the static link escape!*)
   fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
     let
       val fr = MipsFrame.newFrame{formals=formals, name=Temp.newlabel()}

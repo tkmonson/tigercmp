@@ -536,7 +536,9 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
 fun transProg filename =
 let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
-    val {ty=progTy, exp=progIR} = transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (Parse.parse filename)
+    val prog = (Parse.parse filename)
+    val findEscapes = FindEscape.findEscape prog
+    val {ty=progTy, exp=progIR} = transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog)
     val makeFrag = R.makeFunction(progIR, mainLevel)
 in R.getResult()
 end
