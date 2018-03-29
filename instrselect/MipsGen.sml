@@ -14,6 +14,10 @@ structure As = Assem
 
         fun result(gen) = let val t = Temp.newtemp() in gen t; t end
 
+	(* On a function call, these registers are trashed: caller-saves, return address, return value *)
+	val codedefs = [Frame.t0,Frame.t1,Frame.t2,Frame.t3,Frame.t4,Frame.t5,
+			Frame.t6,Frame.t7,Frame.t8,Frame.t9,Frame.RA,Frame.v0]
+
         (*This function emits MIPS for a Tree.stm as a side-effect. p. 204*)
         (*Returns unit*)
         fun munchStm(Tr.SEQ(stmA, stmB)) = (munchStm(stmA); munchStm(stmB))
@@ -311,7 +315,22 @@ structure As = Assem
 		                      jump=NONE}))
 		     
             (* TODO: CALL *)
-	    | munchExp (Tr.CALL(e,args)) = e
+	    | munchExp (Tr.CALL(e,args)) =
+	      let
+                  val callerSaves = [Frame.t0,Frame.t1,Frame.t2,Frame.t3,Frame.t4,
+				     Frame.t5,Frame.t6,Frame.t7,Frame.t8,Frame.t9]
+		  val tempPairs = map (fn r => (Temp.newtemp(), r)) callerSaves
+		  fun store t r = Tr.MOVE(Tr.TEMP t, Tr.TEMP r)
+	      in
+		  map (fn (t,r) => munchStm(store t r)) tempPairs;
+                  result (fn r => emit(As.OPER{
+				      assem="jalr `s0, `d0\n",
+		                      src=munchExp(e) :: munchArgs(0,args),
+				      dst=calldefs,
+		                      jump=NONE}));
+		  map (fn (t,r) => munchStm(store r t)) tempPairs;
+		  Frame.v0
+	      end
 
         (*This function helps handle function arguments for a procedure call stm
           It emits code to move the args into arg registers and the stack
