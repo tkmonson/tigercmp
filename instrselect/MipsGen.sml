@@ -79,9 +79,8 @@ struct
                                                                    src=[],
                                                                    dst=[r],
                                                                    jump=NONE}))
-            (*TODO: Add special cases for MEM where exp1 is reg +- const or const +- reg*)
             | munchExp(Tr.MEM(exp1)) = result (fn r => emit(A.OPER{
-                                                           assem="LW 'do 0('s0)\n",
+                                                           assem="LW 'd0 0('s0)\n",
                                                            src=[munchExp exp1],
                                                            dst=[r],
                                                            jump=NONE}))
