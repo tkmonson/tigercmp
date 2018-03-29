@@ -36,7 +36,7 @@ sig
 
 end
 
-structure MipsFrame:FRAME =
+structure MipsFrame =
 struct
 
   type register = string
