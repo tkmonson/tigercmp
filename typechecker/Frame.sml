@@ -143,7 +143,7 @@ struct
             else let
                    val offset = !oset
                    val stackSlot = Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.TEMP FP, Tree.CONST(wordsize*offset)))
-                   val acc = if List.nth(allFormals, count) then (oset:=(!oset)+1; InFrame offset)
+                   val acc = if List.nth(allFormals, count) then (oset:=(!oset)-1; InFrame offset)
                              else InReg(Temp.newtemp())
 
                    val viewshift = case acc of
@@ -163,7 +163,7 @@ struct
 
   val isLeaf = ref false
 
-  fun allocLocal (makeFrame{name, formals, offset, moves}) = fn(x:bool) => if x then (offset:=(!offset)+1; InFrame ((!offset)-1)) else InReg(Temp.newtemp())
+  fun allocLocal (makeFrame{name, formals, offset, moves}) = fn(x:bool) => if x then (offset:=(!offset)-1; InFrame ((!offset)+1)) else InReg(Temp.newtemp())
 
   fun exp (a:access) = fn(e:Tree.exp) => case a of
                                          InReg(t:Temp.temp) => Tree.TEMP(t)
@@ -172,7 +172,25 @@ struct
   (*This is part of the view shift*)
   (*From caller's perspective, args are in reg a0-a3. For the callee, they need to be moved from a0-a3 into various temps and frame slots. You
     can do this in this phase or in the next phase. *)
-  fun procEntryExit1 (makeFrame{name, formals, offset, moves}, stat:Tree.stm) = Tree.SEQ(Tree.seq moves, stat)
+  fun procEntryExit1 (makeFrame{name, formals, offset, moves}, stat:Tree.stm) =
+    let
+    (* This let generates pre, which copies all calleesaves onto the stack, and post which copies them back *)
+      val fr = makeFrame{name=name, formals=formals, offset=offset, moves=moves}
+      val accesses = map (fn(x) => allocLocal(fr)(x)) (map (fn(x) => true) calleeSaves)
+      val cstemps = map getTemp calleeSaves
+      val pre = ListPair.map (fn(x,y) => case x of
+                                          InReg(t) => Tree.MOVE(Tree.TEMP t, Tree.TEMP y)
+                                        | InFrame(offset) => Tree.MOVE(Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.TEMP FP, Tree.CONST (wordsize*offset))), Tree.TEMP y)) (accesses, cstemps)
+      val post = ListPair.map (fn(x,y) => case x of
+                                          InReg(t) => Tree.MOVE(Tree.TEMP y, Tree.TEMP t)
+                                        | InFrame(offset) => Tree.MOVE(Tree.TEMP y, Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.TEMP FP, Tree.CONST (wordsize*offset))))) (accesses, cstemps)
+      val stmList = pre@moves@[stat]@post
+    in
+      Tree.seq stmList
+    end
+
+
+
  (*TODO:Why do we do jump some?*)
   fun procEntryExit2(frame, body) =
       body @
