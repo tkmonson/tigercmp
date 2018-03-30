@@ -139,8 +139,8 @@ structure F = MipsFrame
     | unCx (Cx c) = c
 
 
-    fun concat([], e2) = e2
-        | concat (elist, e2) = Ex(Tr.ESEQ(Tr.seq (map unNx elist), unEx(e2)))
+    fun concat([], e2) = (ErrorMsg.error 0 ("concat list is empty") ; e2)
+        | concat (elist, e2) = (ErrorMsg.error 0 ("concat list has size " ^ Int.toString (List.length elist)) ; Ex(Tr.ESEQ(Tr.seq (map unNx elist), unEx(e2))))
 
   (* binop and relop handle OpExp *)
   fun binop (oper,lexp,rexp) : exp =
@@ -251,7 +251,8 @@ structure F = MipsFrame
     end
 
   (*make eseq to turn everything but last one into statement and return last one as exp*)
-  fun seqExp (elist) = Ex(Tr.ESEQ (Tr.seq (map unNx (List.take (elist, (List.length elist) - 1))), unEx (List.last(elist))))
+  fun seqExp (e::[]) = Ex(unEx (e))
+      |seqExp (elist) = Ex(Tr.ESEQ (Tr.seq (map unNx (List.take (elist, (List.length elist) - 1))), unEx (List.last(elist))))
 
   (*location comes from transvar call in semant, exp comes from recursivecall in semant*)
   fun assignExp (IRexp, exp) = Nx(Tr.MOVE(unEx(IRexp), unEx(exp)))
