@@ -62,7 +62,7 @@ structure Tr = Tree
       (*TODO: Add special cases for MEM where exp1 is reg +- const or const +- reg*)
       | munchExp(Tr.MEM(exp1)) =
           result (fn r => emit(As.OPER{
-                                 assem="LW `do 0(`s0)\n",
+                                 assem="LW `d0 0(`s0)\n",
                                  src=[munchExp exp1],
                                  dst=[r],
                                  jump=NONE}))
@@ -346,7 +346,7 @@ structure Tr = Tree
 
             (*TODO: Handle reg-mem, mem-reg, reg-reg moves as special cases*)
             | munchStm(Tr.EXP(Tr.CALL(Tr.NAME(l), argList))) = emit(As.OPER {
-                                                               assem="jal" ^ Symbol.name l ^ "\n",
+                                                               assem="jal " ^ Symbol.name l ^ "\n",
                                                                src=munchArgs(0, argList),
                                                                dst=codedefs,
                                                                jump=SOME[l]})
@@ -364,7 +364,7 @@ structure Tr = Tree
                                | Tr.UGT => "bgtu"
                                | Tr.UGE => "bgeu"
                  in emit (As.OPER{
-                          assem = instr ^ " `s0 `s1 " ^ S.name label1,
+                          assem = instr ^ " `s0 `s1 " ^ S.name label1 ^"\n",
                           src=[munchExp exp1, munchExp exp2],
                           dst=[],
                           jump=SOME[label1, label2]})
