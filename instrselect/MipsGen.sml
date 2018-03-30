@@ -264,7 +264,6 @@ structure Tr = Tree
                                  src=[MipsFrame.RZ],
                                  dst=[r],
                                  jump=NONE}))
->>>>>>> 7daeba3fc1656c85b70494e7d10292b9e3d5c918
 
       | munchExp(Tr.ESEQ(_,_)) = (Semant.printError("Encountered an ESEQ in insn sel, shouldn't happen.", 0); Temp.newtemp())
 
@@ -320,11 +319,7 @@ structure Tr = Tree
                                                              jump=NONE})
 
 
-            | munchStm(Tr.MOVE(Tr.TEMP t, Tr.CALL(Tr.NAME(l), argList))) = (munchStm (Tr.EXP(Tr.CALL(Tr.NAME(l), argList)));
-                                                                       emit(As.MOVE {
-                                                                               assem="move 'd0 's0  \n",
-                                                                               src=munchExp(Tr.CALL(Tr.NAME(l), argList))),
-                                                                               dst=t}))
+            | munchStm(Tr.MOVE(Tr.TEMP t, Tr.CALL(Tr.NAME(l), argList))) = munchStm(Tr.MOVE(Tr.TEMP t, munchExp(Tr.CALL(Tr.NAME(l), argList))))
 
             | munchStm(Tr.MOVE(Tr.TEMP temp, exp1)) = emit(As.MOVE {
                                                               assem="move `d0 `s0  \n",
