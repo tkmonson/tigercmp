@@ -430,8 +430,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		val names = map getNameFromField params
 		val types = map transparam params
     val escapes = map (fn({name=n, escape=e, typ=t, pos=p}) => !e) params
-    val funLevel = R.newLevel({parent=level, name=name, formals=escapes})
-
+    val funLab = Temp.newlabel()
+    val funLevel = R.newLevel({parent=level, name=funLab, formals=escapes})
 	    in
 
   		(* 3. Check that no params share a name *)
@@ -439,7 +439,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
 		(* 4. Return venv with FunEntry *)
                 (S.enter(venv, name, E.FunEntry{level= funLevel,
-						label=name,
+						label=funLab,
 						formals = types,
 						result = rt}), tenv, funLevel)
 	    end
