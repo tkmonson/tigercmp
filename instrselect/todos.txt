@@ -1,0 +1,3 @@
+Semant.453: We call allocLocal on each function param. But, each param has already been alloc'd when
+the function frame was created in processFunDecHead. This is causing duplicate InFrame/InReg accesses,
+which is messing up the trees. Get rid of the calls to allocLocal in processFunDecBody!
