@@ -264,6 +264,7 @@ structure Tr = Tree
       | munchExp(Tr.ESEQ(_,_)) = (Semant.printError("Encountered an ESEQ in insn sel, shouldn't happen.", 0); Temp.newtemp())
 
             (* TODO: CALL *)
+            (*QUESTION: Do we need this, or will Ch 8 make sure that we never get to this point?*)
 	    | munchExp (Tr.CALL(e,args)) =
 	      let
                   val callerSaves = [MipsFrame.t0,MipsFrame.t1,MipsFrame.t2,MipsFrame.t3,MipsFrame.t4,
@@ -341,4 +342,38 @@ structure Tr = Tree
         munchStm stm; rev(!ilist)
 
     end
+
+    fun printTemp t =
+    let
+      val tempSymbol = Symbol.symbol (Temp.makestring t)
+      val nameOpt = Symbol.look(MipsFrame.tempMap, tempSymbol)
+    in
+      case nameOpt of
+        SOME(name) => name
+      | NONE       => Temp.makestring t
+    end
+
+    fun emitproc out (MipsFrame.PROC{body,frame}) =
+    let val stms   = Canon.linearize body
+        val stms'  = Canon.traceSchedule(Canon.basicBlocks stms)
+        val instrs = List.concat(map (codegen frame) stms')
+        val format0 = Assem.format(printTemp)
+    in
+      app (fn i => TextIO.output(out,format0 i)) instrs
+    end
+    |   emitproc out (MipsFrame.STRING(lab,s)) =  ()
+
+    fun transProg filename =
+    let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
+        val prog = (Parse.parse filename)
+        val findEscapes = FindEscape.findEscape prog
+        val {ty=progTy, exp=progIR} = Semant.transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog)
+        val makeFrag = R.makeFunction(progIR, mainLevel)
+        val fragList = R.getResult()
+    in
+      app (emitproc TextIO.stdOut) fragList
+    end
+
+
+
 end

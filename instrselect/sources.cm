@@ -34,6 +34,7 @@ Group is
 ../typechecker/Translate.sml
 
 assem.sml
+canon.sml
 
 (*SML libraries*)
 $/smlnj-lib.cm
