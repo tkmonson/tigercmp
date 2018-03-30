@@ -81,7 +81,7 @@ structure F = MipsFrame
   (*Frame.newFrame adds an extra bool param for the static link escape!*)
   fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
     let
-      val fr = MipsFrame.newFrame{formals=formals, name=Temp.newlabel()}
+      val fr = MipsFrame.newFrame{formals=formals, name=name}
     in
     makeLevel{frame=fr, parent=parent,unq=ref ()}
     end
@@ -350,7 +350,11 @@ structure F = MipsFrame
 
 
   fun makeFunction(funBody, makeLevel{frame=f, parent=p, unq=u}) =
-  let val funFrag = MipsFrame.PROC({body=unNx(funBody), frame=f})
+  let
+    val fragLabel = MipsFrame.name f
+    val body = Tree.seq [Tr.LABEL fragLabel, unNx(funBody)]
+
+    val funFrag = MipsFrame.PROC({body=body, frame=f})
   in fraglistref := funFrag :: !fraglistref
   end
 
