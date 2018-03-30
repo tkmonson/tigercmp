@@ -107,7 +107,7 @@ struct
   val argRegs = [(a0, "a0"),(a1, "a1"),
                  (a2, "a2"),(a3, "a3")]
 
-  val calleeSaves = [(s0, "s0"), (s0, "s1"), (s2, "s2"), (s3, "s3"),
+  val calleeSaves = [(s0, "s0"), (s1, "s1"), (s2, "s2"), (s3, "s3"),
                      (s4, "s4"), (s5, "s5"), (s6, "s6"), (s7, "s7")]
 
   val callerSaves = [(t0, "t0"), (t1, "t1"), (t2, "t2"), (t3, "t3"), (t4, "t4"),

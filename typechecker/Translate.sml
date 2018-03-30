@@ -139,8 +139,8 @@ structure F = MipsFrame
     | unCx (Cx c) = c
 
 
-    fun concat([], e2) = (ErrorMsg.error 0 ("concat list is empty") ; e2)
-        | concat (elist, e2) = (ErrorMsg.error 0 ("concat list has size " ^ Int.toString (List.length elist)) ; Ex(Tr.ESEQ(Tr.seq (map unNx elist), unEx(e2))))
+    fun concat([], e2) = e2
+        | concat (elist, e2) = Ex(Tr.ESEQ(Tr.seq (map unNx elist), unEx(e2)))
 
   (* binop and relop handle OpExp *)
   fun binop (oper,lexp,rexp) : exp =
@@ -352,7 +352,9 @@ structure F = MipsFrame
   fun makeFunction(funBody, makeLevel{frame=f, parent=p, unq=u}) =
   let
     val fragLabel = MipsFrame.name f
-    val body = Tree.seq [Tr.LABEL fragLabel, unNx(funBody)]
+    val body1 = (MipsFrame.procEntryExit1(f, unNx(funBody)))
+
+    val body = Tree.seq [Tr.LABEL fragLabel, body1]
 
     val funFrag = MipsFrame.PROC({body=body, frame=f})
   in fraglistref := funFrag :: !fraglistref
