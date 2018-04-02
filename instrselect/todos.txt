@@ -1,3 +1,11 @@
 Semant.453: We call allocLocal on each function param. But, each param has already been alloc'd when
 the function frame was created in processFunDecHead. This is causing duplicate InFrame/InReg accesses,
 which is messing up the trees. Get rid of the calls to allocLocal in processFunDecBody!
+
+(-3 pts): when UnNxing a Cx, you’re just returning the label, not the sequence of the condition and the label
+(-2 pts): when translating a subscript expression, you’re not multiplying by the word size when indexing into memory
+(-1 pt): string comparisons require a special external call (stringEqual, stringLT, stringGT)
+(-2 pts): you risk entering an infinite loop when translating for loops when the upper limit is the integer maximum
+(because Tiger for loops operate on closed intervals,
+I’d recommend against converting it to a while loop and then using the while loop translation)
+(-2 pts): when making a new level, you’re not adding whether the newest formal (the static link) escapes
