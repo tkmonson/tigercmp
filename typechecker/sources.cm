@@ -1,26 +1,27 @@
 Group is
 
-errormsg.sml
+../lexer/errormsg.sml
 printtree.sml
+
+../parser/table.sig
+../parser/table.sml
+../parser/symbol.sml
 
 (*For symbols and environments*)
 types.sml
-table.sig
-table.sml
-symbol.sml
 Environment.sml
 
 (*For ASTs*)
-prabsyn.sml
-absyn.sml
+../parser/prabsyn.sml
+../parser/absyn.sml
 FindEscapes.sml
 
 (*Loading lexer*)
-tiger.lex
+../parser/tiger.lex.sml
 
 (*Loading parser*)
-tiger.grm
-parse.sml
+../parser/tiger.grm
+../parser/parse.sml
 
 (*Temps and IR*)
 temp.sig
