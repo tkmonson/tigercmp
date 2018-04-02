@@ -352,9 +352,12 @@ structure F = MipsFrame
   fun makeFunction(funBody, makeLevel{frame=f, parent=p, unq=u}) =
   let
     val fragLabel = MipsFrame.name f
-    val body1 = (MipsFrame.procEntryExit1(f, unNx(funBody)))
 
-    val body = Tree.seq [Tr.LABEL fragLabel, body1]
+    (**funBody: Has type Translate.exp **)
+    (*pEE1 takes Tree.stm*)
+    (* val body1 = (MipsFrame.procEntryExit1(f, unNx(funBody))) *)
+
+    val body = Tree.seq [Tr.LABEL fragLabel, unNx funBody]
 
     val funFrag = MipsFrame.PROC({body=body, frame=f})
   in fraglistref := funFrag :: !fraglistref
