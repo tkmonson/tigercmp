@@ -77,6 +77,7 @@ structure F = MipsFrame
   type frag = F.frag
 
   val dummy = Ex (Tr.CONST 12345)
+
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   (*Frame.newFrame adds an extra bool param for the static link escape!*)
   fun newLevel ({parent:level, name:Temp.label, formals:bool list}) =
@@ -168,6 +169,28 @@ structure F = MipsFrame
       in
 	  Cx(fn (t,f) => Tr.CJUMP(TreeOper,unEx(lexp),unEx(rexp),t,f))
       end
+
+      fun stringComp (oper,s1,s2) = let val tLabel = Temp.newlabel()
+                                        val fLabel = Temp.newlabel()
+                                        val retVal = Temp.newtemp()
+                                        val joinLabel = Temp.newlabel()
+                                        val join = Tr.JUMP(Tr.NAME(joinLabel),[joinLabel])
+                                    in
+                                        case oper of
+                                             Tr.EQ =>  Ex (MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2]))
+                                           | Tr.NE =>  Ex(Tr.ESEQ(Tr.seq[
+                                                       Tr.CJUMP(Tr.EQ, (Ex MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2])), Tr.CONST 0, tLabel, fLabel),
+                                                       Tr.LABEL(tLabel),
+                                                       Tr.MOVE(Tr.TEMP(retVal), Tr.CONST 1), join,
+                                                       Tr.LABEL(fLabel),
+                                                       Tr.MOVE(Tr.TEMP(retVal), Tr.CONST 0), join,
+                                                       Tr.LABEL(joinLabel)],
+                                                       Tr.TEMP(retVal)))
+                                           | Tr.LT => Ex MipsFrame.externalCall("stringLT", [unEx s1, unEx s2])
+                                           | Tr.GT => Ex MipsFrame.externalCall("stringGT", [unEx s1, unEx s2])
+                                           | Tr.LE => Tr.BINOP(Tr.OR, Ex MipsFrame.externalCall("stringLT", [unEx s1, unEx s2]), Ex MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2]))
+                                           | Tr.GE => Tr.BINOP(Tr.OR, Ex MipsFrame.externalCall("stringGT", [unEx s1, unEx s2]), Ex MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2]))
+                                   end
 
   val NilExp = Ex(Tr.CONST 0)
 
@@ -323,7 +346,7 @@ structure F = MipsFrame
     val allGood = Temp.newlabel()
     val checkOutOfBounds = Tr.CJUMP(Tr.GE, unEx(index), arrSize, ifOutOFBounds, allGood)
     val checkBelowZero = Tr.CJUMP(Tr.LT, unEx(index), Tr.CONST 0, ifBelowZero, ifAboveZero)
-    val retVal = Tr.MEM(Tr.BINOP(Tr.PLUS, unEx(baseAddr), unEx(index)))
+    val retVal = Tr.MEM(Tr.BINOP(Tr.PLUS, unEx(baseAddr), Tr.BINOP(Tr.MUL, unEx(index), Tr.CONST MipsFrame.wordsize)))
     val exit = Tr.EXP(MipsFrame.externalCall("exit", [Tr.CONST 1]))
   in
     Ex (Tr.ESEQ(Tr.seq [checkBelowZero, Tr.LABEL ifBelowZero, exit, Tr.LABEL ifAboveZero,

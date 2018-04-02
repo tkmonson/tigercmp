@@ -227,12 +227,11 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	    in
 		case classify(oper) of
 		    ARITH => (checkArith(); {exp=R.binop(oper,lexp,rexp), ty=T.INT})
-		  | COMP  => (checkComp();  {exp=R.relop(oper,lexp,rexp), ty=T.INT})
+		  | COMP  => (checkComp(); if lty = STRING then R.stringEq(lexp,rexp) else {exp=R.relop(oper,lexp,rexp), ty=T.INT})
 		  | EQ    => (checkEq();    {exp=R.relop(oper,lexp,rexp), ty=T.INT})
 	    end
 
 
-        (*TODO: Append ir to *)
           | trexp (A.LetExp{decs=d, body=b, pos=p}) =
             let val (venv', tenv', decIR) = transDecs (venv, tenv, d, [], level)
                 val {exp=bodyIR, ty=t} = transExp(venv', tenv', level, false, Temp.newlabel()) b
