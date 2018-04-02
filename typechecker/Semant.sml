@@ -449,7 +449,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		  fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
   		val names = map getNameFromField params
   		val types = map transparam params
-      val accesses = map (fn({name=n, escape=e, typ=t, pos=p}:Absyn.field) => R.allocLocal(funLevel)(!e)) params
+      val accesses = R.formals(funLevel)
 
 		(* 2. Declare the parameters to be in scope within the body of the function *)
   		fun enterVars ((name:S.symbol, vEntry:E.enventry), venv: E.enventry S.table) = S.enter(venv,name,vEntry)
@@ -499,7 +499,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
       and transVarDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.VarDec{name=varname, escape=esc, typ=vartype, init=i, pos=p}, level) =
          let val {exp=exp, ty=exptype} = transExp(venv, tenv, level, false, Temp.newlabel()) i
-             val access = R.allocLocal(level)(!esc)(*call alloc local to get access takes level*)
+             val access = R.allocLocal(level)(!esc)
              val venv' = S.enter(venv, varname, Env.VarEntry{access=access, ty=exptype, isCounter=false})
              val venv'' = S.enter(venv, varname, Env.VarEntry{access=access, ty=T.BOTTOM, isCounter=false})
              val ir = R.varDec(access, exp)

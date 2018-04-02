@@ -94,7 +94,7 @@ structure F = MipsFrame
         fun accWrapper(a:MipsFrame.access) = makeAccess{acc=a, lev=l}
     in case accList of
       [] => []
-    | a::l => map accWrapper l
+    | a::l => map accWrapper l (*First formal is static link, which we don't want to return*)
     end)
    |  formals(outermost) = (ErrorMsg.error 0 ("Trying to access formals of outermost level!") ; [])
 
@@ -130,7 +130,7 @@ structure F = MipsFrame
   (* exp -> Tree.stm *)
   fun unNx (Ex e) = Tr.EXP e
     | unNx (Nx s) = s
-    | unNx (Cx c) = let val t = Temp.newlabel() in c(t,t); Tr.LABEL t end
+    | unNx (Cx c) = let val t = Temp.newlabel() in Tr.SEQ(c(t,t), Tr.LABEL t) end
 
   (* exp -> (Temp.label * Temp.label -> Tree.stm) *)
   fun unCx (Ex (Tr.CONST 0)) = (fn(t,f) => Tr.JUMP(Tr.NAME f, [f]))
