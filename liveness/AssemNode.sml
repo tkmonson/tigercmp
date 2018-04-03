@@ -6,6 +6,7 @@ struct
                                 }
 
  fun compare(ASNODE{ins1, id1}, ASNODE{ins2, id2}) = Int.compare(id1, id2)
+ fun getID(ASNODE{ins, id}) = id
 
  val curID = ref 0
 
