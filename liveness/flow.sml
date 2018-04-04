@@ -21,6 +21,15 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
 
     (let val labelNodeTable = Symbol.empty
 
+         fun hasJump(graph, ID) = let val AssemNode.ASNODE{ins=assem, id=_} = FlowGraph.nodeInfo(FlowGraph.getNode (graph, ID))
+                                  in case assem of
+                                          Assem.OPER{assem=_, dst=_, src=_, jump=jListOp} => (case jListOp of
+                                                                                            SOME(list) => true
+                                                                                            | NONE => false)
+                                          | Assem.LABEL(x) => false
+                                          | Assem.MOVE(x) => false
+                                  end
+
        (*TODO: FIRST ASSEM NODE MUST BE DEALT WITH OUTSIDE OF FN*)
         fun createAssemNodes (conFlow, labelTable, []) = (conFlow, labelTable)
             | createAssemNodes (CONFLOW{control=graph, def=def, use=use, ismove=ismove}, labelTable, assem::(l:Assem.instr list)) =
@@ -39,8 +48,11 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
                                                                            enter(def, newID, [dlist]),
                                                                            enter(use, newID, [slist]),
                                                                            enter(ismove, newID, true))
+                    val newGraph = if hasJump(graph, newID-1)
+                                   then FlowGraph.addNode (graph, newID, AssemNode.ASNODE{ins=i, id=newID})
+                                   else FlowGraph.addEdge(FlowGraph.addNode (graph, newID, AssemNode.ASNODE{ins=i, id=newID}), {from=newID-1, to=newID})
                in
-                  createAssemNodes(CONFLOW{control=FlowGraph.addEdge(FlowGraph.addNode (graph, newID, AssemNode.ASNODE{ins=i, id=newID}), {from=newID-1, to=newID}),
+                  createAssemNodes(CONFLOW{control=newGraph,
                                            def=newDef,
                                            use=newUse,
                                            ismove=newIsMove},
