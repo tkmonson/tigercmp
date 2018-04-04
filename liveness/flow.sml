@@ -1,41 +1,49 @@
+structure Flow =
+struct
+
 structure FlowGraph = FuncGraph(type ord_key = int val compare = Int.compare)
 
-structure Table = IntMapTable(type key = node
-      fun getInt(g,n) = n)
+structure Table = IntMapTable(type key = int
+      fun getInt(i) = i)
 
-datatype ControlFlow = CONFLOW of {control: FlowGraph,
-                                   def: Temp.temp list Table,
-                                   use: Temp.temp list Table,
-                                   ismove: bool Table}
+type 'a table  = 'a Table.table
+val empty = Table.empty
+val enter = Table.enter
+val look = Table.look
 
-fun createGraph [] = (*Print error because we shouldn't make a graph without nodes*) FuncGraph.empty
+datatype ControlFlow = CONFLOW of {control: AssemNode.node FlowGraph.graph,
+                                   def: Temp.temp list table,
+                                   use: Temp.temp list table,
+                                   ismove: bool table}
+
+fun createGraph [] = (*Print error because we shouldn't make a graph without nodes*) CONFLOW{control=FlowGraph.empty, def=empty, use=empty, ismove=empty}
     | createGraph(a::l:Assem.instr list) =
 
-    (let val labelNodeTable = Symbol.Table.empty
+    (let val labelNodeTable = Symbol.empty
 
        (*TODO: FIRST ASSEM NODE MUST BE DEALT WITH OUTSIDE OF FN*)
         fun createAssemNodes (conFlow, labelTable, []) = (conFlow, labelTable)
-            | createAssemNodes ({control=graph, def=def, use=use, ismove=ismove}, labelTable, assem::(l:Assem.instr List))
-              (let val newNode{ins=_, id=newID} = AssemNode.makeNode(a)
+            | createAssemNodes (CONFLOW{control=graph, def=def, use=use, ismove=ismove}, labelTable, assem::(l:Assem.instr list)) =
+              (let val AssemNode.ASNODE{ins=i, id=newID} = AssemNode.makeNode(a)
                    val (newLabelTable, newDef, newUse, newIsMove) =
                         case assem of
-                             OPER{assem=assem, dst=dlist, src=slist, jump=jOp} => (labelTable,
-                                                                                   Table.enter(def, newID, dlist),
-                                                                                   Table.enter(use, newID, slist),
-                                                                                   Table.enter(ismove, newID, false))
-                             | LABEL{assem=assem, lab=label} => (Symbol.Table.enter(labelNodeTable, Symbol.NAME label, newID),
-                                                                 Table.enter(def, newID, []),
-                                                                 Table.enter(use, newID, []),
-                                                                 Table.enter(ismove, newID, false))
-                             | MOVE{assem=assem, dst=dlist, src=slist} => (labelTable,
-                                                                           Table.enter(def, newID, dlist),
-                                                                           Table.enter(use, newID, slist),
-                                                                           Table.enter(ismove, newID, true))
+                             Assem.OPER{assem=assem, dst=dlist, src=slist, jump=jOp} => (labelTable,
+                                                                                   enter(def, newID, dlist),
+                                                                                   enter(use, newID, slist),
+                                                                                   enter(ismove, newID, false))
+                             | Assem.LABEL{assem=assem, lab=label} => (Symbol.enter(labelNodeTable, label, newID),
+                                                                 enter(def, newID, []),
+                                                                 enter(use, newID, []),
+                                                                 enter(ismove, newID, false))
+                             | Assem.MOVE{assem=assem, dst=dlist, src=slist} => (labelTable,
+                                                                           enter(def, newID, [dlist]),
+                                                                           enter(use, newID, [slist]),
+                                                                           enter(ismove, newID, true))
                in
-                  createAssemNodes(CONFLOW{control=FlowGraph.addEdge(FlowGraph.addNode (graph, id, newNode), {from=newID-1, to=newID}),
-                                           def=newdef,
-                                           use=newuse,
-                                           ismove=newismove},
+                  createAssemNodes(CONFLOW{control=FlowGraph.addEdge(FlowGraph.addNode (graph, newID, AssemNode.ASNODE{ins=i, id=newID}), {from=newID-1, to=newID}),
+                                           def=newDef,
+                                           use=newUse,
+                                           ismove=newIsMove},
                                    newLabelTable,
                                    l)
               end)
@@ -46,34 +54,38 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
         create an edge between the assem node and the label node
         add edges to graph*)
         fun makeJumpEdges (graph, node, labelNodeTable, []) = graph
-            | makeJumpEdges (graph, node{ins=_, id=ID}, labelNodeTable, label::jList) =
-                let val labelNode{ins=_, id=lID} = Symbol.Table.look (labelNodeTable, Symbol.NAME label)
-                in makeJumpEdges(FlowGraph.addEdge(graph, {from=id, to=lID}), node, jList)
+            | makeJumpEdges (graph, AssemNode.ASNODE{ins=ins, id=ID}, labelNodeTable, label::jList) =
+                let val lID = case Symbol.look (labelNodeTable, label) of
+                                                SOME(id)  => id
+                                              | NONE      => (*TODO: Print error here*) ~1
+                in makeJumpEdges(FlowGraph.addEdge(graph, {from=ID, to=lID}), AssemNode.ASNODE{ins=ins, id=ID}, labelNodeTable, jList)
                 end
 
         fun createControlFlow (graph, labelNodeTable, []) = graph
-            | createControlFlow (graph, labelNodeTable, node{ins=assem, id=ID}::(l:AssemNode list)) =
-                (let newGraph =
+            | createControlFlow (graph, labelNodeTable, AssemNode.ASNODE{ins=assem, id=ID}::(l:AssemNode.node list)) =
+                (let val newGraph =
                   case assem of
-                      OPER{assem=assem, dst=dList, src=sList, jump=jListOp} =>
-                          case jListOp of
-                              SOME(jList) => makeJumpEdges(graph, node, labelNodeTable, jList)
-                              | NONE => graph
-                      | LABEL{assem=assem, label=label} => (*do nothing*) graph
-                      | MOVE{assem=assem, dst=dst, src=src} => (*do nothing*) graph
-                in createControlFlow (newGraph, l)
+                      Assem.OPER{assem=_, dst=_, src=_, jump=jListOp} =>
+                          (case jListOp of
+                              SOME(jList) => makeJumpEdges(graph, AssemNode.ASNODE{ins=assem, id=ID}, labelNodeTable, jList)
+                              | NONE => graph)
+                      | Assem.LABEL(x) => (*do nothing*) graph
+                      | Assem.MOVE(x) => (*do nothing*) graph
+                in createControlFlow (newGraph, labelNodeTable, l)
                 end)
 
-         val {ins=ins, id=id} = AssemNode.makeNode(a)
+         val AssemNode.ASNODE{ins=ins, id=id} = AssemNode.makeNode(a)
          val starterGraph = FlowGraph.addNode(FlowGraph.empty, id, AssemNode.ASNODE{ins=ins, id=id})
          val starterConflow = CONFLOW{control=starterGraph,
-                                      def=Table.empty,
-                                      use=Table.empty,
-                                      ismove=Table.empty}
+                                      def=empty,
+                                      use=empty,
+                                      ismove=empty}
 
-         val({control=c, def=d, use=u, ismove=i}, labelTable) = createAssemNodes(starterConflow, Table.empty, l)
-         val finishedFlowGraph = createControlFlow(c, labelTable, FlowGraph.nodes(c))
+         val(CONFLOW{control=c, def=d, use=u, ismove=i}, labelTable) = createAssemNodes(starterConflow, Symbol.empty, l)
+         val finishedFlowGraph = createControlFlow(c, labelTable, map FlowGraph.nodeInfo (FlowGraph.nodes(c)))
 
     in
-      {control=finishedFlowGraph, def=d, use=u, ismove=i}
+      CONFLOW{control=finishedFlowGraph, def=d, use=u, ismove=i}
     end)
+
+end
