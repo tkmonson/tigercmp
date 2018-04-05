@@ -35,12 +35,14 @@ sig
   val varDec : access*exp -> exp
   val seqExp : exp list -> exp
   val whileLoop : exp*exp*Temp.label -> exp
+  val forLoop : exp*exp*exp*exp*Temp.label -> exp
   val breakExp : Temp.label -> exp
   val recCreate : exp list * int -> exp
   val arrayCreate : exp*exp -> exp
   val IntExp : int -> exp
   val NilExp : exp
   val StringExp : string -> exp
+  val stringComp : Absyn.oper*exp*exp -> exp
   val relop : Absyn.oper*exp*exp -> exp
   val binop : Absyn.oper*exp*exp -> exp
   val fieldVar : exp*Symbol.symbol*Symbol.symbol list -> exp
@@ -144,53 +146,54 @@ structure F = MipsFrame
         | concat (elist, e2) = Ex(Tr.ESEQ(Tr.seq (map unNx elist), unEx(e2)))
 
   (* binop and relop handle OpExp *)
+  fun TreeRelop oper =
+      case oper of
+          Absyn.EqOp => Tr.EQ
+	| Absyn.NeqOp => Tr.NE
+	| Absyn.LtOp => Tr.LT
+	| Absyn.LeOp => Tr.LE
+	| Absyn.GtOp => Tr.GT
+	| Absyn.GeOp => Tr.GE
+				 
   fun binop (oper,lexp,rexp) : exp =
       let
-	  val TreeOper =
+	  val TreeBinop =
 	      case oper of
 		  Absyn.PlusOp => Tr.PLUS
 		| Absyn.MinusOp => Tr.MINUS
 		| Absyn.TimesOp => Tr.MUL
 		| Absyn.DivideOp => Tr.DIV
       in
-	  Ex(Tr.BINOP(TreeOper,unEx(lexp),unEx(rexp)))
+	  Ex(Tr.BINOP(TreeBinop,unEx(lexp),unEx(rexp)))
       end
 
-  fun relop (oper,lexp,rexp) : exp =
-      let
-	  val TreeOper =
-	      case oper of
-		  Absyn.EqOp => Tr.EQ
-		| Absyn.NeqOp => Tr.NE
-		| Absyn.LtOp => Tr.LT
-		| Absyn.LeOp => Tr.LE
-		| Absyn.GtOp => Tr.GT
-		| Absyn.GeOp => Tr.GE
-      in
-	  Cx(fn (t,f) => Tr.CJUMP(TreeOper,unEx(lexp),unEx(rexp),t,f))
-      end
+  fun relop (oper,lexp,rexp) : exp = Cx(fn (t,f) => Tr.CJUMP(TreeRelop(oper),unEx(lexp),unEx(rexp),t,f))
 
-      fun stringComp (oper,s1,s2) = let val tLabel = Temp.newlabel()
-                                        val fLabel = Temp.newlabel()
-                                        val retVal = Temp.newtemp()
-                                        val joinLabel = Temp.newlabel()
-                                        val join = Tr.JUMP(Tr.NAME(joinLabel),[joinLabel])
-                                    in
-                                        case oper of
-                                             Tr.EQ =>  Ex (MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2]))
-                                           | Tr.NE =>  Ex(Tr.ESEQ(Tr.seq[
-                                                       Tr.CJUMP(Tr.EQ, (Ex MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2])), Tr.CONST 0, tLabel, fLabel),
+  fun stringComp (oper,s1,s2) = let val tLabel = Temp.newlabel()
+                                    val fLabel = Temp.newlabel()
+                                    val retVal = Temp.newtemp()
+                                    val joinLabel = Temp.newlabel()
+                                    val join = Tr.JUMP(Tr.NAME(joinLabel),[joinLabel])
+                                in
+                                    case TreeRelop(oper) of
+                                         Tr.EQ =>  Ex (MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2]))
+                                       | Tr.NE =>  Ex (Tr.ESEQ(Tr.seq[
+                                                       Tr.CJUMP(Tr.EQ, (MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2])), Tr.CONST 0, tLabel, fLabel),
                                                        Tr.LABEL(tLabel),
                                                        Tr.MOVE(Tr.TEMP(retVal), Tr.CONST 1), join,
                                                        Tr.LABEL(fLabel),
                                                        Tr.MOVE(Tr.TEMP(retVal), Tr.CONST 0), join,
                                                        Tr.LABEL(joinLabel)],
                                                        Tr.TEMP(retVal)))
-                                           | Tr.LT => Ex MipsFrame.externalCall("stringLT", [unEx s1, unEx s2])
-                                           | Tr.GT => Ex MipsFrame.externalCall("stringGT", [unEx s1, unEx s2])
-                                           | Tr.LE => Tr.BINOP(Tr.OR, Ex MipsFrame.externalCall("stringLT", [unEx s1, unEx s2]), Ex MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2]))
-                                           | Tr.GE => Tr.BINOP(Tr.OR, Ex MipsFrame.externalCall("stringGT", [unEx s1, unEx s2]), Ex MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2]))
-                                   end
+                                       | Tr.LT => Ex (MipsFrame.externalCall("stringLT", [unEx s1, unEx s2]))
+                                       | Tr.GT => Ex (MipsFrame.externalCall("stringGT", [unEx s1, unEx s2]))
+                                       | Tr.LE => Ex (Tr.BINOP(Tr.OR,
+							       MipsFrame.externalCall("stringLT", [unEx s1, unEx s2]),
+							       MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2])))
+                                       | Tr.GE => Ex (Tr.BINOP(Tr.OR,
+							       MipsFrame.externalCall("stringGT", [unEx s1, unEx s2]),
+							       MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2])))
+                               end
 
   val NilExp = Ex(Tr.CONST 0)
 
@@ -270,8 +273,32 @@ structure F = MipsFrame
       val bodyNx = unNx(body)
       val jumpToTest = Tr.JUMP(Tr.NAME ltest, [ltest])
     in
-      Nx(Tree.seq([Tr.LABEL ltest, cond(lbody, ldone), Tr.LABEL lbody, bodyNx, jumpToTest, Tr.LABEL ldone]))
+	Nx(Tr.seq([Tr.LABEL ltest,
+		   cond(lbody, ldone),
+		   Tr.LABEL lbody,
+		   bodyNx,
+		   jumpToTest,
+		   Tr.LABEL ldone]))
     end
+
+    fun forLoop (varEx, loEx, hiEx, bodyNx, ldone) =
+	let
+	    val var = unEx varEx
+	    val lo = unEx loEx
+	    val hi = unEx hiEx
+	    val body = unNx bodyNx
+	    val lincr = Temp.newlabel()
+            val lbody = Temp.newlabel()
+	in
+            Nx(Tr.seq [Tr.MOVE(var, lo),
+	               Tr.CJUMP(Tr.LT, var, hi, lbody, ldone),
+	               Tr.LABEL(lincr),
+	               Tr.MOVE(var, Tr.BINOP(Tr.PLUS, var, Tr.CONST 1)),
+	               Tr.LABEL(lbody),
+	               body,
+	               Tr.CJUMP(Tr.LT, var, hi, lincr, ldone),
+	               Tr.LABEL(ldone)])
+	end
 
   (*make eseq to turn everything but last one into statement and return last one as exp*)
   fun seqExp (e::[]) = Ex(unEx (e))

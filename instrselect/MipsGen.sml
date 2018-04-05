@@ -410,6 +410,7 @@ structure Tr = Tree
             val findEscapes = FindEscape.findEscape prog
             val {ty=progTy, exp=progIR} = (Semant.transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog))
             (* val a = Printtree.printtree(TextIO.stdOut, Translate.unNx(progIR)) *)
+
             val makeFrag = R.makeFunction(progIR, mainLevel)
             val fragList = R.getResult()
             val a = Translate.fraglistref := nil
