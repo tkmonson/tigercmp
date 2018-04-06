@@ -30,8 +30,36 @@ structure FlowGraph = Flow.FlowGraph
               | (a::l) => genSinkList(findSinks(graph, a)@sinks, IntSet.add(sources, a), graph)
         end
 
+val converged = ref true
 
-  (*Call genSinkList to get all sinks and sources for graph -> sinklist, sourceset*)
-  (*Initialize liveIn and liveOut sets (maybe as refs?) *)
-  (*fun traverseSinks: For each sink in sinklist, call traverseNode*)
-  (*fun traverseNode: Update liveIn and liveOut of current node; If current node is not a source, call traverseNode on all predecessors*)
+(*
+Args: liveInTable, liveOutTable, nodeID
+fun calculateliveIns:
+  -calculate liveOuts - defs
+  -calculate uses UNION liveOuts-defs, return result
+*)
+
+(*
+Args: liveInTable, liveOutTable, nodeID
+fun calculateliveOuts:
+  -call FlowGraph.succs to get all successors of current node
+  -Union liveIns for all Successors, return result
+*)
+
+
+(*
+
+Arguments: curNode, liveInTable, liveOutTable, source
+Function update:
+
+-calculate liveOuts, store as newLiveOut
+-calculate liveIns, store as newLiveIn
+-if newLiveOut != liveOuts OR newLiveIns != liveIns, set converged = false
+-If curNode = source, return (liveOuts, liveIns, converged)
+-call FlowGraph.preds to get predecessors of current node
+fold update over all predecessors with updated liveIn and liveOut tables, and return result
+
+liveIns = uses UNION (liveouts - defs)
+liveOuts = UNION over LiveIns of all successors
+
+*)
