@@ -88,4 +88,26 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
       CONFLOW{control=finishedFlowGraph, def=d, use=u, ismove=i}
     end)
 
+    (*program = Assem.instr list list*)
+    fun printFlowGraphs program =
+      let fun testFragment(fragInstrs) =
+            let
+              val CONFLOW{control=gr, def=_, use=_, ismove=_} = createGraph fragInstrs
+            in FlowGraph.printGraph(AssemNode.printNode) gr
+            end
+      in
+        map testFragment program
+      end
+
+    (*program = Assem.instr list list*)
+    (*one list per fragment*)
+    fun test filename =
+      let val program = MipsGen.transFrags filename
+      in
+        printFlowGraphs program
+      end
+
+
+
+
 end

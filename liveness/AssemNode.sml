@@ -19,4 +19,7 @@ struct
 
   val dummy = ASNODE{ins=Assem.LABEL{assem="dummmy", lab=Temp.newlabel()}, id=(~1)}
 
+  fun printNode(id, node as ASNODE{ins=ins, id=_}) = "NODE " ^ Int.toString id ^ " "
+                                                      ^ Assem.format(MipsGen.printTemp) ins
+
 end

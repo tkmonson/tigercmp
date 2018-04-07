@@ -35,6 +35,7 @@ Group is
 
 ../instrselect/assem.sml
 ../instrselect/canon.sml
+../instrselect/MipsGen.sml
 
 funcgraph.sig
 funcgraph.sml

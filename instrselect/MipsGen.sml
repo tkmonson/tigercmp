@@ -389,6 +389,8 @@ structure Tr = Tree
             | NONE     => Temp.makestring t
         end
 
+
+    (*Prints assembly for a single fragment*)
     fun emitproc out (MipsFrame.PROC{body,frame}) =
             let val stms   = Canon.linearize body
             (* val a = Printtree.printtree(TextIO.stdOut,body) *)
@@ -401,8 +403,10 @@ structure Tr = Tree
             end
         | emitproc out (MipsFrame.STRING(lab,s)) =  ()
 
+    (*Prints assembly for a list of foragments*)
     fun transFrags fraglist = app (emitproc TextIO.stdOut) fraglist
 
+    (*Prints assembly for all fragments of a Tiger file*)
     fun transProg filename =
         let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
             val prog = (Parse.parse filename)
@@ -417,5 +421,28 @@ structure Tr = Tree
           transFrags fragList
         end
 
+   (*Returns a list of Assem.instr list for a fragment*)
+   fun getInstrList (MipsFrame.PROC{body,frame}) =
+           let val stms   = Canon.linearize body
+               val stms'  = Canon.traceSchedule(Canon.basicBlocks stms)
+               val instrs = List.concat(map (codegen frame) stms')
+           in
+             instrs
+           end
+       | getInstrList (MipsFrame.STRING(lab,s)) =  []
 
+    (*Returns an Assem.instr list list*)
+    (*One list per fragment in a Tiger program*)
+    fun transFrags filename =
+      let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
+          val prog = (Parse.parse filename)
+          (* val p1 = print("\n") *)
+          val findEscapes = FindEscape.findEscape prog
+          val {ty=progTy, exp=progIR} = (Semant.transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog))
+          (* val a = Printtree.printtree(TextIO.stdOut, Translate.unNx(progIR)) *)
+          val makeFrag = R.makeFunction(progIR, mainLevel)
+          val fragList = R.getResult()
+       in
+          map getInstrList fragList
+       end
 end
