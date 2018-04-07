@@ -30,17 +30,17 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
                                           | Assem.MOVE(x) => false
                                   end
 
-       (*TODO: FIRST ASSEM NODE MUST BE DEALT WITH OUTSIDE OF FN*)
         fun createAssemNodes (conFlow, labelTable, []) = (conFlow, labelTable)
             | createAssemNodes (CONFLOW{control=graph, def=def, use=use, ismove=ismove}, labelTable, assem::(l:Assem.instr list)) =
-              (let val AssemNode.ASNODE{ins=i, id=newID} = AssemNode.makeNode(a)
+              (let val AssemNode.ASNODE{ins=i, id=newID} = AssemNode.makeNode(assem)
                    val (newLabelTable, newDef, newUse, newIsMove) =
                         case assem of
                              Assem.OPER{assem=assem, dst=dlist, src=slist, jump=jOp} => (labelTable,
                                                                                    enter(def, newID, dlist),
                                                                                    enter(use, newID, slist),
                                                                                    enter(ismove, newID, false))
-                             | Assem.LABEL{assem=assem, lab=label} => (Symbol.enter(labelNodeTable, label, newID),
+                             | Assem.LABEL{assem=assem, lab=label} =>
+                                                                  (Symbol.enter(labelTable, label, newID),
                                                                  enter(def, newID, []),
                                                                  enter(use, newID, []),
                                                                  enter(ismove, newID, false))
@@ -48,6 +48,7 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
                                                                            enter(def, newID, [dlist]),
                                                                            enter(use, newID, [slist]),
                                                                            enter(ismove, newID, true))
+
                     val newGraph = if hasJump(graph, newID-1)
                                    then FlowGraph.addNode (graph, newID, AssemNode.ASNODE{ins=i, id=newID})
                                    else FlowGraph.addEdge(FlowGraph.addNode (graph, newID, AssemNode.ASNODE{ins=i, id=newID}), {from=newID-1, to=newID})
@@ -69,7 +70,7 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
             | makeJumpEdges (graph, AssemNode.ASNODE{ins=ins, id=ID}, labelNodeTable, label::jList) =
                 let val lID = case Symbol.look (labelNodeTable, label) of
                                                 SOME(id)  => id
-                                              | NONE      => (*TODO: Print error here*) ~1
+                                              | NONE      => (print ("ERROR: Looked up label " ^ Symbol.name label ^ " that doesn't exist in makeJumpEdges\n"); ~1)
                 in makeJumpEdges(FlowGraph.addEdge(graph, {from=ID, to=lID}), AssemNode.ASNODE{ins=ins, id=ID}, labelNodeTable, jList)
                 end
 
@@ -105,10 +106,11 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
       let fun testFragment(fragInstrs) =
             let
               val CONFLOW{control=gr, def=_, use=_, ismove=_} = createGraph fragInstrs
+              val reset = AssemNode.curID := 0
             in FlowGraph.printGraph(AssemNode.printNode) gr
             end
       in
-        map testFragment program
+        app testFragment program
       end
 
     (*program = Assem.instr list list*)
@@ -118,6 +120,7 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
       in
         printFlowGraphs program
       end
+
 
 
 

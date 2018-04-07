@@ -393,8 +393,6 @@ structure Tr = Tree
     (*Prints assembly for a single fragment*)
     fun emitproc out (MipsFrame.PROC{body,frame}) =
             let val stms   = Canon.linearize body
-            (* val a = Printtree.printtree(TextIO.stdOut,body) *)
-
                 val stms'  = Canon.traceSchedule(Canon.basicBlocks stms)
                 val instrs = List.concat(map (codegen frame) stms')
                 val format0 = Assem.format(printTemp)
@@ -413,7 +411,6 @@ structure Tr = Tree
             (* val p1 = print("\n") *)
             val findEscapes = FindEscape.findEscape prog
             val {ty=progTy, exp=progIR} = (Semant.transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog))
-            (* val a = Printtree.printtree(TextIO.stdOut, Translate.unNx(progIR)) *)
             val makeFrag = R.makeFunction(progIR, mainLevel)
             val fragList = R.getResult()
             val a = Translate.fraglistref := nil
@@ -439,9 +436,9 @@ structure Tr = Tree
           (* val p1 = print("\n") *)
           val findEscapes = FindEscape.findEscape prog
           val {ty=progTy, exp=progIR} = (Semant.transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog))
-          (* val a = Printtree.printtree(TextIO.stdOut, Translate.unNx(progIR)) *)
           val makeFrag = R.makeFunction(progIR, mainLevel)
           val fragList = R.getResult()
+          val a = Translate.fraglistref := nil
        in
           map getInstrList fragList
        end
