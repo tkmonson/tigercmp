@@ -30,18 +30,18 @@ structure FlowGraph = Flow.FlowGraph
               | (a::l) => genSinkList(findSinks(graph, a)@sinks, IntSet.add(sources, a), graph)
         end
 
-val converged = ref true
+val updated = ref false
 
 (*
 Args: liveInTable, liveOutTable, nodeID
-fun calculateliveIns:
+fun calcliveIns:
   -calculate liveOuts - defs
   -calculate uses UNION liveOuts-defs, return result
 *)
 
 (*
 Args: liveInTable, liveOutTable, nodeID
-fun calculateliveOuts:
+fun calcliveOuts:
   -call FlowGraph.succs to get all successors of current node
   -Union liveIns for all Successors, return result
 *)
@@ -63,3 +63,17 @@ liveIns = uses UNION (liveouts - defs)
 liveOuts = UNION over LiveIns of all successors
 
 *)
+
+fun update(node as AssemNode.ASNODE{ins=_,id=id}, liveIns, liveOuts) =
+    let val newLiveOuts = calcLiveOuts(liveIns, liveOuts, id)
+        val newLiveIns = calcLiveIns(liveIns, liveOuts, id)
+        val predsList = FlowGraph.preds(node)
+    in
+        if (node = source andalso not updated)
+        then (newLiveIns, newLiveOuts)
+        else foldl updatePreds (newLiveIns, newLiveOuts) predslist
+    end
+
+
+fun updatePreds([], (liveIns, liveOuts)) = (liveIns, liveOuts)
+    | updatePreds(a::preds, (liveIns, liveOuts)) = update(a, liveIns, liveOuts)
