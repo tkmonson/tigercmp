@@ -20,11 +20,7 @@ struct
   val dummy = ASNODE{ins=Assem.LABEL{assem="dummmy", lab=Temp.newlabel()}, id=(~1)}
 
   fun printNode(id, node as ASNODE{ins=ins, id=_}) =
-    let val assemStr = case ins of
-                          Assem.OPER{assem=assem, dst=_, src=_, jump=_} => assem
-                        | Assem.LABEL{assem=assem, lab=_} => assem
-                        | Assem.MOVE{assem=assem, dst=_, src=_} => assem
-    in Int.toString id ^ " " ^ assemStr
-    end
+          "NODE " ^ Int.toString id ^ " " ^ Assem.format(MipsGen.printTemp) ins
+
 
 end
