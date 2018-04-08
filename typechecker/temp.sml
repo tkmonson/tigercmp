@@ -20,5 +20,14 @@ local structure F = Format
     val namedlabel = Symbol.symbol
 end
 
+structure TempOrd =
+struct
+  type ord_key = temp
+  val compare = Int.compare
+end
+
+structure Set = SplaySetFn(TempOrd)
+structure Map = SplayMapFn(TempOrd)
+
 
 end

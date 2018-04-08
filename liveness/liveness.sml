@@ -1,7 +1,8 @@
 
 structure IntSet = SplaySetFn(type ord_key = int val compare = Int.compare)
-structure TempSet = SplaySetFn(type ord_key = Temp val compare = Temp.compare)
+structure TempSet = SplaySetFn(type ord_key = Temp.temp val compare = Temp.TempOrd.compare)
 structure FlowGraph = Flow.FlowGraph
+structure Table = Flow.Table
 
   val visited = ref IntSet.empty
 
@@ -33,32 +34,34 @@ structure FlowGraph = Flow.FlowGraph
 
 val updated = ref false
 
-fun calcLiveOuts(node of AssemNode.ASNODE{ins=ins, id=id}, liveIns, liveInTable)
-    let successors = TempSet.addList(TempSet.empty, FlowGraph.succs(node))
-        succLiveIns = Table.look(liveInTable, id)
+fun calcLiveOuts((node as AssemNode.ASNODE{ins=ins, id=id}), liveInTable) =
+    let val successors = TempSet.addList(TempSet.empty, FlowGraph.succs(node))
+        val succLiveIns = Table.look(liveInTable, id)
     in case succLiveIns of
            SOME(ins) => TempSet.listItems(TempSet.union(TempSet.addList(TempSet.empty, succLiveIns), successors))
            | NONE => (print ("This shouldn't happen, couldn't find successor in liveIns table!"); liveIns)
     end
 
-fun getLiveOuts (liveInTable, liveOutTable, node of {ins=_, id=id})
+fun getLiveOuts (liveInTable, liveOutTable, node as {ins=_, id=id}) =
     let val successors = FlowGraph.succs(node)
-    in Table.enter(liveOutTable, id, calcLiveOuts())
+    in Table.enter(liveOutTable, id, foldl(calcLiveOuts successors []))
+    end
 
-fun calcLiveIns (uses, defs, liveOuts)
+fun calcLiveIns (uses, defs, liveOuts) =
     let val useSet = TempSet.addList(TempSet.empty, uses)
         val defSet = TempSet.addList(TempSet.empty, defs)
         val outSet = TempSet.addList(TempSet.empty, liveOuts)
     in TempSet.listItems(TempSet.union(useSet, TempSet.difference(outSet, defSet)))
     end
 
-fun getLiveIns (liveInTable, liveOutTable, node of AssemNode.ASNODE{ins=ins, id=id})
+fun getLiveIns (liveInTable, liveOutTable, node as AssemNode.ASNODE{ins=ins, id=id}) =
     let val liveOuts = Table.look(liveOutTable, id)
         val (uses, defs) = case ins of
                                 OPER{assem=_, dst=dst, src=src, jump=_} => (src, dst)
                                 | LABEL(x) => ([],[])
                                 | MOVE{assem=_, dst=dst, src=src} => (src, dst)
     in Table.enter(liveInTable, id, calcLiveIns(uses, defs, liveOuts))
+    end
 
 (*
 Args: liveInTable, liveOutTable, nodeID
