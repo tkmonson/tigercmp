@@ -1,5 +1,6 @@
 
 structure IntSet = SplaySetFn(type ord_key = int val compare = Int.compare)
+structure TempSet = SplaySetFn(type ord_key = Temp val compare = Temp.compare)
 structure FlowGraph = Flow.FlowGraph
 
   val visited = ref IntSet.empty
@@ -31,6 +32,33 @@ structure FlowGraph = Flow.FlowGraph
         end
 
 val updated = ref false
+
+fun calcLiveOuts(node of AssemNode.ASNODE{ins=ins, id=id}, liveIns, liveInTable)
+    let successors = TempSet.addList(TempSet.empty, FlowGraph.succs(node))
+        succLiveIns = Table.look(liveInTable, id)
+    in case succLiveIns of
+           SOME(ins) => TempSet.listItems(TempSet.union(TempSet.addList(TempSet.empty, succLiveIns), successors))
+           | NONE => (print ("This shouldn't happen, couldn't find successor in liveIns table!"); liveIns)
+    end
+
+fun getLiveOuts (liveInTable, liveOutTable, node of {ins=_, id=id})
+    let val successors = FlowGraph.succs(node)
+    in Table.enter(liveOutTable, id, calcLiveOuts())
+
+fun calcLiveIns (uses, defs, liveOuts)
+    let val useSet = TempSet.addList(TempSet.empty, uses)
+        val defSet = TempSet.addList(TempSet.empty, defs)
+        val outSet = TempSet.addList(TempSet.empty, liveOuts)
+    in TempSet.listItems(TempSet.union(useSet, TempSet.difference(outSet, defSet)))
+    end
+
+fun getLiveIns (liveInTable, liveOutTable, node of AssemNode.ASNODE{ins=ins, id=id})
+    let val liveOuts = Table.look(liveOutTable, id)
+        val (uses, defs) = case ins of
+                                OPER{assem=_, dst=dst, src=src, jump=_} => (src, dst)
+                                | LABEL(x) => ([],[])
+                                | MOVE{assem=_, dst=dst, src=src} => (src, dst)
+    in Table.enter(liveInTable, id, calcLiveIns(uses, defs, liveOuts))
 
 (*
 Args: liveInTable, liveOutTable, nodeID
@@ -64,9 +92,9 @@ liveOuts = UNION over LiveIns of all successors
 
 *)
 
-fun update(node as AssemNode.ASNODE{ins=_,id=id}, liveIns, liveOuts) =
-    let val newLiveOuts = calcLiveOuts(liveIns, liveOuts, id)
-        val newLiveIns = calcLiveIns(liveIns, liveOuts, id)
+fun update(node, liveIns, liveOuts) =
+    let val newLiveOuts = calcLiveOuts(liveIns, liveOuts, node)
+        val newLiveIns = calcLiveIns(liveIns, liveOuts, node)
         val predsList = FlowGraph.preds(node)
     in
         if (node = source andalso not updated)
