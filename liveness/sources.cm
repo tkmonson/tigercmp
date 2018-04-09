@@ -41,6 +41,7 @@ funcgraph.sig
 funcgraph.sml
 AssemNode.sml
 flow.sml
+liveness.sml
 
 (*SML libraries*)
 $/smlnj-lib.cm

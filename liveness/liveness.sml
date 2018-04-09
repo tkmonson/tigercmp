@@ -1,6 +1,6 @@
 
 structure IntSet = SplaySetFn(type ord_key = int val compare = Int.compare)
-structure TempSet = SplaySetFn(type ord_key = Temp.temp val compare = Temp.TempOrd.compare)
+structure TempSet = Temp.Set
 structure FlowGraph = Flow.FlowGraph
 structure Table = Flow.Table
 
@@ -34,32 +34,35 @@ structure Table = Flow.Table
 
 val updated = ref false
 
-fun calcLiveOuts((node as AssemNode.ASNODE{ins=ins, id=id}), liveInTable) =
-    let val successors = TempSet.addList(TempSet.empty, FlowGraph.succs(node))
-        val succLiveIns = Table.look(liveInTable, id)
-    in case succLiveIns of
-           SOME(ins) => TempSet.listItems(TempSet.union(TempSet.addList(TempSet.empty, succLiveIns), successors))
-           | NONE => (print ("This shouldn't happen, couldn't find successor in liveIns table!"); liveIns)
-    end
-
-fun getLiveOuts (liveInTable, liveOutTable, node as {ins=_, id=id}) =
-    let val successors = FlowGraph.succs(node)
-    in Table.enter(liveOutTable, id, foldl(calcLiveOuts successors []))
+fun getLiveOuts (liveInTable, liveOutTable, graph, node) =
+    let val AssemNode.ASNODE{ins=_,id=id} = FlowGraph.nodeInfo(node)
+        val successors = map (fn nodeID => FlowGraph.getNode(graph, nodeID)) (FlowGraph.succs(node))
+        fun calcLiveOuts(n) =
+            let val AssemNode.ASNODE{ins=ins, id=id} = FlowGraph.nodeInfo(n)
+                val succLiveIns = Table.look(liveInTable, id)
+            in case succLiveIns of
+                   SOME(ins) => ins
+                   | NONE => (print ("This shouldn't happen, couldn't find successor for node " ^ Int.toString id ^ " in liveIns table!"); TempSet.empty)
+            end
+        val succLiveInList = map calcLiveOuts successors
+        val liveOut = foldl TempSet.union TempSet.empty succLiveInList
+    in Table.enter(liveOutTable, id, liveOut)
     end
 
 fun calcLiveIns (uses, defs, liveOuts) =
     let val useSet = TempSet.addList(TempSet.empty, uses)
         val defSet = TempSet.addList(TempSet.empty, defs)
-        val outSet = TempSet.addList(TempSet.empty, liveOuts)
-    in TempSet.listItems(TempSet.union(useSet, TempSet.difference(outSet, defSet)))
+    in TempSet.union(useSet, TempSet.difference(liveOuts, defSet))
     end
 
 fun getLiveIns (liveInTable, liveOutTable, node as AssemNode.ASNODE{ins=ins, id=id}) =
-    let val liveOuts = Table.look(liveOutTable, id)
+    let val liveOuts = case Table.look(liveOutTable, id) of
+                       SOME(s) => s
+                     | NONE    => (print ("Couldn't find liveouts for node " ^ Int.toString id); TempSet.empty)
         val (uses, defs) = case ins of
-                                OPER{assem=_, dst=dst, src=src, jump=_} => (src, dst)
-                                | LABEL(x) => ([],[])
-                                | MOVE{assem=_, dst=dst, src=src} => (src, dst)
+                                Assem.OPER{assem=_, dst=dst, src=src, jump=_} => (src, dst)
+                                | Assem.LABEL(x) => ([],[])
+                                | Assem.MOVE{assem=_, dst=dst, src=src} => ([src], [dst])
     in Table.enter(liveInTable, id, calcLiveIns(uses, defs, liveOuts))
     end
 
@@ -95,16 +98,15 @@ liveOuts = UNION over LiveIns of all successors
 
 *)
 
-fun update(node, liveIns, liveOuts) =
-    let val newLiveOuts = calcLiveOuts(liveIns, liveOuts, node)
-        val newLiveIns = calcLiveIns(liveIns, liveOuts, node)
-        val predsList = FlowGraph.preds(node)
+(*node: AssemNode.node FlowGraph.node*)
+(*predsList: AssemNode.node FlowGraph.node list *)
+fun update(node, liveIns, liveOuts, source, graph) =
+    let val newLiveOuts = getLiveOuts(liveIns, liveOuts, graph, node)
+        val newLiveIns = getLiveIns(liveIns, liveOuts, FlowGraph.nodeInfo(node))
+        val predsList = map (fn nodeID => FlowGraph.getNode(graph, nodeID)) (FlowGraph.preds(node))
+        fun updatePreds(a, (predIns, predOuts)) = update(a, predIns, predOuts, source, graph)
     in
-        if (node = source andalso not updated)
+        if (FlowGraph.getNodeID node = FlowGraph.getNodeID source andalso not (!updated))
         then (newLiveIns, newLiveOuts)
-        else foldl updatePreds (newLiveIns, newLiveOuts) predslist
+        else foldl updatePreds (newLiveIns, newLiveOuts) predsList
     end
-
-
-fun updatePreds([], (liveIns, liveOuts)) = (liveIns, liveOuts)
-    | updatePreds(a::preds, (liveIns, liveOuts)) = update(a, liveIns, liveOuts)
