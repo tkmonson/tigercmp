@@ -138,7 +138,25 @@ fun update(node, liveIns, liveOuts, source, graph) =
                   else (newLI, newLO)
     end
 
+fun testSinks(filename) =
+    let val graphLists = Flow.generateFlowInfo(filename)
+        val graph = List.hd(graphLists)
+        val sinks = map (fn(nid) => FlowGraph.nodeInfo(FlowGraph.getNode(graph, nid))) (findSinks(graph, 0))
+        fun printSinks (AssemNode.ASNODE{ins=ins, id=id}) = print ("Sink node of id " ^ Int.toString id ^
+                                                                   " with assem " ^ Assem.format(MipsGen.printTemp) ins ^ "\n")
+        val () = visited := IntSet.empty
+    in map printSinks sinks
+    end
+
+fun testLiveness(graph) =
+    let val source = FlowGraph.getNode(graph, 0)
+        val sinks = map (fn (id) => FlowGraph.getNode(graph, id)) (findSinks(graph, 0))
+        val () = visited := IntSet.empty
+    in genLivenessInfo(Table.empty, Table.empty, source, graph, sinks)
+    end
     (*TO TEST: Call Flow.generateFlowInfo to get a list of graphs
-               To get source, get graph node with ID = 0 in each graph *)
+               To get source, get graph node with ID = 0 in each graph
+               call find sinks on that node
+               call genLivenessInfo on sink + source node *)
 
 end
