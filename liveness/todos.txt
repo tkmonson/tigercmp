@@ -1,4 +1,3 @@
--Check flow graphs with cycles (while loops)
 -test findSinks with acyclic graphs
 -test findSinks with cyclic graphs
 
