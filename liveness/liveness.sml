@@ -1,10 +1,14 @@
+structure Liveness =
+struct
 
 structure IntSet = SplaySetFn(type ord_key = int val compare = Int.compare)
 structure TempSet = Temp.Set
 structure FlowGraph = Flow.FlowGraph
 structure Table = Flow.Table
 
-  val visited = ref IntSet.empty
+val visited = ref IntSet.empty
+val updated = ref false
+
 
   (*Performs DFS on the graph from a particular node*)
   (*Side effect: Updates visited list*)
@@ -31,8 +35,6 @@ structure Table = Flow.Table
                 []     => (sinks, sources)
               | (a::l) => genSinkList(findSinks(graph, a)@sinks, IntSet.add(sources, a), graph)
         end
-
-val updated = ref false
 
 fun getLiveOuts (liveInTable, liveOutTable, graph, node) =
     let val AssemNode.ASNODE{ins=_,id=id} = FlowGraph.nodeInfo(node)
@@ -98,15 +100,45 @@ liveOuts = UNION over LiveIns of all successors
 
 *)
 
+fun calcEq(table1, table2, id) =
+  let val set1 = case Table.look(table1, id) of
+                   SOME(s) => s
+                 | NONE    => TempSet.empty
+      val set2 = case Table.look(table2, id) of
+                   SOME(s) => s
+                 | NONE    => TempSet.empty
+  in TempSet.equal(set1, set2)
+  end
+
 (*node: AssemNode.node FlowGraph.node*)
 (*predsList: AssemNode.node FlowGraph.node list *)
+(*Performs graph traversal for liveness analysis from current node until it reaches a source*)
+(*Returns updated livein and liveout tables*)
 fun update(node, liveIns, liveOuts, source, graph) =
     let val newLiveOuts = getLiveOuts(liveIns, liveOuts, graph, node)
+        val id = FlowGraph.getNodeID(node)
         val newLiveIns = getLiveIns(liveIns, liveOuts, FlowGraph.nodeInfo(node))
+        val () = if not (calcEq(liveIns, newLiveIns, id)) orelse not (calcEq(liveOuts, newLiveOuts, id)) then updated := true else ()
         val predsList = map (fn nodeID => FlowGraph.getNode(graph, nodeID)) (FlowGraph.preds(node))
         fun updatePreds(a, (predIns, predOuts)) = update(a, predIns, predOuts, source, graph)
     in
-        if (FlowGraph.getNodeID node = FlowGraph.getNodeID source andalso not (!updated))
+        if (FlowGraph.getNodeID node = FlowGraph.getNodeID source)
         then (newLiveIns, newLiveOuts)
         else foldl updatePreds (newLiveIns, newLiveOuts) predsList
     end
+
+  (*Calls update from each sink in the graph, accumulates updated liveness tables*)
+  (*If !updated is true, set to false and repeat*)
+  (*Else, return *)
+  fun genLivenessInfo(LI, LO, source, graph, sinkList) =
+    let fun updateWrapper(node, (liveIns, liveOuts)) = update(node, liveIns, liveOuts, source, graph)
+        val (newLI, newLO) = foldl updateWrapper (LI, LO) sinkList
+    in
+      if !updated then (updated := false; genLivenessInfo(newLI, newLO, source, graph, sinkList))
+                  else (newLI, newLO)
+    end
+
+    (*TO TEST: Call Flow.generateFlowInfo to get a list of graphs
+               To get source, get graph node with ID = 0 in each graph *)
+
+end

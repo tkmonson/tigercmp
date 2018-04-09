@@ -121,6 +121,18 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
         printFlowGraphs program
       end
 
+  (*Generates a list of CONFLOW, with one CONFLOW per fragment in the program*)
+    fun generateFlowInfo filename =
+      let val program = MipsGen.transFrags filename
+          fun processFragment fragInstrs=
+            let
+              val CONFLOW{control=gr, def=_, use=_, ismove=_} = createGraph fragInstrs
+              val reset = AssemNode.curID := 0
+            in gr
+            end
+      in
+        map processFragment program
+      end
 
 
 
