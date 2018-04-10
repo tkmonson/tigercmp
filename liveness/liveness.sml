@@ -19,7 +19,7 @@ val updated = ref false
         val newVisited = IntSet.add(visited, curID)
         val notYetVisited = IntSet.difference(succIDSet, newVisited)
         val newSinks = if IntSet.numItems(notYetVisited) = 0 then IntSet.add(sinks, curID) else sinks
-        val () = print ("Node " ^ Int.toString curID ^ "\n")
+        (* val () = print ("Node " ^ Int.toString curID ^ "\n") *)
         fun findSinksWrapper(id, vis) = findSinks(graph, id, vis, newSinks)
     in
         foldl findSinksWrapper newSinks (IntSet.listItems(notYetVisited))
@@ -45,7 +45,7 @@ fun getLiveOuts (liveInTable, liveOutTable, graph, node) =
                 val succLiveIns = Table.look(liveInTable, id)
             in case succLiveIns of
                    SOME(ins) => ins
-                   | NONE => (print ("This shouldn't happen, couldn't find successor for node " ^ Int.toString id ^ " in liveIns table!"); TempSet.empty)
+                   | NONE => (print ("This shouldn't happen, couldn't find successor for node " ^ Int.toString id ^ " in liveIns table!\n"); TempSet.empty)
             end
         val succLiveInList = map calcLiveOuts successors
         val liveOut = foldl TempSet.union TempSet.empty succLiveInList
@@ -61,45 +61,13 @@ fun calcLiveIns (uses, defs, liveOuts) =
 fun getLiveIns (liveInTable, liveOutTable, node as AssemNode.ASNODE{ins=ins, id=id}) =
     let val liveOuts = case Table.look(liveOutTable, id) of
                        SOME(s) => s
-                     | NONE    => (print ("Couldn't find liveouts for node " ^ Int.toString id); TempSet.empty)
+                     | NONE    => (print ("Couldn't find liveouts for node " ^ Int.toString id ^ "\n"); TempSet.empty)
         val (uses, defs) = case ins of
                                 Assem.OPER{assem=_, dst=dst, src=src, jump=_} => (src, dst)
                                 | Assem.LABEL(x) => ([],[])
                                 | Assem.MOVE{assem=_, dst=dst, src=src} => ([src], [dst])
     in Table.enter(liveInTable, id, calcLiveIns(uses, defs, liveOuts))
     end
-
-(*
-Args: liveInTable, liveOutTable, nodeID
-fun calcliveIns:
-  -calculate liveOuts - defs
-  -calculate uses UNION liveOuts-defs, return result
-*)
-
-(*
-Args: liveInTable, liveOutTable, nodeID
-fun calcliveOuts:
-  -call FlowGraph.succs to get all successors of current node
-  -Union liveIns for all Successors, return result
-*)
-
-
-(*
-
-Arguments: curNode, liveInTable, liveOutTable, source
-Function update:
-
--calculate liveOuts, store as newLiveOut
--calculate liveIns, store as newLiveIn
--if newLiveOut != liveOuts OR newLiveIns != liveIns, set converged = false
--If curNode = source, return (liveOuts, liveIns, converged)
--call FlowGraph.preds to get predecessors of current node
-fold update over all predecessors with updated liveIn and liveOut tables, and return result
-
-liveIns = uses UNION (liveouts - defs)
-liveOuts = UNION over LiveIns of all successors
-
-*)
 
 fun calcEq(table1, table2, id) =
   let val set1 = case Table.look(table1, id) of
@@ -135,8 +103,13 @@ fun update(node, liveIns, liveOuts, source, graph) =
     let fun updateWrapper(node, (liveIns, liveOuts)) = update(node, liveIns, liveOuts, source, graph)
         val (newLI, newLO) = foldl updateWrapper (LI, LO) sinkList
     in
-      if !updated then (updated := false; genLivenessInfo(newLI, newLO, source, graph, sinkList))
+      if !updated then (print ("updating liveness info"); updated := false; genLivenessInfo(newLI, newLO, source, graph, sinkList))
                   else (newLI, newLO)
+    end
+
+fun initLivenessTable(graph) =
+    let val idList = map FlowGraph.getNodeID (FlowGraph.nodes(graph))
+    in foldl (fn(id, table) => Table.enter(table, id, TempSet.empty)) Table.empty idList
     end
 
 fun testSinks(filename) =
@@ -148,10 +121,12 @@ fun testSinks(filename) =
     in map printSinks sinks
     end
 
-fun testLiveness(graph) =
-    let val source = FlowGraph.getNode(graph, 0)
+fun testLiveness(filename) =
+    let val graphLists = Flow.generateFlowInfo(filename)
+        val graph = List.hd(graphLists)
+        val source = FlowGraph.getNode(graph, 0)
         val sinks = map (fn (id) => FlowGraph.getNode(graph, id)) (IntSet.listItems(findSinks(graph, 0, IntSet.empty, IntSet.empty)))
-    in genLivenessInfo(Table.empty, Table.empty, source, graph, sinks)
+    in genLivenessInfo(initLivenessTable graph, initLivenessTable graph, source, graph, sinks)
     end
     (*TO TEST: Call Flow.generateFlowInfo to get a list of graphs
                To get source, get graph node with ID = 0 in each graph
