@@ -107,27 +107,49 @@ fun update(node, liveIns, liveOuts, visited, graph) =
                   else (newLI, newLO)
     end
 
-  fun makeLivenessGraph(liveOutTable, flowGraph) {
-    let val liveGraph = TempGraph.empty
-        fun addInterferenceEdges (flowNode, lGraph, defTable, moveTable) =
-            let val AssemNode.ASNODE{ins=ins, id=id} = FlowGraph.nodeInfo(flowNode)
-                val liveOuts = Table.look(liveOutTable, id)
+  fun addEdges(lgraph, defs, liveOuts, isMove, uses) =
+    let val useSet = IntSet.addList(IntSet.empty, uses)
+        (*Creates edges from a particular temp (def) to the list of liveouts*)
+        (*If insn is move a <- b then it does not create an edge between a and b as per textbook pg 222*)
+        fun createEdgesForDef(def, graph) = foldl (fn(lout, gr) => if (isMove) andalso (IntSet.member(useSet, lout)) then gr
+                                                                else TempGraph.doubleEdge(gr, def, lout))
+                                                  graph
+                                                  (IntSet.listItems(liveOuts))
+    (*call createEdgesForDef on each def and accumulate the result*)
+    in foldl createEdgesForDef lgraph defs
+    end
+
+    (*In move graph, add an edge between each def and each use*)
+    (*We're guaranteed that for MIPS, a move will have 1 def and 1 use, so List.hd should be fine*)
+    fun addMoveEdges(mgraph, defs, uses) =
+      let val use = List.hd(uses)
+          val def = List.hd(defs)
+      in TempGraph.doubleEdge(mgraph, use, def)
+      end
+    handle Empty => (print "Encountered a move with empty use or def list!"; mgraph)
+
+  fun makeLivenessGraph(liveOutTable, flowGraph, defTable, moveTable, useTable, starterLGraph, starterMGraph) =
+    let fun addInterferenceEdges (flowNode, (lgraph, mgraph)) =
+            let val AssemNode.ASNODE{ins=_, id=id} = FlowGraph.nodeInfo(flowNode)
+                val liveOuts = case Table.look(liveOutTable, id) of
+                                SOME(x) => x
+                              | NONE    => (print("Couldn't find any liveOuts for node " ^ Int.toString id ^ "\n"); IntSet.empty)
                 val defs = case Table.look(defTable, id) of
-
-                val isMove = Table.look(moveTable, id)
-
-            (*get liveOuts*)
-            (*get Defs*)
-            (*get Moves*)
-            (*add all temps to graph*)
-            (*make def to liveOut edges*)
-            (*make move edges*)
-    (*iterate through flowgraph*)
-    (*check liveOuts of assemnode*)
-    (*Add all temps not yet there to liveGraph*)
-    (*add edges between all temps that are defined and all temps in liveout of curr AssemNode, UNLESS in move*)
-
-}
+                          SOME(d) => d
+                        | NONE    => []
+                val uses = case Table.look(useTable, id) of
+                                SOME(d) => d
+                              | NONE    => []
+                val isMove = case Table.look(moveTable, id) of
+                             SOME(x) => x
+                            |NONE    => (print("No isMove value for node " ^ Int.toString id ^ "\n"); false)
+                val newLGraph = addEdges(lgraph, defs, liveOuts, isMove, uses)
+                val newMGraph = if isMove then addMoveEdges(mgraph, defs, uses) else mgraph
+            in (newLGraph, newMGraph)
+            end
+    in
+      foldl addInterferenceEdges (starterLGraph, starterMGraph) (FlowGraph.nodes(flowGraph))
+    end
 
 fun initLivenessTable(graph) =
     let val idList = map FlowGraph.getNodeID (FlowGraph.nodes(graph))
