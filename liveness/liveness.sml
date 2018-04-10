@@ -9,8 +9,7 @@ structure Table = Flow.Table
 val updated = ref false
 
 
-  (*Performs DFS on the graph from a particular node*)
-  (*Side effect: Updates visited list*)
+  (*Performs DFS on the graph from a particular node, keeping track of nodes visited along the way*)
   (*Returns all sinks reachable from current node*)
   fun findSinks(graph, curID, visited, sinks) =
     let val curNode = FlowGraph.getNode(graph, curID)
@@ -19,8 +18,7 @@ val updated = ref false
         val newVisited = IntSet.add(visited, curID)
         val notYetVisited = IntSet.difference(succIDSet, newVisited)
         val newSinks = if IntSet.numItems(notYetVisited) = 0 then IntSet.add(sinks, curID) else sinks
-        val () = print ("Node " ^ Int.toString curID ^ "\n")
-        fun findSinksWrapper(id, vis) = findSinks(graph, id, vis, newSinks)
+        fun findSinksWrapper(id, sin) = findSinks(graph, id, newVisited, sin)
     in
         foldl findSinksWrapper newSinks (IntSet.listItems(notYetVisited))
     end
