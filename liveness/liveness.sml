@@ -107,14 +107,14 @@ fun update(node, liveIns, liveOuts, visited, graph) =
                   else (newLI, newLO)
     end
 
-  fun makeLivenessGraph(liveOutTable, flowGraph) {
+  (* fun makeLivenessGraph(liveOutTable, flowGraph) {
     let val liveGraph = TempGraph.empty
         fun addInterferenceEdges (flowNode, lGraph, defTable, moveTable) =
             let val AssemNode.ASNODE{ins=ins, id=id} = FlowGraph.nodeInfo(flowNode)
                 val liveOuts = Table.look(liveOutTable, id)
                 val defs = case Table.look(defTable, id) of
 
-                val isMove = Table.look(moveTable, id)
+                val isMove = Table.look(moveTable, id) *)
 
             (*get liveOuts*)
             (*get Defs*)
@@ -127,7 +127,6 @@ fun update(node, liveIns, liveOuts, visited, graph) =
     (*Add all temps not yet there to liveGraph*)
     (*add edges between all temps that are defined and all temps in liveout of curr AssemNode, UNLESS in move*)
 
-}
 
 fun initLivenessTable(graph) =
     let val idList = map FlowGraph.getNodeID (FlowGraph.nodes(graph))
