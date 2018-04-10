@@ -4,6 +4,7 @@ struct
 structure IntSet = SplaySetFn(type ord_key = int val compare = Int.compare)
 structure TempSet = Temp.Set
 structure FlowGraph = Flow.FlowGraph
+structure TempGraph = FuncGraph(Temp.TempOrd)
 structure Table = Flow.Table
 
 val updated = ref false
@@ -81,15 +82,16 @@ fun calcEq(table1, table2, id) =
 (*predsList: AssemNode.node FlowGraph.node list *)
 (*Performs graph traversal for liveness analysis from current node until it reaches a source*)
 (*Returns updated livein and liveout tables*)
-fun update(node, liveIns, liveOuts, source, graph) =
+fun update(node, liveIns, liveOuts, visited, graph) =
     let val newLiveOuts = getLiveOuts(liveIns, liveOuts, graph, node)
         val id = FlowGraph.getNodeID(node)
         val newLiveIns = getLiveIns(liveIns, newLiveOuts, FlowGraph.nodeInfo(node))
         val () = if not (calcEq(liveIns, newLiveIns, id)) orelse not (calcEq(liveOuts, newLiveOuts, id)) then updated := true else ()
         val predsList = map (fn nodeID => FlowGraph.getNode(graph, nodeID)) (FlowGraph.preds(node))
-        fun updatePreds(a, (predIns, predOuts)) = update(a, predIns, predOuts, source, graph)
+        val newVisited = IntSet.add(visited, id)
+        fun updatePreds(a, (predIns, predOuts)) = update(a, predIns, predOuts, newVisited, graph)
     in
-        if (FlowGraph.getNodeID node = FlowGraph.getNodeID source)
+        if IntSet.member(visited, id)
         then (newLiveIns, newLiveOuts)
         else foldl updatePreds (newLiveIns, newLiveOuts) predsList
     end
@@ -97,13 +99,35 @@ fun update(node, liveIns, liveOuts, source, graph) =
   (*Calls update from each sink in the graph, accumulates updated liveness tables*)
   (*If !updated is true, set to false and repeat*)
   (*Else, return *)
-  fun genLivenessInfo(LI, LO, source, graph, sinkList) =
-    let fun updateWrapper(node, (liveIns, liveOuts)) = update(node, liveIns, liveOuts, source, graph)
+  fun genLivenessInfo(LI, LO, graph, sinkList) =
+    let fun updateWrapper(node, (liveIns, liveOuts)) = update(node, liveIns, liveOuts, IntSet.empty, graph)
         val (newLI, newLO) = foldl updateWrapper (LI, LO) sinkList
     in
-      if !updated then (print ("updating liveness info\n"); updated := false; genLivenessInfo(newLI, newLO, source, graph, sinkList))
+      if !updated then (print ("updating liveness info\n"); updated := false; genLivenessInfo(newLI, newLO, graph, sinkList))
                   else (newLI, newLO)
     end
+
+  fun makeLivenessGraph(liveOutTable, flowGraph) {
+    let val liveGraph = TempGraph.empty
+        fun addInterferenceEdges (flowNode, lGraph, defTable, moveTable) =
+            let val AssemNode.ASNODE{ins=ins, id=id} = FlowGraph.nodeInfo(flowNode)
+                val liveOuts = Table.look(liveOutTable, id)
+                val defs = case Table.look(defTable, id) of
+
+                val isMove = Table.look(moveTable, id)
+
+            (*get liveOuts*)
+            (*get Defs*)
+            (*get Moves*)
+            (*add all temps to graph*)
+            (*make def to liveOut edges*)
+            (*make move edges*)
+    (*iterate through flowgraph*)
+    (*check liveOuts of assemnode*)
+    (*Add all temps not yet there to liveGraph*)
+    (*add edges between all temps that are defined and all temps in liveout of curr AssemNode, UNLESS in move*)
+
+}
 
 fun initLivenessTable(graph) =
     let val idList = map FlowGraph.getNodeID (FlowGraph.nodes(graph))
@@ -122,9 +146,8 @@ fun testSinks(filename) =
 fun testLiveness(filename) =
     let val graphLists = Flow.generateFlowInfo(filename)
         val graph = List.hd(graphLists)
-        val source = FlowGraph.getNode(graph, 0)
         val sinks = map (fn (id) => FlowGraph.getNode(graph, id)) (IntSet.listItems(findSinks(graph, 0, IntSet.empty, IntSet.empty)))
-    in genLivenessInfo(initLivenessTable graph, initLivenessTable graph, source, graph, sinks)
+    in genLivenessInfo(initLivenessTable graph, initLivenessTable graph, graph, sinks)
     end
 
 fun printLivenessInfo(liveIn, liveOut, id) =
