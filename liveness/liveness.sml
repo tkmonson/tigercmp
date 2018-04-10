@@ -6,35 +6,36 @@ structure TempSet = Temp.Set
 structure FlowGraph = Flow.FlowGraph
 structure Table = Flow.Table
 
-val visited = ref IntSet.empty
 val updated = ref false
 
 
   (*Performs DFS on the graph from a particular node*)
   (*Side effect: Updates visited list*)
   (*Returns all sinks reachable from current node*)
-  fun findSinks(graph, curID) =
+  fun findSinks(graph, curID, visited, sinks) =
     let val curNode = FlowGraph.getNode(graph, curID)
         val succIDs = FlowGraph.succs(curNode)
         val succIDSet = IntSet.addList(IntSet.empty, succIDs)
-        val notYetVisited = IntSet.difference(succIDSet, !visited)
-        val newVisited = visited := IntSet.add(!visited, curID)
-        fun findSinksWrapper(id) = findSinks(graph, id)
-    in if IntSet.numItems(notYetVisited) = 0 then [curID]
-       else List.concat(map (findSinksWrapper) (IntSet.listItems(notYetVisited)))
+        val newVisited = IntSet.add(visited, curID)
+        val notYetVisited = IntSet.difference(succIDSet, newVisited)
+        val newSinks = if IntSet.numItems(notYetVisited) = 0 then IntSet.add(sinks, curID) else sinks
+        val () = print ("Node " ^ Int.toString curID ^ "\n")
+        fun findSinksWrapper(id, vis) = findSinks(graph, id, vis, newSinks)
+    in
+        foldl findSinksWrapper newSinks (IntSet.listItems(notYetVisited))
     end
 
 
   (*Calls findSinks for each unvisited node in the graph*)
   (*Returns a list of all sinks and a set of all sources*)
-  fun genSinkList(sinks, sources, graph) =
+  (* fun genSinkList(sinks, sources, graph) =
         let val allIDs = map FlowGraph.getNodeID (FlowGraph.nodes(graph))
             val allIdSet = IntSet.addList(IntSet.empty, allIDs)
             val nonVisitedList = IntSet.listItems(IntSet.difference(allIdSet, !visited))
         in case nonVisitedList of
                 []     => (sinks, sources)
               | (a::l) => genSinkList(findSinks(graph, a)@sinks, IntSet.add(sources, a), graph)
-        end
+        end *)
 
 fun getLiveOuts (liveInTable, liveOutTable, graph, node) =
     let val AssemNode.ASNODE{ins=_,id=id} = FlowGraph.nodeInfo(node)
@@ -141,17 +142,15 @@ fun update(node, liveIns, liveOuts, source, graph) =
 fun testSinks(filename) =
     let val graphLists = Flow.generateFlowInfo(filename)
         val graph = List.hd(graphLists)
-        val sinks = map (fn(nid) => FlowGraph.nodeInfo(FlowGraph.getNode(graph, nid))) (findSinks(graph, 0))
+        val sinks = map (fn(nid) => FlowGraph.nodeInfo(FlowGraph.getNode(graph, nid))) (IntSet.listItems(findSinks(graph, 0, IntSet.empty, IntSet.empty)))
         fun printSinks (AssemNode.ASNODE{ins=ins, id=id}) = print ("Sink node of id " ^ Int.toString id ^
                                                                    " with assem " ^ Assem.format(MipsGen.printTemp) ins ^ "\n")
-        val () = visited := IntSet.empty
     in map printSinks sinks
     end
 
 fun testLiveness(graph) =
     let val source = FlowGraph.getNode(graph, 0)
-        val sinks = map (fn (id) => FlowGraph.getNode(graph, id)) (findSinks(graph, 0))
-        val () = visited := IntSet.empty
+        val sinks = map (fn (id) => FlowGraph.getNode(graph, id)) (IntSet.listItems(findSinks(graph, 0, IntSet.empty, IntSet.empty)))
     in genLivenessInfo(Table.empty, Table.empty, source, graph, sinks)
     end
     (*TO TEST: Call Flow.generateFlowInfo to get a list of graphs
