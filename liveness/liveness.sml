@@ -9,8 +9,7 @@ structure Table = Flow.Table
 val updated = ref false
 
 
-  (*Performs DFS on the graph from a particular node*)
-  (*Side effect: Updates visited list*)
+  (*Performs DFS on the graph from a particular node, keeping track of nodes visited along the way*)
   (*Returns all sinks reachable from current node*)
   fun findSinks(graph, curID, visited, sinks) =
     let val curNode = FlowGraph.getNode(graph, curID)
@@ -19,8 +18,7 @@ val updated = ref false
         val newVisited = IntSet.add(visited, curID)
         val notYetVisited = IntSet.difference(succIDSet, newVisited)
         val newSinks = if IntSet.numItems(notYetVisited) = 0 then IntSet.add(sinks, curID) else sinks
-        (* val () = print ("Node " ^ Int.toString curID ^ "\n") *)
-        fun findSinksWrapper(id, vis) = findSinks(graph, id, vis, newSinks)
+        fun findSinksWrapper(id, sin) = findSinks(graph, id, newVisited, sin)
     in
         foldl findSinksWrapper newSinks (IntSet.listItems(notYetVisited))
     end
@@ -41,10 +39,10 @@ fun getLiveOuts (liveInTable, liveOutTable, graph, node) =
     let val AssemNode.ASNODE{ins=_,id=id} = FlowGraph.nodeInfo(node)
         val successors = map (fn nodeID => FlowGraph.getNode(graph, nodeID)) (FlowGraph.succs(node))
         fun calcLiveOuts(n) =
-            let val AssemNode.ASNODE{ins=ins, id=id} = FlowGraph.nodeInfo(n)
-                val succLiveIns = Table.look(liveInTable, id)
+            let val AssemNode.ASNODE{ins=ins, id=nid} = FlowGraph.nodeInfo(n)
+                val succLiveIns = Table.look(liveInTable, nid)
             in case succLiveIns of
-                   SOME(ins) => ins
+                   SOME(ins) => (*)(print("Unioning successor " ^ Int.toString nid ^ " liveins to calc live out for " ^ Int.toString id ^ "\n"); ins) *) ins
                    | NONE => (print ("This shouldn't happen, couldn't find successor for node " ^ Int.toString id ^ " in liveIns table!\n"); TempSet.empty)
             end
         val succLiveInList = map calcLiveOuts successors
@@ -86,7 +84,7 @@ fun calcEq(table1, table2, id) =
 fun update(node, liveIns, liveOuts, source, graph) =
     let val newLiveOuts = getLiveOuts(liveIns, liveOuts, graph, node)
         val id = FlowGraph.getNodeID(node)
-        val newLiveIns = getLiveIns(liveIns, liveOuts, FlowGraph.nodeInfo(node))
+        val newLiveIns = getLiveIns(liveIns, newLiveOuts, FlowGraph.nodeInfo(node))
         val () = if not (calcEq(liveIns, newLiveIns, id)) orelse not (calcEq(liveOuts, newLiveOuts, id)) then updated := true else ()
         val predsList = map (fn nodeID => FlowGraph.getNode(graph, nodeID)) (FlowGraph.preds(node))
         fun updatePreds(a, (predIns, predOuts)) = update(a, predIns, predOuts, source, graph)
@@ -103,7 +101,7 @@ fun update(node, liveIns, liveOuts, source, graph) =
     let fun updateWrapper(node, (liveIns, liveOuts)) = update(node, liveIns, liveOuts, source, graph)
         val (newLI, newLO) = foldl updateWrapper (LI, LO) sinkList
     in
-      if !updated then (print ("updating liveness info"); updated := false; genLivenessInfo(newLI, newLO, source, graph, sinkList))
+      if !updated then (print ("updating liveness info\n"); updated := false; genLivenessInfo(newLI, newLO, source, graph, sinkList))
                   else (newLI, newLO)
     end
 
@@ -127,6 +125,17 @@ fun testLiveness(filename) =
         val source = FlowGraph.getNode(graph, 0)
         val sinks = map (fn (id) => FlowGraph.getNode(graph, id)) (IntSet.listItems(findSinks(graph, 0, IntSet.empty, IntSet.empty)))
     in genLivenessInfo(initLivenessTable graph, initLivenessTable graph, source, graph, sinks)
+    end
+
+fun printLivenessInfo(liveIn, liveOut, id) =
+    let val liveInSet = Table.look(liveIn, id)
+        val liveOutSet = Table.look(liveOut, id)
+        fun printSet(set) = app (fn(setInt) => print("temp " ^ Int.toString setInt ^ ", ")) (TempSet.listItems set)
+    in case (liveInSet, liveOutSet) of
+       (NONE, _) => print("ERROR, node of id " ^ Int.toString id ^ " does not exist in liveIns\n")
+       | (_, NONE) => print("ERROR, node of id " ^ Int.toString id ^ " does not exist in liveOuts\n")
+       |(SOME(ins), SOME(outs)) => (print("LiveIns of node " ^ Int.toString id ^ ":\n"); printSet(ins);
+                                   print("\nLiveOuts of node " ^ Int.toString id ^ ":\n"); printSet(outs))
     end
     (*TO TEST: Call Flow.generateFlowInfo to get a list of graphs
                To get source, get graph node with ID = 0 in each graph
