@@ -143,7 +143,18 @@ fun createGraph [] = (print("Error, trying to make graph for conflow without any
         map processFragment program
       end
 
-
+  fun main filename =
+      let val program = MipsGen.transFrags filename
+      
+        fun processFragment fragInstrs=
+          let
+            val cflow = createGraph fragInstrs
+            val reset = AssemNode.curID := 0
+          in cflow
+          end
+      in
+      map processFragment program
+      end
 
 
 end

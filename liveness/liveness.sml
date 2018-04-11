@@ -114,7 +114,7 @@ fun update(node, liveIns, liveOuts, visited, graph) =
         fun createEdgesForDef(def, graph) = foldl (fn(lout, gr) => if (isMove) andalso (IntSet.member(useSet, lout)) then gr
                                                                 else TempGraph.doubleEdge(gr, def, lout))
                                                   graph
-                                                  (IntSet.listItems(liveOuts))
+                                                  (TempSet.listItems(liveOuts))
     (*call createEdgesForDef on each def and accumulate the result*)
     in foldl createEdgesForDef lgraph defs
     end
@@ -131,16 +131,16 @@ fun update(node, liveIns, liveOuts, visited, graph) =
   fun makeInterferenceGraph(liveOutTable, flowGraph, defTable, moveTable, useTable, starterLGraph, starterMGraph) =
     let fun addInterferenceEdges (flowNode, (lgraph, mgraph)) =
             let val AssemNode.ASNODE{ins=_, id=id} = FlowGraph.nodeInfo(flowNode)
-                val liveOuts = case Table.look(liveOutTable, id) of
+                val liveOuts = case Flow.look(liveOutTable, id) of
                                 SOME(x) => x
-                              | NONE    => (print("Couldn't find any liveOuts for node " ^ Int.toString id ^ "\n"); IntSet.empty)
-                val defs = case Table.look(defTable, id) of
+                              | NONE    => (print("Couldn't find any liveOuts for node " ^ Int.toString id ^ "\n"); TempSet.empty)
+                val defs = case Flow.look(defTable, id) of
                           SOME(d) => d
                         | NONE    => []
-                val uses = case Table.look(useTable, id) of
+                val uses = case Flow.look(useTable, id) of
                                 SOME(d) => d
                               | NONE    => []
-                val isMove = case Table.look(moveTable, id) of
+                val isMove = case Flow.look(moveTable, id) of
                              SOME(x) => x
                             |NONE    => (print("No isMove value for node " ^ Int.toString id ^ "\n"); false)
                 val newLGraph = addEdges(lgraph, defs, liveOuts, isMove, uses)
@@ -153,7 +153,7 @@ fun update(node, liveIns, liveOuts, visited, graph) =
 
 fun initLivenessTable(graph) =
     let val idList = map FlowGraph.getNodeID (FlowGraph.nodes(graph))
-    in foldl (fn(id, table) => Table.enter(table, id, TempSet.empty)) Table.empty idList
+    in foldl (fn(id, table) => Flow.enter(table, id, TempSet.empty)) Flow.empty idList
     end
 
 fun testSinks(filename) =
@@ -182,8 +182,28 @@ fun printLivenessInfo(liveIn, liveOut, id) =
        |(SOME(ins), SOME(outs)) => (print("LiveIns of node " ^ Int.toString id ^ ":\n"); printSet(ins);
                                    print("\nLiveOuts of node " ^ Int.toString id ^ ":\n"); printSet(outs))
     end
-    (*TO TEST: Call Flow.generateFlowInfo to get a list of graphs
-               To get source, get graph node with ID = 0 in each graph
-               call find sinks on that node
-               call genLivenessInfo on sink + source node *)
+
+  fun createBaseIntGraph(tempSet) =
+    let val tempList = TempSet.listItems(tempSet)
+    in
+      foldl (fn(temp, graph) => TempGraph.addNode(graph, temp, temp)) TempGraph.empty tempList
+    end
+
+  fun main filename =
+    let val conflowList = Flow.main filename
+        val Flow.CONFLOW{control=gr, def=d, use=u, ismove=im, temps=t} = List.hd conflowList
+        val sinks = map (fn (id) => FlowGraph.getNode(gr, id))
+                        (IntSet.listItems(findSinks(gr, 0, IntSet.empty, IntSet.empty)))
+        val (liveIns, liveOuts) = genLivenessInfo(initLivenessTable gr, initLivenessTable gr, gr, sinks)
+        val baseInterferenceGraph = createBaseIntGraph(t)
+        val (intGraph, moveGraph) = makeInterferenceGraph(liveOuts, gr, d, im, u, baseInterferenceGraph, baseInterferenceGraph)
+    in
+      (intGraph, moveGraph)
+    end
+
+    fun printTempGraph gr =
+      let fun pr(id,_) = Int.toString id
+      in
+        TempGraph.printGraph pr gr
+      end
 end
