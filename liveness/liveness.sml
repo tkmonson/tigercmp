@@ -2,7 +2,7 @@ structure Liveness =
 struct
 
 structure IntSet = SplaySetFn(type ord_key = int val compare = Int.compare)
-structure TempSet = Temp.Set
+structure TempSet = Flow.TempSet
 structure FlowGraph = Flow.FlowGraph
 structure TempGraph = FuncGraph(type ord_key = Temp.temp val compare = Int.compare)
 structure Table = Flow.Table

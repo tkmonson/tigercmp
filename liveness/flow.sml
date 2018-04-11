@@ -7,6 +7,8 @@ structure FlowGraph = FuncGraph(type ord_key = int val compare = Int.compare)
 structure Table = IntMapTable(type key = int
       fun getInt(i) = i)
 
+structure TempSet = Temp.Set
+
 type 'a table  = 'a Table.table
 val empty = Table.empty
 val enter = Table.enter
@@ -16,7 +18,7 @@ datatype ControlFlow = CONFLOW of {control: AssemNode.node FlowGraph.graph,
                                    def: Temp.temp list table,
                                    use: Temp.temp list table,
                                    ismove: bool table,
-                                   temps: TempSet}
+                                   temps: TempSet.set}
 
 fun createGraph [] = (print("Error, trying to make graph for conflow without any nodes"); CONFLOW{control=FlowGraph.empty, def=empty, use=empty, ismove=empty, temps=TempSet.empty})
     | createGraph(a::l:Assem.instr list) =
@@ -61,7 +63,7 @@ fun createGraph [] = (print("Error, trying to make graph for conflow without any
                   createAssemNodes(CONFLOW{control=newGraph,
                                            def=newDef,
                                            use=newUse,
-                                           ismove=newIsMove.
+                                           ismove=newIsMove,
                                            temps=newTemps},
                                    newLabelTable,
                                    l)
