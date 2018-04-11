@@ -3,6 +3,7 @@ struct
 
 structure FlowGraph = FuncGraph(type ord_key = int val compare = Int.compare)
 
+
 structure Table = IntMapTable(type key = int
       fun getInt(i) = i)
 
@@ -14,9 +15,10 @@ val look = Table.look
 datatype ControlFlow = CONFLOW of {control: AssemNode.node FlowGraph.graph,
                                    def: Temp.temp list table,
                                    use: Temp.temp list table,
-                                   ismove: bool table}
+                                   ismove: bool table,
+                                   temps: TempSet}
 
-fun createGraph [] = (*Print error because we shouldn't make a graph without nodes*) CONFLOW{control=FlowGraph.empty, def=empty, use=empty, ismove=empty}
+fun createGraph [] = (print("Error, trying to make graph for conflow without any nodes"); CONFLOW{control=FlowGraph.empty, def=empty, use=empty, ismove=empty, temps=TempSet.empty})
     | createGraph(a::l:Assem.instr list) =
 
     (let val labelNodeTable = Symbol.empty
@@ -31,23 +33,26 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
                                   end
 
         fun createAssemNodes (conFlow, labelTable, []) = (conFlow, labelTable)
-            | createAssemNodes (CONFLOW{control=graph, def=def, use=use, ismove=ismove}, labelTable, assem::(l:Assem.instr list)) =
+            | createAssemNodes (CONFLOW{control=graph, def=def, use=use, ismove=ismove, temps=temps}, labelTable, assem::(l:Assem.instr list)) =
               (let val AssemNode.ASNODE{ins=i, id=newID} = AssemNode.makeNode(assem)
-                   val (newLabelTable, newDef, newUse, newIsMove) =
+                   val (newLabelTable, newDef, newUse, newIsMove, newTemps) =
                         case assem of
                              Assem.OPER{assem=assem, dst=dlist, src=slist, jump=jOp} => (labelTable,
                                                                                    enter(def, newID, dlist),
                                                                                    enter(use, newID, slist),
-                                                                                   enter(ismove, newID, false))
+                                                                                   enter(ismove, newID, false),
+                                                                                   TempSet.addList(temps, dlist@slist))
                              | Assem.LABEL{assem=assem, lab=label} =>
                                                                   (Symbol.enter(labelTable, label, newID),
                                                                  enter(def, newID, []),
                                                                  enter(use, newID, []),
-                                                                 enter(ismove, newID, false))
-                             | Assem.MOVE{assem=assem, dst=dlist, src=slist} => (labelTable,
-                                                                           enter(def, newID, [dlist]),
-                                                                           enter(use, newID, [slist]),
-                                                                           enter(ismove, newID, true))
+                                                                 enter(ismove, newID, false),
+                                                                 temps)
+                             | Assem.MOVE{assem=assem, dst=d, src=s} => (labelTable,
+                                                                           enter(def, newID, [d]),
+                                                                           enter(use, newID, [s]),
+                                                                           enter(ismove, newID, true),
+                                                                           TempSet.addList(temps, [d, s]))
 
                     val newGraph = if hasJump(graph, newID-1)
                                    then FlowGraph.addNode (graph, newID, AssemNode.ASNODE{ins=i, id=newID})
@@ -56,7 +61,8 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
                   createAssemNodes(CONFLOW{control=newGraph,
                                            def=newDef,
                                            use=newUse,
-                                           ismove=newIsMove},
+                                           ismove=newIsMove.
+                                           temps=newTemps},
                                    newLabelTable,
                                    l)
               end)
@@ -92,20 +98,21 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
          val starterConflow = CONFLOW{control=starterGraph,
                                       def=empty,
                                       use=empty,
-                                      ismove=empty}
+                                      ismove=empty,
+                                      temps=TempSet.empty}
 
-         val(CONFLOW{control=c, def=d, use=u, ismove=i}, labelTable) = createAssemNodes(starterConflow, Symbol.empty, l)
+         val(CONFLOW{control=c, def=d, use=u, ismove=i, temps=t}, labelTable) = createAssemNodes(starterConflow, Symbol.empty, l)
          val finishedFlowGraph = createControlFlow(c, labelTable, map FlowGraph.nodeInfo (FlowGraph.nodes(c)))
 
     in
-      CONFLOW{control=finishedFlowGraph, def=d, use=u, ismove=i}
+      CONFLOW{control=finishedFlowGraph, def=d, use=u, ismove=i, temps=t}
     end)
 
     (*program = Assem.instr list list*)
     fun printFlowGraphs program =
       let fun testFragment(fragInstrs) =
             let
-              val CONFLOW{control=gr, def=_, use=_, ismove=_} = createGraph fragInstrs
+              val CONFLOW{control=gr, def=_, use=_, ismove=_, temps=_} = createGraph fragInstrs
               val reset = AssemNode.curID := 0
             in FlowGraph.printGraph(AssemNode.printNode) gr
             end
@@ -126,7 +133,7 @@ fun createGraph [] = (*Print error because we shouldn't make a graph without nod
       let val program = MipsGen.transFrags filename
           fun processFragment fragInstrs=
             let
-              val CONFLOW{control=gr, def=_, use=_, ismove=_} = createGraph fragInstrs
+              val CONFLOW{control=gr, def=_, use=_, ismove=_, temps=_} = createGraph fragInstrs
               val reset = AssemNode.curID := 0
             in gr
             end
