@@ -4,7 +4,7 @@ struct
 structure IntSet = SplaySetFn(type ord_key = int val compare = Int.compare)
 structure TempSet = Temp.Set
 structure FlowGraph = Flow.FlowGraph
-structure TempGraph = FuncGraph(Temp.TempOrd)
+structure TempGraph = FuncGraph(type ord_key = Temp.temp val compare = Int.compare)
 structure Table = Flow.Table
 
 val updated = ref false
@@ -128,7 +128,7 @@ fun update(node, liveIns, liveOuts, visited, graph) =
       end
     handle Empty => (print "Encountered a move with empty use or def list!"; mgraph)
 
-  fun makeLivenessGraph(liveOutTable, flowGraph, defTable, moveTable, useTable, starterLGraph, starterMGraph) =
+  fun makeInterferenceGraph(liveOutTable, flowGraph, defTable, moveTable, useTable, starterLGraph, starterMGraph) =
     let fun addInterferenceEdges (flowNode, (lgraph, mgraph)) =
             let val AssemNode.ASNODE{ins=_, id=id} = FlowGraph.nodeInfo(flowNode)
                 val liveOuts = case Table.look(liveOutTable, id) of
@@ -186,5 +186,4 @@ fun printLivenessInfo(liveIn, liveOut, id) =
                To get source, get graph node with ID = 0 in each graph
                call find sinks on that node
                call genLivenessInfo on sink + source node *)
-
 end
