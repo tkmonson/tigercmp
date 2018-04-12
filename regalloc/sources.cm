@@ -1,0 +1,49 @@
+Group is
+
+../lexer/errormsg.sml
+../typechecker/printtree.sml
+
+(*For symbols and environments*)
+../typechecker/types.sml
+../parser/table.sig
+../parser/table.sml
+../parser/symbol.sml
+../typechecker/Environment.sml
+
+(*For ASTs*)
+../parser/prabsyn.sml
+../parser/absyn.sml
+../typechecker/FindEscapes.sml
+
+(*Loading lexer*)
+../parser/tiger.lex.sml
+
+(*Loading parser*)
+../parser/tiger.grm
+../parser/parse.sml
+
+(*Temps and IR*)
+../typechecker/temp.sig
+../typechecker/temp.sml
+../typechecker/tree.sml
+
+../typechecker/Semant.sml
+
+(*Frame and Translate*)
+../typechecker/Frame.sml
+../typechecker/Translate.sml
+
+../instrselect/assem.sml
+../instrselect/canon.sml
+../instrselect/MipsGen.sml
+
+../liveness/funcgraph.sig
+../liveness/funcgraph.sml
+../liveness/AssemNode.sml
+../liveness/flow.sml
+../liveness/liveness.sml
+
+(*SML libraries*)
+$/smlnj-lib.cm
+$/ml-yacc-lib.cm
+$/basis.cm

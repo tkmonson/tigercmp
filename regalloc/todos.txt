@@ -1,0 +1,18 @@
+TODOS: 
+
+-Fixes from previous phases
+	-break lexing/parsing
+	-instruction selection fixes
+	-Merging IR fixes
+	-Fix caller-save behavior in MipsGen
+	-Add calls to procEntryExit
+	-More efficient saving of callee-saves
+	-email Aditya about escaping SL parameter from IR phase
+	-Make function calls write v0
+
+-Register allocation:
+	-Fix tempMap in Frame.sml to be a Temp.map instead of a Symbol.table
+		-Fix printTemp in MipsGen.sml, which reads MipsFrame.tempMap
+	-Create graph and map with precolored temps
+	-simplify function to remove nodes of trivial degree
+	-select function to allocate registers
