@@ -24,63 +24,63 @@ structure Tr = Tree
                 It returns the result of the exp in a Temp, and emits MIPS as a side-effect. p. 205*)
   fun munchExp(Tr.MEM(Tr.BINOP(Tr.PLUS, Tr.CONST i, exp1))) =
           result (fn r => emit(As.OPER{
-                                 assem="lw `d0 " ^ int2str i ^ "(`s0)\n",
+                                 assem="lw `d0, " ^ int2str i ^ "(`s0)\n",
                                  src=[munchExp exp1],
                                  dst=[r],
                                  jump=NONE}))
 
       | munchExp(Tr.MEM(Tr.BINOP(Tr.PLUS, exp1, Tr.CONST i))) =
           result (fn r => emit(As.OPER{
-                                 assem="lw `d0 " ^ int2str i ^ "(`s0)\n",
+                                 assem="lw `d0, " ^ int2str i ^ "(`s0)\n",
                                  src=[munchExp exp1],
                                  dst=[r],
                                  jump=NONE}))
 
       | munchExp(Tr.MEM(Tr.BINOP(Tr.MINUS, exp1, Tr.CONST i))) =
       result (fn r => emit(As.OPER{
-                              assem="lw `d0 " ^ int2str (~i) ^ "(`s0)\n",
+                              assem="lw `d0, " ^ int2str (~i) ^ "(`s0)\n",
                               src=[munchExp exp1],
                               dst=[r],
                               jump=NONE}))
 
       | munchExp(Tr.MEM(Tr.BINOP(Tr.MINUS, Tr.CONST i, exp1))) =
       result (fn r => emit(As.OPER{
-                              assem="lw `d0 " ^ int2str (~i) ^ "(`s0)\n",
+                              assem="lw `d0, " ^ int2str (~i) ^ "(`s0)\n",
                               src=[munchExp exp1],
                               dst=[r],
                               jump=NONE}))
 
       | munchExp(Tr.MEM(Tr.CONST i)) =
           result(fn r => emit(As.OPER{
-                                assem="la `d0 " ^ int2str i ^ "\n",
+                                assem="la `d0, " ^ int2str i ^ "\n",
                                 src=[],
                                 dst=[r],
                                 jump=NONE}))
       (*TODO: Add special cases for MEM where exp1 is reg +- const or const +- reg*)
       | munchExp(Tr.MEM(exp1)) =
           result (fn r => emit(As.OPER{
-                                 assem="lw `d0 0(`s0)\n",
+                                 assem="lw `d0, 0(`s0)\n",
                                  src=[munchExp exp1],
                                  dst=[r],
                                  jump=NONE}))
 
       | munchExp (Tr.BINOP(Tr.PLUS, exp1, Tr.CONST i)) =
           result(fn r => emit(As.OPER{
-                                assem="addi `d0 `s0 " ^ int2str i ^ "\n",
+                                assem="addi `d0, `s0 " ^ int2str i ^ "\n",
                                 src=[munchExp exp1],
                                 dst=[r],
                                 jump=NONE}))
 
       | munchExp (Tr.BINOP(Tr.PLUS, Tr.CONST i, exp1)) =
           result(fn r => emit(As.OPER{
-                                assem="addi `d0 `s0 " ^ int2str i ^ "\n",
+                                assem="addi `d0, `s0 " ^ int2str i ^ "\n",
                                 src=[munchExp exp1],
                                 dst=[r],
                                 jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.PLUS, exp1, exp2)) =
             result (fn r => emit(As.OPER{
-                                    assem="add `d0 `s0 `s1\n",
+                                    assem="add `d0, `s0 `s1\n",
                                     src=[munchExp exp1, munchExp exp2],
                                     dst=[r],
                                     jump=NONE}))
@@ -88,14 +88,14 @@ structure Tr = Tree
                  (* SUB *)
       | munchExp(Tr.BINOP(Tr.MINUS, exp1, Tr.CONST i)) =
         result (fn r => emit(As.OPER{
-                                assem="addi `d0 `s0 " ^ int2str (~i)  ^ "\n",
+                                assem="addi `d0, `s0 " ^ int2str (~i)  ^ "\n",
                                 src=[munchExp exp1],
                                 dst=[r],
                                 jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.MINUS, exp1, exp2)) =
         result (fn r => emit(As.OPER{
-                                assem="sub `d0 `s0 `s1\n",
+                                assem="sub `d0, `s0 `s1\n",
                                 src=[munchExp exp1, munchExp exp2],
                                 dst=[r],
                                 jump=NONE}))
@@ -103,21 +103,21 @@ structure Tr = Tree
                  (* MUL *)
       | munchExp(Tr.BINOP(Tr.MUL, exp1, Tr.CONST i)) =
         result (fn r => emit(As.OPER{
-                                assem="mul `d0 `s0 " ^ int2str i  ^ "\n",
+                                assem="mul `d0, `s0 " ^ int2str i  ^ "\n",
                                 src=[munchExp exp1],
                                 dst=[r],
                                 jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.MUL, Tr.CONST i, exp1)) =
             result (fn r => emit(As.OPER{
-                                    assem="mul `d0 `s0 " ^ int2str i  ^ "\n",
+                                    assem="mul `d0, `s0 " ^ int2str i  ^ "\n",
                                     src=[munchExp exp1],
                                     dst=[r],
                                     jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.MUL, exp1, exp2)) =
             result (fn r => emit(As.OPER{
-                                    assem="mul `d0 `s0 `s1\n",
+                                    assem="mul `d0, `s0 `s1\n",
                                     src=[munchExp exp1, munchExp exp2],
                                     dst=[r],
                                     jump=NONE}))
@@ -125,14 +125,14 @@ structure Tr = Tree
                  (* DIV *)
       | munchExp(Tr.BINOP(Tr.DIV, exp1, Tr.CONST i)) =
             result (fn r => emit(As.OPER{
-                                    assem="div `d0 `s0 " ^ int2str i  ^ "\n",
+                                    assem="div `d0, `s0 " ^ int2str i  ^ "\n",
                                     src=[munchExp exp1],
                                     dst=[r],
                                     jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.DIV, exp1, exp2)) =
             result (fn r => emit(As.OPER{
-                                    assem="div `d0 `s0 `s1\n",
+                                    assem="div `d0, `s0 `s1\n",
                                     src=[munchExp exp1, munchExp exp2],
                                     dst=[r],
                                     jump=NONE}))
@@ -147,14 +147,14 @@ structure Tr = Tree
 
       | munchExp(Tr.BINOP(Tr.AND, Tr.CONST i, exp1)) =
             result (fn r => emit(As.OPER{
-                                    assem="andi `d0 `s0 " ^ int2str i  ^ "\n",
+                                    assem="andi `d0, `s0 " ^ int2str i  ^ "\n",
                                     src=[munchExp exp1],
                                     dst=[r],
                                     jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.AND, exp1, exp2)) =
             result (fn r => emit(As.OPER{
-                                    assem="and `d0 `s0 `s1\n",
+                                    assem="and `d0, `s0 `s1\n",
                                     src=[munchExp exp1, munchExp exp2],
                                     dst=[r],
                                     jump=NONE}))
@@ -162,21 +162,21 @@ structure Tr = Tree
                  (* OR *)
       | munchExp(Tr.BINOP(Tr.OR, exp1, Tr.CONST i)) =
             result (fn r => emit(As.OPER{
-                                    assem="ori `d0 `s0 " ^ int2str i  ^ "\n",
+                                    assem="ori `d0, `s0 " ^ int2str i  ^ "\n",
                                     src=[munchExp exp1],
                                     dst=[r],
                                     jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.OR, Tr.CONST i, exp1)) =
             result (fn r => emit(As.OPER{
-                                    assem="ori `d0 `s0 " ^ int2str i  ^ "\n",
+                                    assem="ori `d0, `s0 " ^ int2str i  ^ "\n",
                                     src=[munchExp exp1],
                                     dst=[r],
                                     jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.OR, exp1, exp2)) =
             result (fn r => emit(As.OPER{
-                                    assem="or `d0 `s0 `s1\n",
+                                    assem="or `d0, `s0 `s1\n",
                                     src=[munchExp exp1, munchExp exp2],
                                     dst=[r],
                                     jump=NONE}))
@@ -184,21 +184,21 @@ structure Tr = Tree
                  (* XOR *)
       | munchExp(Tr.BINOP(Tr.XOR, exp, Tr.CONST i)) =
             result (fn r => emit(As.OPER{
-                              assem="xori `d0 `s0 " ^ int2str i  ^ "\n",
+                              assem="xori `d0, `s0 " ^ int2str i  ^ "\n",
                               src=[munchExp exp],
                               dst=[r],
                               jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.XOR, Tr.CONST i, exp1)) =
             result (fn r => emit(As.OPER{
-                              assem="xori `d0 `s0 " ^ int2str i  ^ "\n",
+                              assem="xori `d0, `s0 " ^ int2str i  ^ "\n",
                               src=[munchExp exp1],
                               dst=[r],
                               jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.XOR, exp1, exp2)) =
             result (fn r => emit(As.OPER{
-                            assem="xor `d0 `s0 `s1\n",
+                            assem="xor `d0, `s0 `s1\n",
                             src=[munchExp exp1, munchExp exp2],
                             dst=[r],
                             jump=NONE}))
@@ -206,14 +206,14 @@ structure Tr = Tree
                  (* SLL *)
       | munchExp(Tr.BINOP(Tr.LSHIFT, exp1, Tr.CONST i)) =
             result (fn r => emit(As.OPER{
-                              assem="sll `d0 `s0 " ^ int2str i  ^ "\n",
+                              assem="sll `d0, `s0 " ^ int2str i  ^ "\n",
                               src=[munchExp exp1],
                               dst=[r],
                               jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.LSHIFT, exp1, exp2)) =
             result (fn r => emit(As.OPER{
-                              assem="sllv `d0 `s0, `s1\n",
+                              assem="sllv `d0, `s0, `s1\n",
                               src=[munchExp exp1, munchExp exp2],
                               dst=[r],
                               jump=NONE}))
@@ -221,14 +221,14 @@ structure Tr = Tree
                  (* SRL *)
       | munchExp(Tr.BINOP(Tr.RSHIFT, exp1, Tr.CONST i)) =
             result (fn r => emit(As.OPER{
-                              assem="srl `d0 `s0 " ^ int2str i  ^ "\n",
+                              assem="srl `d0, `s0 " ^ int2str i  ^ "\n",
                               src=[munchExp exp1],
                               dst=[r],
                               jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.RSHIFT, exp1, exp2)) =
             result (fn r => emit(As.OPER{
-                              assem="srlv `d0 `s0 `s1\n",
+                              assem="srlv `d0, `s0 `s1\n",
                               src=[munchExp exp1, munchExp exp2],
                               dst=[r],
                               jump=NONE}))
@@ -236,14 +236,14 @@ structure Tr = Tree
                  (* SRA *)
       | munchExp(Tr.BINOP(Tr.ARSHIFT, exp1, Tr.CONST i)) =
             result (fn r => emit(As.OPER{
-                                    assem="sra `d0 `s0 " ^ int2str i  ^ "\n",
+                                    assem="sra `d0, `s0 " ^ int2str i  ^ "\n",
                                     src=[munchExp exp1],
                                     dst=[r],
                                     jump=NONE}))
 
       | munchExp(Tr.BINOP(Tr.ARSHIFT, exp1, exp2)) =
             result (fn r => emit(As.OPER{
-                                    assem="srav `d0 `s0 `s1\n",
+                                    assem="srav `d0, `s0 `s1\n",
                                     src=[munchExp exp1, munchExp exp2],
                                     dst=[r],
                                     jump=NONE}))
@@ -260,7 +260,7 @@ structure Tr = Tree
 
       | munchExp(Tr.CONST i) =
             result (fn r => emit(As.OPER {
-                                 assem = "addi `d0 `s0 " ^ int2str i ^ "\n",
+                                 assem = "addi `d0, `s0 " ^ int2str i ^ "\n",
                                  src=[MipsFrame.RZ],
                                  dst=[r],
                                  jump=NONE}))
@@ -291,29 +291,29 @@ structure Tr = Tree
         and munchStm(Tr.SEQ(stmA, stmB)) = (munchStm(stmA); munchStm(stmB))
 
             | munchStm(Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.PLUS, exp1, Tr.CONST i)), exp2)) = emit (As.OPER{
-                                                                                              assem="sw `s1 " ^ int2str i ^ "(`s0)\n",
+                                                                                              assem="sw `s1, " ^ int2str i ^ "(`s0)\n",
                                                                                               src=[munchExp exp1, munchExp exp2],
                                                                                               dst=[],
                                                                                               jump=NONE})
             | munchStm(Tr.MOVE(Tr.MEM(exp1), Tr.MEM(exp2))) = emit (As.OPER{
-                                                                      assem="sw `s0 `s1\n",
+                                                                      assem="sw `s0, `s1\n",
                                                                       src=[munchExp (Tr.MEM(exp2)), munchExp (exp1)],
                                                                       dst=[],
                                                                       jump=NONE})
             | munchStm(Tr.MOVE(Tr.MEM(Tr.CONST i), exp1)) = emit (As.OPER{
-                                                                    assem="sw `s0 " ^ int2str i ^ "(`s1)\n",
+                                                                    assem="sw `s0, " ^ int2str i ^ "(`s1)\n",
                                                                     src=[munchExp exp1, MipsFrame.RZ],
                                                                     dst=[],
                                                                     jump=NONE})
 
             | munchStm(Tr.MOVE(exp1, Tr.MEM(Tr.BINOP(Tr.PLUS, exp2, Tr.CONST i)))) = emit (As.OPER{
-                                                                                              assem="lw `s0 " ^ int2str i ^ "(`s1)\n",
+                                                                                              assem="lw `s0, " ^ int2str i ^ "(`s1)\n",
                                                                                               src=[munchExp exp1, munchExp exp2],
                                                                                               dst=[],
                                                                                               jump=NONE})
             (*TODO: make sure left argument of Tr.MOVE can only be a Tr.MEM or temp*)
             | munchStm(Tr.MOVE(Tr.MEM(exp1), exp2)) = emit (As.OPER{
-                                                             assem="sw `s0 `s1\n",
+                                                             assem="sw `s0, `s1\n",
                                                              src=[munchExp exp2, munchExp exp1],
                                                              dst=[],
                                                              jump=NONE})
@@ -322,7 +322,7 @@ structure Tr = Tree
             | munchStm(Tr.MOVE(Tr.TEMP t, Tr.CALL(Tr.NAME(l), argList))) = munchStm(Tr.MOVE(Tr.TEMP t, Tr.TEMP (munchExp(Tr.CALL(Tr.NAME(l), argList)))))
 
             | munchStm(Tr.MOVE(Tr.TEMP temp, exp1)) = emit(As.MOVE {
-                                                              assem="move `d0 `s0  \n",
+                                                              assem="move `d0, `s0  \n",
                                                               src=munchExp exp1,
                                                               dst=temp})
 
@@ -345,7 +345,7 @@ structure Tr = Tree
                                | Tr.UGT => "bgtu"
                                | Tr.UGE => "bgeu"
                  in emit (As.OPER{
-                          assem = instr ^ " `s0 `s1 " ^ S.name label1 ^"\n",
+                          assem = instr ^ " `s0, `s1 " ^ S.name label1 ^"\n",
                           src=[munchExp exp1, munchExp exp2],
                           dst=[],
                           jump=SOME[label1, label2]})
