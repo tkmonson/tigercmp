@@ -173,6 +173,7 @@ struct
   (*This is part of the view shift*)
   (*From caller's perspective, args are in reg a0-a3. For the callee, they need to be moved from a0-a3 into various temps and frame slots. You
     can do this in this phase or in the next phase. *)
+  (*Returns a Tree.stm*)
   fun procEntryExit1 (makeFrame{name, formals, offset, moves}, stat:Tree.stm) =
     let
     (* This let generates pre, which copies all calleesaves onto the stack, and post which copies them back *)
@@ -192,7 +193,6 @@ struct
 
 
 
- (*TODO:Why do we do jump some?*)
   fun procEntryExit2(frame, body) =
       body @
       [Assem.OPER{assem="",
