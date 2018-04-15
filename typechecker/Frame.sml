@@ -31,7 +31,7 @@ sig
 (*Label for the machine code of this function : Produced using Temp.newLabel()*)
   val funclabel : Temp.label
 
-  val tempMap : register Symbol.table
+  val tempMap : string Temp.Map.map
   val getRegName : Temp.temp -> string
 
 end
@@ -116,16 +116,17 @@ struct
   val specials = [(FP, "FP"), (SP, "SP"), (RZ, "R0"), (RA, "RA"), (GP, "GP"), (v0, "v0")]
 
   (*Register map : This table maps register labels (eg "t123") to friendly names (eg "SP") for temps that are used as special registers*)
-  val tempMap = foldl (fn ((temp, tempName):reg_info, table) =>
-                            Symbol.enter(table, Symbol.symbol (Temp.makestring temp), tempName))
-                      Symbol.empty
+  val tempMap = foldl (fn ((temp, tempName):reg_info, map) =>
+                            Temp.Map.insert(map, temp, tempName))
+                            (* Symbol.enter(table, Symbol.symbol (Temp.makestring temp), tempName)) *)
+                      (* Symbol.empty *) Temp.Map.empty
                       (argRegs @ calleeSaves @ callerSaves @ specials)
 
   fun getTemp(temp, tempname) = temp
 
  (*This function returns a string for a temp. If that temp is used as a special register, we turn its friendly name (eg SP).
     Otherwise, we just return the temp in string form (eg 123)*)
-  fun getRegName(temp) = case Symbol.look(tempMap, Symbol.symbol (Temp.makestring temp)) of
+  fun getRegName(temp) = case Temp.Map.find(tempMap, temp) of
                         SOME(name) => name
                       | NONE       => Temp.makestring temp
 

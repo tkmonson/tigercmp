@@ -391,8 +391,7 @@ structure Tr = Tree
 
     fun printTemp t =
         let
-          val tempSymbol = Symbol.symbol (Temp.makestring t)
-          val nameOpt = Symbol.look(MipsFrame.tempMap, tempSymbol)
+          val nameOpt = Temp.Map.find(MipsFrame.tempMap, t)
         in
           case nameOpt of
             SOME(name) => name
