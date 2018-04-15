@@ -31,7 +31,7 @@ sig
 (*Label for the machine code of this function : Produced using Temp.newLabel()*)
   val funclabel : Temp.label
 
-  val tempMap : register Symbol.table
+  val tempMap : string Temp.Map.map
   val getRegName : Temp.temp -> string
 
 end
@@ -116,16 +116,17 @@ struct
   val specials = [(FP, "FP"), (SP, "SP"), (RZ, "R0"), (RA, "RA"), (GP, "GP"), (v0, "v0")]
 
   (*Register map : This table maps register labels (eg "t123") to friendly names (eg "SP") for temps that are used as special registers*)
-  val tempMap = foldl (fn ((temp, tempName):reg_info, table) =>
-                            Symbol.enter(table, Symbol.symbol (Temp.makestring temp), tempName))
-                      Symbol.empty
+  val tempMap = foldl (fn ((temp, tempName):reg_info, map) =>
+                            Temp.Map.insert(map, temp, tempName))
+                            (* Symbol.enter(table, Symbol.symbol (Temp.makestring temp), tempName)) *)
+                      (* Symbol.empty *) Temp.Map.empty
                       (argRegs @ calleeSaves @ callerSaves @ specials)
 
   fun getTemp(temp, tempname) = temp
 
  (*This function returns a string for a temp. If that temp is used as a special register, we turn its friendly name (eg SP).
     Otherwise, we just return the temp in string form (eg 123)*)
-  fun getRegName(temp) = case Symbol.look(tempMap, Symbol.symbol (Temp.makestring temp)) of
+  fun getRegName(temp) = case Temp.Map.find(tempMap, temp) of
                         SOME(name) => name
                       | NONE       => Temp.makestring temp
 
@@ -134,6 +135,13 @@ struct
   fun getCallerArgLoc(n) =
     if n < 4 then Tree.TEMP (getTemp (List.nth (argRegs, n)))
     else Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.TEMP SP, Tree.CONST (wordsize*(n-4))))
+
+(* Tells a callee where to find argument n, either in an arg reg or on the stack *)
+(* Arguments are 0-indexed *)
+(*The 4th argument will be passed on the stack at FP+4 from the callee's POV, and at SP+0 from the caller's POV*)
+  fun getCalleeArgLoc(n) =
+    if n < 4 then Tree.TEMP (getTemp (List.nth (argRegs, n)))
+    else Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.TEMP FP, Tree.CONST (wordsize*(n-3))))
 
   fun newFrame ({name:Temp.label, formals:bool list}) =
     let val allFormals = true :: formals
@@ -147,8 +155,8 @@ struct
                              else InReg(Temp.newtemp())
 
                    val viewshift = case acc of
-                                  InReg(t)   => Tree.MOVE(Tree.TEMP t, getCallerArgLoc count)
-                                | InFrame(a) => Tree.MOVE(stackSlot, getCallerArgLoc count)
+                                  InReg(t)   => Tree.MOVE(Tree.TEMP t, getCalleeArgLoc count)
+                                | InFrame(a) => Tree.MOVE(stackSlot, getCalleeArgLoc count)
                  in
                   processFormals(accesses@[acc], viewshifts@[viewshift], count+1)
                  end
@@ -169,12 +177,13 @@ struct
                                          InReg(t:Temp.temp) => Tree.TEMP(t)
                                        | InFrame(offset)    => Tree.MEM(Tree.BINOP(Tree.PLUS, e, Tree.CONST(wordsize*offset)))
 
-  (*This is part of the view shift*)
-  (*From caller's perspective, args are in reg a0-a3. For the callee, they need to be moved from a0-a3 into various temps and frame slots. You
-    can do this in this phase or in the next phase. *)
+  (*This function takes the body of a Tiger function and its frame, and adds IR to:
+      Move escaping args to the stack and nonescaping args to temps (view shift)
+      Save and restore calleeSaves*)
+  (*Returns a Tree.stm*)
   fun procEntryExit1 (makeFrame{name, formals, offset, moves}, stat:Tree.stm) =
     let
-    (* This let generates pre, which copies all calleesaves onto the stack, and post which copies them back *)
+    (* This let block generates pre, which copies all calleesaves onto the stack, and post which copies them back *)
       val fr = makeFrame{name=name, formals=formals, offset=offset, moves=moves}
       val accesses = map (fn(x) => allocLocal(fr)(x)) (map (fn(x) => true) calleeSaves)
       val cstemps = map getTemp calleeSaves
@@ -190,12 +199,12 @@ struct
     end
 
 
-
- (*TODO:Why do we do jump some?*)
+  (*This makes it so that RZ, RA, SP, FP are constantly liveOut so they will interfere with every other register*)
+  (*calleesaves will be live out at proc exit, but they get defined just before proc exit, so they are still usable in the proc body*)
   fun procEntryExit2(frame, body) =
       body @
       [Assem.OPER{assem="",
-              src=[RZ,RA,SP] @ (map getTemp calleeSaves),
+              src=[RZ,RA,SP, FP] @ (map getTemp calleeSaves),
               dst=[], jump=SOME[]}]
 
   fun externalCall (fname, argList) = Tree.CALL(Tree.NAME(Temp.namedlabel(fname)), argList)
