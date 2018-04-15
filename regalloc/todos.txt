@@ -4,11 +4,16 @@ TODOS:
 	-break lexing/parsing
 	-instruction selection fixes
 	-Merging IR fixes
+	-Fix register names to fit SPIM conventions
 	-DONE: Fix caller-save behavior in MipsGen
-	-Add calls to procEntryExit (Translate.sml makeFunction()) while specially handling outermost level
-	-More efficient saving of callee-saves
+	-DONE: Add calls to procEntryExit1
 	-DONE: email Aditya about escaping SL parameter from IR phase
-	-Make function calls write v0
+	-DONE: Make function calls write v0
+	-DONE: Add call to ProcEntryExit2
+	-DONE: Specially handle outermost level so that we don't do unnecessary procEntryExit1 things with i 
+	-DONE: Add jr $RA to every function call
+	-DONE: Look over args passed on the stack to see if we're following calling conventions, and look at view shift for these
+	
 
 -Register allocation:
 	-Fix tempMap in Frame.sml to be a Temp.map instead of a Symbol.table
@@ -16,3 +21,4 @@ TODOS:
 	-Create graph and map with precolored temps
 	-simplify function to remove nodes of trivial degree
 	-select function to allocate registers
+	-More efficient saving of callee-saves (optional..)

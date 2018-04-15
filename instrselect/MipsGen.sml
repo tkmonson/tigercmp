@@ -1,4 +1,3 @@
-(*TODO: Produce jr in procEntryExit2*)
 structure MipsGen =
 struct
 
@@ -357,7 +356,12 @@ structure Tr = Tree
                           jump=SOME[label1, label2]})
                  end)
 
-            (*TODO: What do we do with labels list? how do you munchExp a NAME(label)?*)
+            | munchStm(Tr.JUMP(Tr.TEMP t, labels)) = emit(As.OPER {
+                                                    assem="jr `s0 \n",
+                                                    src=[t],
+                                                    dst=[],
+                                                    jump=SOME(labels)})
+
             | munchStm(Tr.JUMP(exp, labels)) = emit(As.OPER {
                                                     assem="j `s0 \n",
                                                     src=[munchExp exp],
@@ -414,10 +418,9 @@ structure Tr = Tree
     fun transProg filename =
         let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
             val prog = (Parse.parse filename)
-            (* val p1 = print("\n") *)
             val findEscapes = FindEscape.findEscape prog
             val {ty=progTy, exp=progIR} = (Semant.transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog))
-            val makeFrag = R.makeFunction(progIR, mainLevel)
+            val makeFrag = R.makeTopLevelFrag(progIR, mainLevel)
             val fragList = R.getResult()
             val a = Translate.fraglistref := nil
         in
@@ -430,7 +433,7 @@ structure Tr = Tree
                val stms'  = Canon.traceSchedule(Canon.basicBlocks stms)
                val instrs = List.concat(map (codegen frame) stms')
            in
-             instrs
+             MipsFrame.procEntryExit2(frame, instrs)
            end
        | getInstrList (MipsFrame.STRING(lab,s)) =  []
 
@@ -439,10 +442,9 @@ structure Tr = Tree
     fun transFrags filename =
       let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
           val prog = (Parse.parse filename)
-          (* val p1 = print("\n") *)
           val findEscapes = FindEscape.findEscape prog
           val {ty=progTy, exp=progIR} = (Semant.transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog))
-          val makeFrag = R.makeFunction(progIR, mainLevel)
+          val makeFrag = R.makeTopLevelFrag(progIR, mainLevel)
           val fragList = R.getResult()
           val a = Translate.fraglistref := nil
        in
