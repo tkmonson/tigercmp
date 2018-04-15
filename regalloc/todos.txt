@@ -4,10 +4,10 @@ TODOS:
 	-break lexing/parsing
 	-instruction selection fixes
 	-Merging IR fixes
-	-Fix caller-save behavior in MipsGen
-	-Add calls to procEntryExit
+	-DONE: Fix caller-save behavior in MipsGen
+	-Add calls to procEntryExit (Translate.sml makeFunction()) while specially handling outermost level
 	-More efficient saving of callee-saves
-	-email Aditya about escaping SL parameter from IR phase
+	-DONE: email Aditya about escaping SL parameter from IR phase
 	-Make function calls write v0
 
 -Register allocation:

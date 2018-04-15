@@ -202,7 +202,7 @@ fun printLivenessInfo(liveIn, liveOut, id) =
     end
 
     fun printTempGraph gr =
-      let fun pr(id,_) = Int.toString id
+      let fun pr(id,_) = MipsGen.printTemp id
       in
         TempGraph.printGraph pr gr
       end

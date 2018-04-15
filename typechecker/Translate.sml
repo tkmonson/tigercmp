@@ -349,6 +349,8 @@ structure F = MipsFrame
       end
 
 
+(*TODO: Uncomment call to procEntryExit1*)
+(*TODO: For functions that have return types, create a MOVE(v0, funbody)*)
   fun makeFunction(funBody, makeLevel{frame=f, parent=p, unq=u}) =
   let
     val fragLabel = MipsFrame.name f
