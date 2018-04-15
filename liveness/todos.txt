@@ -1,0 +1,6 @@
+-test findSinks with acyclic graphs Anita
+-test findSinks with cyclic (while loops) graphs Anita
+
+-test genLivenessInfo with acyclic graphs - Saums
+-Figure out how to handle cycles in genLivenessInfo, and test - Saums/Neets
+-Create interference graphs from liveness info - Tuesday's problem
