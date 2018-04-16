@@ -1,6 +1,9 @@
 
 structure StringSet = SplaySetFn(type ord_key = string val compare = String.compare)
-val regSet = StringSet.addList(["$", "$", "$", "$",])
+val regSet = StringSet.addList(["$v0", "$v1",
+                                "$a0", "$a1", "$a2", "$a3",
+                                "$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "t6$", "$t7", "$t8", "$t9",
+                                "$s0", "$s1", "$s2", "$s3", "$s4", "$s5", "$s6", "$s7"])
 
 (*Generate liveness information*)
 (*Grab MipsFrame.tempMap*)
@@ -32,10 +35,11 @@ fun select(rGraph, tempMap, []) = (rGraph, tempMap)
             fun handleNeighbor (neighbor, (graph, set)) =
                 let val newGraph = Liveness.TempGraph.addEdge(graph, {node, neighbor})
                     val newSet = case tempMap.look(neighbor) of
-                                SOME(color) => StringSet.remove(set, color)
+                                SOME(color) => StringSet.delete(set, color)
                                 | NONE => (*TODO; Print error, should have all neighbors in table*) set
                 in (newGraph, newSet)
                 end
+                handle NotFound => print "Multiple neighbors colored the same, we good"
             val (updatedGraph, validColors) = foldl handleNeighbor eList (augGraph, regSet)
             (*choose first from list to color this node, recurse*)
         in if Temp.set.isEmpty(validColors)
