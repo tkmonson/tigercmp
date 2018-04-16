@@ -1,9 +1,9 @@
 
 structure StringSet = SplaySetFn(type ord_key = string val compare = String.compare)
-val regSet = StringSet.addList(["$v0", "$v1",
-                                "$a0", "$a1", "$a2", "$a3",
-                                "$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "t6$", "$t7", "$t8", "$t9",
-                                "$s0", "$s1", "$s2", "$s3", "$s4", "$s5", "$s6", "$s7"])
+val regSet = StringSet.addList(StringSet.empty, ["$v0", "$v1",
+                                                 "$a0", "$a1", "$a2", "$a3",
+                                                 "$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "t6$", "$t7", "$t8", "$t9",
+                                                 "$s0", "$s1", "$s2", "$s3", "$s4", "$s5", "$s6", "$s7"])
 
 (*Generate liveness information*)
 (*Grab MipsFrame.tempMap*)
@@ -29,20 +29,20 @@ fun simplify(igraph, mgraph) = ()
 fun select(rGraph, tempMap, []) = (rGraph, tempMap)
     | select(rGraph, tempMap, nodeStack) =
         (*pop from stack, add element to graph*)
-        let val ((temp, eList), newStack) = pop(nodeStack)
-            val augGraph = TempGraph.addNode(rGraph, temp, temp)
+        let val ((temp, nList), newStack) = pop(nodeStack)
+            val augGraph = Liveness.TempGraph.addNode(rGraph, temp, temp)
             (*iterate over list of neighbors, create edges, remove color of neighbors from list*)
             fun handleNeighbor (neighbor, (graph, set)) =
-                let val newGraph = Liveness.TempGraph.addEdge(graph, {node, neighbor})
-                    val newSet = case tempMap.look(neighbor) of
+                let val newGraph = Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor})
+                    val newSet = case Temp.Map.find(tempMap, neighbor) of
                                 SOME(color) => StringSet.delete(set, color)
-                                | NONE => (*TODO; Print error, should have all neighbors in table*) set
+                                | NONE => (print("ERROR: Neighboring node is not yet colored"); set)
                 in (newGraph, newSet)
                 end
-                handle NotFound => print "Multiple neighbors colored the same, we good"
-            val (updatedGraph, validColors) = foldl handleNeighbor eList (augGraph, regSet)
+                handle NotFound => (print "Multiple neighbors colored the same, we good"; (Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor}), set))
+            val (updatedGraph, validColors) = foldl handleNeighbor (augGraph, regSet) nList
             (*choose first from list to color this node, recurse*)
-        in if Temp.set.isEmpty(validColors)
-           then (*TODO:Raise execption, cannot color!!!*)
-           else select(updatedGraph, TempMap.enter(tempMap, temp, List.hd(validColors), newStack)
+        in if StringSet.isEmpty(validColors)
+           then (*TODO:Raise execption, cannot color!!!*) (*Do we want to spill idk*) (rGraph, tempMap)
+           else select(updatedGraph, Temp.Map.insert(tempMap, temp, List.hd(StringSet.listItems(validColors))), newStack)
         end
