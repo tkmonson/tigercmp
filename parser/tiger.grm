@@ -68,7 +68,7 @@ structure A = Absyn
 
 %%
 
-program: exp			                      (PrintAbsyn.print (TextIO.stdOut, exp1); exp1)
+program: exp			                      (exp1)
 
 exp: LPAREN expList RPAREN	            (A.SeqExp expList1)
 

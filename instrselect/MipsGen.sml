@@ -55,7 +55,6 @@ structure Tr = Tree
                                 src=[],
                                 dst=[r],
                                 jump=NONE}))
-      (*TODO: Add special cases for MEM where exp1 is reg +- const or const +- reg*)
       | munchExp(Tr.MEM(exp1)) =
           result (fn r => emit(As.OPER{
                                  assem="lw `d0, 0(`s0)\n",
@@ -259,8 +258,8 @@ structure Tr = Tree
 
       | munchExp(Tr.CONST i) =
             result (fn r => emit(As.OPER {
-                                 assem = "addi `d0, `s0 " ^ int2str i ^ "\n",
-                                 src=[MipsFrame.RZ],
+                                 assem = "li `d0, " ^ int2str i ^ "\n",
+                                 src=[],
                                  dst=[r],
                                  jump=NONE}))
 
@@ -286,43 +285,83 @@ structure Tr = Tree
         (*Returns unit*)
         and munchStm(Tr.SEQ(stmA, stmB)) = (munchStm(stmA); munchStm(stmB))
 
-              (*TODO: Add minus case, and case where CONST is on LHS of plus*)
+            (*All moves into memory*)
             | munchStm(Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.PLUS, exp1, Tr.CONST i)), exp2)) = emit (As.OPER{
                                                                                               assem="sw `s1, " ^ int2str i ^ "(`s0)\n",
                                                                                               src=[munchExp exp1, munchExp exp2],
                                                                                               dst=[],
                                                                                               jump=NONE})
-
-              (*TODO: Add special cases for moves of
-                  Constant into any exp (li)
-                  Label into any exp (la)
-                  Memory into any exp (lw)
-
-              Right now, a move of MEM(e) into temp t is being done as a move of mem into temp t', and a move of t' into t, which is inefficient
-                  *)
-            | munchStm(Tr.MOVE(Tr.MEM(exp1), Tr.MEM(exp2))) = emit (As.OPER{
-                                                                      assem="sw `s0, `s1\n",
-                                                                      src=[munchExp (Tr.MEM(exp2)), munchExp (exp1)],
-                                                                      dst=[],
-                                                                      jump=NONE})
-
-            | munchStm(Tr.MOVE(Tr.MEM(Tr.CONST i), exp1)) = emit (As.OPER{
-                                                                    assem="sw `s0, " ^ int2str i ^ "(`s1)\n",
-                                                                    src=[munchExp exp1, MipsFrame.RZ],
-                                                                    dst=[],
-                                                                    jump=NONE})
-
-            | munchStm(Tr.MOVE(exp1, Tr.MEM(Tr.BINOP(Tr.PLUS, exp2, Tr.CONST i)))) = emit (As.OPER{
-                                                                                              assem="lw `s0, " ^ int2str i ^ "(`s1)\n",
+            | munchStm(Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.PLUS, Tr.CONST i, exp1)), exp2)) = emit (As.OPER{
+                                                                                              assem="sw `s1, " ^ int2str i ^ "(`s0)\n",
                                                                                               src=[munchExp exp1, munchExp exp2],
                                                                                               dst=[],
                                                                                               jump=NONE})
-            | munchStm(Tr.MOVE(Tr.MEM(exp1), exp2)) = emit (As.OPER{
-                                                             assem="sw `s0, `s1\n",
-                                                             src=[munchExp exp2, munchExp exp1],
-                                                             dst=[],
-                                                             jump=NONE})
+            | munchStm(Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.MINUS, exp1, Tr.CONST i)), exp2)) = emit (As.OPER{
+                                                                                              assem="sw `s1, " ^ int2str(~i) ^ "(`s0)\n",
+                                                                                              src=[munchExp exp1, munchExp exp2],
+                                                                                              dst=[],
+                                                                                              jump=NONE})
+            | munchStm(Tr.MOVE(Tr.MEM(exp1), Tr.MEM(exp2))) = emit (As.OPER{
+                                                                    assem="sw `s0, `s1\n",
+                                                                    src=[munchExp (Tr.MEM(exp2)), munchExp (exp1)],
+                                                                    dst=[],
+                                                                    jump=NONE})
 
+            | munchStm(Tr.MOVE(Tr.MEM(Tr.CONST i), exp1)) = emit (As.OPER{
+                                                                  assem="sw `s0, " ^ int2str i ^ "(`s1)\n",
+                                                                  src=[munchExp exp1, MipsFrame.RZ],
+                                                                  dst=[],
+                                                                  jump=NONE})
+
+            | munchStm(Tr.MOVE(Tr.MEM(exp1), exp2)) = emit (As.OPER{
+                                                           assem="sw `s0, `s1\n",
+                                                           src=[munchExp exp2, munchExp exp1],
+                                                           dst=[],
+                                                           jump=NONE})
+
+            (*All moves from memory*)
+            | munchStm(Tr.MOVE(Tr.TEMP t, Tr.MEM(Tr.BINOP(Tr.PLUS, exp1, Tr.CONST i)))) = emit (As.OPER{
+                                                                                          assem="lw `d0, " ^ int2str i ^ "(`s0)\n",
+                                                                                          src=[munchExp exp1],
+                                                                                          dst=[t],
+                                                                                          jump=NONE})
+
+            | munchStm(Tr.MOVE(Tr.TEMP t, Tr.MEM(Tr.BINOP(Tr.PLUS, Tr.CONST i, exp1)))) = emit (As.OPER{
+                                                                                          assem="lw `d0, " ^ int2str i ^ "(`s0)\n",
+                                                                                          src=[munchExp exp1],
+                                                                                          dst=[t],
+                                                                                          jump=NONE})
+
+            | munchStm(Tr.MOVE(Tr.TEMP t, Tr.MEM(Tr.BINOP(Tr.MINUS, exp1, Tr.CONST i)))) = emit (As.OPER{
+                                                                                          assem="lw `d0, " ^ int2str (~i) ^ "(`s0)\n",
+                                                                                          src=[munchExp exp1],
+                                                                                          dst=[t],
+                                                                                          jump=NONE})
+
+            | munchStm(Tr.MOVE(Tr.TEMP t, Tr.MEM(Tr.CONST i))) = emit (As.OPER{
+                                                                          assem="lw `d0, " ^ int2str (i) ^ "(`s0)\n",
+                                                                          src=[MipsFrame.RZ],
+                                                                          dst=[t],
+                                                                          jump=NONE})
+
+            | munchStm(Tr.MOVE(Tr.TEMP t, Tr.MEM exp1)) = emit (As.OPER{
+                                                                          assem="lw `d0, (`s0)\n",
+                                                                          src=[munchExp exp1],
+                                                                          dst=[t],
+                                                                          jump=NONE})
+
+            (*Moves that don't involve memory*)
+            | munchStm(Tr.MOVE(Tr.TEMP t, Tr.CONST i)) =  emit (As.OPER{
+                                                              assem="li `s0, int2str i",
+                                                              src=[],
+                                                              dst=[t],
+                                                              jump=NONE})
+
+            | munchStm(Tr.MOVE(Tr.TEMP t, Tr.NAME l)) =  emit (As.OPER{
+                                                             assem="la `s0, " ^ Symbol.name l,
+                                                             src=[],
+                                                             dst=[t],
+                                                             jump=NONE})
 
             | munchStm(Tr.MOVE(Tr.TEMP t, Tr.CALL(Tr.NAME(l), argList))) = munchStm(Tr.MOVE(Tr.TEMP t, Tr.TEMP (munchExp(Tr.CALL(Tr.NAME(l), argList)))))
 
@@ -333,7 +372,6 @@ structure Tr = Tree
 
             | munchStm(Tr.MOVE(_,_)) = Semant.printError("Trying to move into some exp that's not a temp or mem. Should never happen in well-typed code.",0)
 
-            (*TODO: Handle reg-mem, mem-reg, reg-reg moves as special cases*)
             | munchStm(Tr.EXP(Tr.CALL(Tr.NAME(l), argList))) = (munchExp(Tr.CALL(Tr.NAME(l), argList)); ())
 
             | munchStm(Tr.CJUMP(relop, exp1, exp2, label1, label2)) =
@@ -405,6 +443,7 @@ structure Tr = Tree
                 val stms'  = Canon.traceSchedule(Canon.basicBlocks stms)
                 val instrs = List.concat(map (codegen frame) stms')
                 val format0 = Assem.format(printTemp)
+                (* val () = Printtree.printtree(out,body) *)
             in
               app (fn i => TextIO.output(out,format0 i)) instrs
             end
