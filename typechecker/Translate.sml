@@ -17,6 +17,7 @@ sig
   type frag = MipsFrame.frag
 
   val makeFunction : exp*level -> unit
+  val makeTopLevelFrag : exp*level -> unit
   val getResult : unit -> frag list
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
@@ -348,19 +349,28 @@ structure F = MipsFrame
 				    Tr.CONST(findIndex(0,name,flist))))))
       end
 
-
-(*TODO: Uncomment call to procEntryExit1*)
-(*TODO: For functions that have return types, create a MOVE(v0, funbody)*)
+  (**funBody: Has type Translate.exp **)
+  (*This function takes the body of a Tiger fcn and turns it into a fragment*)
+  (*Calls procEntryExit1*)
   fun makeFunction(funBody, makeLevel{frame=f, parent=p, unq=u}) =
   let
     val fragLabel = MipsFrame.name f
 
-    (**funBody: Has type Translate.exp **)
     (*pEE1 takes Tree.stm*)
-    (* val body1 = (MipsFrame.procEntryExit1(f, unNx(funBody))) *)
 
+    val retValStm = Tr.MOVE(Tr.TEMP MipsFrame.v0, unEx funBody)
+    val fullBody = MipsFrame.procEntryExit1(f, retValStm)
+    val jumpToReturn = Tr.JUMP(Tr.TEMP MipsFrame.RA, [])
+    val body = Tree.seq [Tr.LABEL fragLabel, fullBody, jumpToReturn]
+
+    val funFrag = MipsFrame.PROC({body=body, frame=f})
+  in fraglistref := funFrag :: !fraglistref
+  end
+
+  fun makeTopLevelFrag(funBody, makeLevel{frame=f, parent=p, unq=u}) =
+  let
+    val fragLabel = MipsFrame.name f
     val body = Tree.seq [Tr.LABEL fragLabel, unNx funBody]
-
     val funFrag = MipsFrame.PROC({body=body, frame=f})
   in fraglistref := funFrag :: !fraglistref
   end
