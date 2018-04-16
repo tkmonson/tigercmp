@@ -2,9 +2,10 @@ TODOS:
 
 -Fixes from previous phases
 	-break lexing/parsing
-	-DONE: instruction selection fixes
 	-Merging IR fixes
-	-Fix register names to fit SPIM conventions
+	-Adding function to generate assembly for strings in Frame.sml
+	-DONE: instruction selection fixes
+	-DONE: Fix register names to fit SPIM conventions
 	-DONE: Fix caller-save behavior in MipsGen
 	-DONE: Add calls to procEntryExit1
 	-DONE: email Aditya about escaping SL parameter from IR phase

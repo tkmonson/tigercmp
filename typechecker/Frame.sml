@@ -104,16 +104,16 @@ struct
   (*REGISTER LISTS : These are lists of temps that have special purposes in MIPS
                       These lists will be used by IR translation and insn selection phases to refer to special purpose registers*)
 
-  val argRegs = [(a0, "a0"),(a1, "a1"),
-                 (a2, "a2"),(a3, "a3")]
+  val argRegs = [(a0, "$a0"),(a1, "$a1"),
+                 (a2, "$a2"),(a3, "$a3")]
 
-  val calleeSaves = [(s0, "s0"), (s1, "s1"), (s2, "s2"), (s3, "s3"),
-                     (s4, "s4"), (s5, "s5"), (s6, "s6"), (s7, "s7")]
+  val calleeSaves = [(s0, "$s0"), (s1, "$s1"), (s2, "$s2"), (s3, "$s3"),
+                     (s4, "$s4"), (s5, "$s5"), (s6, "$s6"), (s7, "$s7")]
 
-  val callerSaves = [(t0, "t0"), (t1, "t1"), (t2, "t2"), (t3, "t3"), (t4, "t4"),
-                      (t5, "t5"), (t6, "t6"), (t7, "t7"), (t8, "t8"), (t9, "t9")]
+  val callerSaves = [(t0, "$t0"), (t1, "$t1"), (t2, "$t2"), (t3, "$t3"), (t4, "$t4"),
+                     (t5, "$t5"), (t6, "$t6"), (t7, "$t7"), (t8, "$t8"), (t9, "$t9")]
 
-  val specials = [(FP, "FP"), (SP, "SP"), (RZ, "R0"), (RA, "RA"), (GP, "GP"), (v0, "v0")]
+  val specials = [(FP, "$fp"), (SP, "$fp"), (RZ, "$zero"), (RA, "$ra"), (GP, "$gp"), (v0, "$v0")]
 
   (*Register map : This table maps register labels (eg "t123") to friendly names (eg "SP") for temps that are used as special registers*)
   val tempMap = foldl (fn ((temp, tempName):reg_info, map) =>
