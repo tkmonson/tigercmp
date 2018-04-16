@@ -2,7 +2,7 @@ TODOS:
 
 -Fixes from previous phases
 	-break lexing/parsing
-	-instruction selection fixes
+	-DONE: instruction selection fixes
 	-Merging IR fixes
 	-Fix register names to fit SPIM conventions
 	-DONE: Fix caller-save behavior in MipsGen
