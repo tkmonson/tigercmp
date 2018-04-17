@@ -155,7 +155,7 @@ structure F = MipsFrame
 	| Absyn.LeOp => Tr.LE
 	| Absyn.GtOp => Tr.GT
 	| Absyn.GeOp => Tr.GE
-				 
+
   fun binop (oper,lexp,rexp) : exp =
       let
 	  val TreeBinop =

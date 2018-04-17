@@ -607,7 +607,7 @@ case (i392,stack)
 of  ( 0, ( ( _, ( MlyValue.exp exp1, exp1left, exp1right)) :: rest671)
 ) => let val  result = MlyValue.program (fn _ => let val  exp1 = exp1
  ()
- in (PrintAbsyn.print (TextIO.stdOut, exp1); exp1)
+ in (exp1)
 end)
  in ( LrTable.NT 0, ( result, exp1left, exp1right), rest671)
 end

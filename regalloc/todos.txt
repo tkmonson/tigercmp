@@ -2,13 +2,15 @@ TODOS:
 
 -Fixes from previous phases
 	-break lexing/parsing
-	-DONE: instruction selection fixes
 	-Merging IR fixes
 		-For loops look good
 		-String comparison issues: StringEQ never gets called because Semant doesn't call Translate.stringComp() 
 			for string equality comparisons
 		-Translate.stringComp() doesn't handle GE
-	-Adding function to generate assembly for strings in Frame.sml
+	-In integration step, call MipsFrame.string() to handle string fragments
+	-DONE: instruction selection fixes
+	-DONE: Adding function to generate assembly for strings in Frame.sml
+	-DONE: Adding function to generate assembly for strings in Frame.sml
 	-DONE: instruction selection fixes
 	-DONE: Fix register names to fit SPIM conventions
 	-DONE: Fix caller-save behavior in MipsGen
