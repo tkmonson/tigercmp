@@ -1,9 +1,8 @@
 
 structure StringSet = SplaySetFn(type ord_key = string val compare = String.compare)
-val regSet = StringSet.addList(StringSet.empty, ["$v0", "$v1",
-                                                 "$a0", "$a1", "$a2", "$a3",
-                                                 "$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "t6$", "$t7", "$t8", "$t9",
-                                                 "$s0", "$s1", "$s2", "$s3", "$s4", "$s5", "$s6", "$s7"])
+val regSet = StringSet.addList(StringSet.empty, map MipsFrame.getRegName (map MipsFrame.getTemp (MipsFrame.argRegs @
+							                                         MipsFrame.calleeSaves @
+							                                         MipsFrame.callerSaves)))
 
 (*Generate liveness information*)
 (*Grab MipsFrame.tempMap*)
@@ -19,7 +18,22 @@ fun pop(list) = (List.hd(list), List.tl(list))
 (*Remove all nodes of trivial degree until we reach a base case (single node) or can't simplify any further*)
 (*returns the fully simplified graph, and a stack containing all the nodes that we have removed from the graph*)
 (*Remember to take into account move edges when counting degree!*)
-fun simplify(igraph, mgraph) = ()
+fun simplify(igraph, mgraph) =
+    let
+	(* Need an initial list of nodes. Then, for each node ID, if its node has trivial degree, remove the
+           node from the initial, add it to simplify list.
+           *)
+	val nodeSet = TempGraph.nodes igraph
+    in
+	foldl (fn (node,(ig,mg,stack)) => if (Liveness.TempGraph.degree(node) +
+					     Liveness.TempGraph.degree(getNode(mg,TempGraph.getNodeID(node)))) < MipsFrame.numRegs
+	                                  then (Liveness.TempGraph.remove(ig, node),
+						Liveness.TempGraph.remove(mg,node),
+						push((node,TempGraph.adj(node)),stack))
+	                                  else (ig,mg,stack))
+	      (igraph,mgraph,[]) nodeSet
+	    
+    end
 
 (*Takes as arguments the output of simplify*)
 (*Rebuild graph: First, color the base igraph which should be trivial. Then, add nodes from the stack and color each one*)
@@ -39,7 +53,8 @@ fun select(rGraph, tempMap, []) = (rGraph, tempMap)
                                 | NONE => (print("ERROR: Neighboring node is not yet colored"); set)
                 in (newGraph, newSet)
                 end
-                handle NotFound => (print "Multiple neighbors colored the same, we good"; (Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor}), set))
+                handle NotFound => (print "Multiple neighbors colored the same, we good";
+				   (Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor}), set))
             val (updatedGraph, validColors) = foldl handleNeighbor (augGraph, regSet) nList
             (*choose first from list to color this node, recurse*)
         in if StringSet.isEmpty(validColors)

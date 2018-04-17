@@ -33,7 +33,7 @@ sig
 
   val tempMap : string Temp.Map.map
   val getRegName : Temp.temp -> string
-
+  val numRegs : int
 end
 
 structure MipsFrame =
@@ -132,6 +132,8 @@ struct
                         SOME(name) => name
                       | NONE       => Temp.makestring temp
 
+  val numRegs = 28
+						      
 (* Tells a caller where to put argument n, either in an arg reg or on the stack *)
 (* Arguments are 0-indexed *)
   fun getCallerArgLoc(n) =
