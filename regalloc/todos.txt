@@ -3,6 +3,10 @@ TODOS:
 -Fixes from previous phases
 	-break lexing/parsing
 	-Merging IR fixes
+		-For loops look good
+		-String comparison issues: StringEQ never gets called because Semant doesn't call Translate.stringComp() 
+			for string equality comparisons
+		-Translate.stringComp() doesn't handle GE
 	-Adding function to generate assembly for strings in Frame.sml
 	-DONE: instruction selection fixes
 	-DONE: Fix register names to fit SPIM conventions
