@@ -237,7 +237,9 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		  | COMP  => (checkComp();  if lty = T.STRING
 					    then {exp=R.stringComp(oper,lexp,rexp), ty=T.INT}
 					    else {exp=R.relop(oper,lexp,rexp), ty=T.INT})
-		  | EQ    => (checkEq();    {exp=R.relop(oper,lexp,rexp), ty=T.INT})
+		  | EQ    => (checkEq();    if lty = T.STRING
+					    then {exp=R.stringComp(oper,lexp,rexp), ty=T.INT}
+					    else {exp=R.relop(oper,lexp,rexp), ty=T.INT})
 	    end
 
 
