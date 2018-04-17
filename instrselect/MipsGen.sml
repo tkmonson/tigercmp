@@ -352,13 +352,13 @@ structure Tr = Tree
 
             (*Moves that don't involve memory*)
             | munchStm(Tr.MOVE(Tr.TEMP t, Tr.CONST i)) =  emit (As.OPER{
-                                                              assem="li `s0, int2str i",
+                                                              assem="li `d0, " ^ int2str i ^ "\n",
                                                               src=[],
                                                               dst=[t],
                                                               jump=NONE})
 
             | munchStm(Tr.MOVE(Tr.TEMP t, Tr.NAME l)) =  emit (As.OPER{
-                                                             assem="la `s0, " ^ Symbol.name l,
+                                                             assem="la `d0, " ^ Symbol.name l ^ "\n",
                                                              src=[],
                                                              dst=[t],
                                                              jump=NONE})
