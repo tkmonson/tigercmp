@@ -144,6 +144,15 @@ structure F = MipsFrame
         | concat (elist, e2) = Ex(Tr.ESEQ(Tr.seq (map unNx elist), unEx(e2)))
 
   (* binop and relop handle OpExp *)
+  fun TreeRelop oper =
+      case oper of
+          Absyn.EqOp => Tr.EQ
+	| Absyn.NeqOp => Tr.NE
+	| Absyn.LtOp => Tr.LT
+	| Absyn.LeOp => Tr.LE
+	| Absyn.GtOp => Tr.GT
+	| Absyn.GeOp => Tr.GE
+
   fun binop (oper,lexp,rexp) : exp =
       let
 	  val TreeOper =
