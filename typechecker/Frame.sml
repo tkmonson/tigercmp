@@ -52,6 +52,8 @@ struct
   and       frag = PROC of {body:Tree.stm, frame:frame}
                  | STRING of Temp.label * string
 
+  fun string(STRING(label, str)) = ".asciiz \"" ^ str ^ "\""
+
   val wordsize = 4
 
   (* Zero Register *)
@@ -113,7 +115,7 @@ struct
   val callerSaves = [(t0, "$t0"), (t1, "$t1"), (t2, "$t2"), (t3, "$t3"), (t4, "$t4"),
                      (t5, "$t5"), (t6, "$t6"), (t7, "$t7"), (t8, "$t8"), (t9, "$t9")]
 
-  val specials = [(FP, "$fp"), (SP, "$fp"), (RZ, "$zero"), (RA, "$ra"), (GP, "$gp"), (v0, "$v0")]
+  val specials = [(FP, "$fp"), (SP, "$sp"), (RZ, "$zero"), (RA, "$ra"), (GP, "$gp"), (v0, "$v0")]
 
   (*Register map : This table maps register labels (eg "t123") to friendly names (eg "SP") for temps that are used as special registers*)
   val tempMap = foldl (fn ((temp, tempName):reg_info, map) =>
