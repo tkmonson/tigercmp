@@ -9,7 +9,14 @@ val regSet = StringSet.addList(StringSet.empty, map MipsFrame.getRegName (map Mi
 (*In interference graph, add all precolored temps that aren't already in the graph*)
 (*Make all precolored temps interfere with each other (Appel possibly proposes an efficient/easy way to do this?)*)
 (*Returns a Temp.Map and an interference graph*)
-fun init filename = ()
+fun init filename =
+    let
+	val (ig,mg) = Liveness.main filename
+    in
+        ()
+    end
+	
+    
 
 fun push(element, list) = element::list
 
@@ -23,16 +30,18 @@ fun simplify(igraph, mgraph) =
 	(* Need an initial list of nodes. Then, for each node ID, if its node has trivial degree, remove the
            node from the initial, add it to simplify list.
            *)
-	val nodeSet = TempGraph.nodes igraph
+	val nodeSet = Liveness.TempGraph.nodes igraph
+	val change = ref 0
+	fun removeTrivials stack =
+	    ((foldl (fn (node, (ig,stk)) => if (Liveness.TempGraph.degree(node) < MipsFrame.numRegs)
+	                                    then (change:=1; (Liveness.TempGraph.remove(ig, node), push((node,Liveness.TempGraph.adj(node)),stk)))
+				            else (ig,stk))
+	    (igraph,stack) nodeSet);
+	    if !change = 1
+	    then (change:=0; removeTrivials stack)
+	    else (igraph,stack))
     in
-	foldl (fn (node,(ig,mg,stack)) => if (Liveness.TempGraph.degree(node) +
-					     Liveness.TempGraph.degree(getNode(mg,TempGraph.getNodeID(node)))) < MipsFrame.numRegs
-	                                  then (Liveness.TempGraph.remove(ig, node),
-						Liveness.TempGraph.remove(mg,node),
-						push((node,TempGraph.adj(node)),stack))
-	                                  else (ig,mg,stack))
-	      (igraph,mgraph,[]) nodeSet
-	    
+	removeTrivials []
     end
 
 (*Takes as arguments the output of simplify*)
@@ -40,6 +49,7 @@ fun simplify(igraph, mgraph) =
 (*For each node that we add to the graph and color, add to the tempMap*)
 (*Return the tempMap*)
 (*If we find that the graph is impossible to color, raise an exception or throw an error message or something*)
+(*TODO: Color nodes in rGraph*)
 fun select(rGraph, tempMap, []) = (rGraph, tempMap)
     | select(rGraph, tempMap, nodeStack) =
         (*pop from stack, add element to graph*)
