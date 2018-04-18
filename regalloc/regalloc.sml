@@ -23,28 +23,42 @@ fun simplify(igraph, mgraph) =
 	(* Need an initial list of nodes. Then, for each node ID, if its node has trivial degree, remove the
            node from the initial, add it to simplify list.
            *)
-	val nodeSet = TempGraph.nodes igraph
+	      val nodeSet = Liveness.TempGraph.nodes igraph
     in
-	foldl (fn (node,(ig,mg,stack)) => if (Liveness.TempGraph.degree(node) +
-					     Liveness.TempGraph.degree(getNode(mg,TempGraph.getNodeID(node)))) < MipsFrame.numRegs
+	        foldl (fn (node,(ig,mg,stack)) => if (Liveness.TempGraph.degree(node) +
+					     Liveness.TempGraph.degree(getNode(mg,Liveness.TempGraph.getNodeID(node)))) < MipsFrame.numRegs
 	                                  then (Liveness.TempGraph.remove(ig, node),
 						Liveness.TempGraph.remove(mg,node),
-						push((node,TempGraph.adj(node)),stack))
+						push((node,Liveness.TempGraph.adj(node)),stack))
 	                                  else (ig,mg,stack))
 	      (igraph,mgraph,[]) nodeSet
-	    
+
     end
+
+fun colorSimpGraph(sgraph, tempMap) =
+    let val nodes = Liveness.TempGraph.nodes(sgraph)
+		    fun precolor(temp, map) =
+				    (let val neighbors = Liveness.TempGraph.adj(temp)
+						     fun getValidColors(neighbor, set) =
+								    case Temp.Map.find(map, neighbor) of
+										     SOME(color) => StringSet.delete(set, color)
+										     | NONE => set
+								val validColors = foldl getValidColors regSet neighbors
+						in Temp.Map.insert(map, Liveness.TempGraph.nodeInfo(temp), List.hd(StringSet.listItems(validColors)))
+						end)
+		in foldl precolor tempMap nodes
+		end
 
 (*Takes as arguments the output of simplify*)
 (*Rebuild graph: First, color the base igraph which should be trivial. Then, add nodes from the stack and color each one*)
 (*For each node that we add to the graph and color, add to the tempMap*)
 (*Return the tempMap*)
 (*If we find that the graph is impossible to color, raise an exception or throw an error message or something*)
-fun select(rGraph, tempMap, []) = (rGraph, tempMap)
-    | select(rGraph, tempMap, nodeStack) =
+fun select(rgraph, tempMap, []) = (rgraph, tempMap)
+    | select(rgraph, tempMap, nodeStack) =
         (*pop from stack, add element to graph*)
         let val ((temp, nList), newStack) = pop(nodeStack)
-            val augGraph = Liveness.TempGraph.addNode(rGraph, temp, temp)
+            val augGraph = Liveness.TempGraph.addNode(rgraph, temp, temp)
             (*iterate over list of neighbors, create edges, remove color of neighbors from list*)
             fun handleNeighbor (neighbor, (graph, set)) =
                 let val newGraph = Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor})
@@ -58,6 +72,6 @@ fun select(rGraph, tempMap, []) = (rGraph, tempMap)
             val (updatedGraph, validColors) = foldl handleNeighbor (augGraph, regSet) nList
             (*choose first from list to color this node, recurse*)
         in if StringSet.isEmpty(validColors)
-           then (*TODO:Raise execption, cannot color!!!*) (*Do we want to spill idk*) (rGraph, tempMap)
+           then (*TODO:Raise execption, cannot color!!!*) (*Do we want to spill idk*) (rgraph, tempMap)
            else select(updatedGraph, Temp.Map.insert(tempMap, temp, List.hd(StringSet.listItems(validColors))), newStack)
         end
