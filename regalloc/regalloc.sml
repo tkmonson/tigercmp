@@ -75,11 +75,12 @@ fun colorSimpGraph(sgraph, tempMap) =
 				    (let val neighbors = Liveness.TempGraph.adj(temp)
 						     fun getValidColors(neighbor, set) =
 								    case Temp.Map.find(map, neighbor) of
-										     SOME(color) => StringSet.delete(set, color)
+										     SOME(color) => if StringSet.member(set, color) then StringSet.delete(set, color) else set
 										     | NONE => set
 								val validColors = foldl getValidColors regSet neighbors
 						in Temp.Map.insert(map, Liveness.TempGraph.nodeInfo(temp), List.hd(StringSet.listItems(validColors)))
 						end)
+            (* handle NotFound => (print "handle function for colorSimpGraph"; map)) *)
 		in foldl precolor tempMap nodes
 		end
     handle Empty => (print "Couldn't color all of the nodes in the simplified interference graph! Boo hoo!"; tempMap)
@@ -99,13 +100,11 @@ fun select(rgraph, tempMap, []) = (rgraph, tempMap)
                 let
                     val newGraph = Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor})
                     val newSet = case Temp.Map.find(tempMap, neighbor) of
-                                SOME(color) => StringSet.delete(set, color)
+                                SOME(color) => if StringSet.member(set, color) then StringSet.delete(set, color) else set
                                 | NONE => (print("ERROR: Neighboring node is not yet colored"); set)
                 in (newGraph, newSet)
                 end
-                handle NotFound => (print "Multiple neighbors colored the same, we good\n";
-				                            (Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor}), set))
-                handle Liveness.TempGraph.NoSuchNode(id) => (print("Couldn't find node " ^ Int.toString id ^ " When adding node " ^ Int.toString temp ^ "\n"); (graph, set))
+                (* handle Liveness.TempGraph.NoSuchNode(id) => (print("Couldn't find node " ^ Int.toString id ^ " When adding node " ^ Int.toString temp ^ "\n"); (graph, set)) *)
             val (updatedGraph, validColors) = foldl handleNeighbor (augGraph, regSet) nList
             (*choose first from list to color this node, recurse*)
         in if StringSet.isEmpty(validColors)
@@ -128,9 +127,13 @@ fun select(rgraph, tempMap, []) = (rgraph, tempMap)
 (*Map over fragments in main*)
   fun regAllocation (igraph, mgraph, instr) =
       let val (augigraph, augmgraph) = init (igraph, mgraph)
+          (* val () = print "called init" *)
           val (simpigraph, stack) = simplify (augigraph, augmgraph)
+          (* val () = print "called simplify" *)
           val augTempMap = colorSimpGraph(simpigraph, MipsFrame.tempMap)
+          (* val () = print "called colorSimpGraph" *)
           val (finaligraph, colorMap) = select (simpigraph, augTempMap, stack)
+          (* val () = print "called select" *)
       in makeRegAllocMips (colorMap, instr) (*Returns a list of strings that is our mips code*)
       end
 
