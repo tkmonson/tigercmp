@@ -1,3 +1,7 @@
+(*BUG: callee-saves are liveout of tig_main, but they never get stored/restored, so they conflict with every temp in tig_main. Options:
+-Call procEntryExit1 on tig_main
+-Don't make calleSaves liveOut in procEntryExit2 (shouldn't matter if they are or aren't...)
+*)
 
 structure StringSet = SplaySetFn(type ord_key = string val compare = String.compare)
 val regNodes = MipsFrame.argRegs @ MipsFrame.calleeSaves @ MipsFrame.callerSaves @MipsFrame.specials
@@ -21,6 +25,7 @@ fun init filename =
    fun addTempToInterferenceGraph(temp, graph) = if (List.exists (fn node => node = temp) tempList)
                                                 then graph
                                                 else Liveness.TempGraph.addNode(graph,temp,temp)
+      handle Liveness.TempGraph.NoSuchNode(id) => (print("No node of id " ^ Int.toString id ^ " in addTempToInterferenceGraph"); graph)
 
    (*Adds edges between the given temp and all the pc temps*)
    fun addPCEdges(temp, graph) = foldl (fn(pc, gr) => Liveness.TempGraph.doubleEdge(gr,temp,pc)) graph pcTemps
@@ -28,7 +33,7 @@ fun init filename =
    (*Add all precolored nodes to the interference graph*)
    val igraphWithPCNodes = foldl addTempToInterferenceGraph igraph pcTemps
    (*Add edges from each precolored node to every precolored node, including self*)
-   val igraphWithPCEdges = foldl addPCEdges igraph pcTemps
+   val igraphWithPCEdges = foldl addPCEdges igraphWithPCNodes pcTemps
   in
    (igraphWithPCEdges, mgraph)
   end
@@ -47,7 +52,7 @@ fun simplify(igraph, mgraph) =
 	 fun removeTrivials (graph, stack) =
 	    let val (newgraph, newstack) = (foldl (fn (node, (ig,stk)) => if (Liveness.TempGraph.degree(node) < MipsFrame.numRegs)
 	                                                                   then (change:=1; (Liveness.TempGraph.remove(ig, node),
-                                                                                       push((node,Liveness.TempGraph.adj(node)),stk)))
+                                                                                       push((Liveness.TempGraph.getNodeID(node),Liveness.TempGraph.adj(node)),stk)))
 				                                                             else (ig,stk))
 	                                           (graph,stack) (Liveness.TempGraph.nodes graph))
 	     in if !change = 1
