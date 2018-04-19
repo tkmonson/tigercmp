@@ -12,14 +12,10 @@ val pcTemps = map MipsFrame.getTemp regNodes
 (*Colors of precolored nodes*)
 val regSet = StringSet.addList(StringSet.empty, map MipsFrame.getRegName pcTemps)
 
-(*Generate liveness information*)
-(*In interference graph, add all precolored temps that aren't already in the graph*)
-(*Make all precolored temps interfere with each other (Appel possibly proposes an efficient/easy way to do this?)*)
-(*Returns an interference graph and a move graph*)
-fun init filename =
+(* Input: a list of (igraph,mgraph) tuples *)
+fun init (igraph,mgraph) =
   let
-	 val (igraph,mgraph) = Liveness.main filename
-	 val tempList = map Liveness.TempGraph.getNodeID (Liveness.TempGraph.nodes igraph)
+      val tempList = map Liveness.TempGraph.getNodeID (Liveness.TempGraph.nodes igraph)
 
    (*Adds a temp to the graph, unless it's already in the graph*)
    fun addTempToInterferenceGraph(temp, graph) = if (List.exists (fn node => node = temp) tempList)
