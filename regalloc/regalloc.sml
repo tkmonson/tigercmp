@@ -114,10 +114,10 @@ fun select(rgraph, tempMap, []) = (rgraph, tempMap)
       end
 
 (*Map over fragments in main*)
-  fun regAllocation (igraph, mgraph, instr)
+  fun regAllocation (igraph, mgraph, instr) =
       let val (augigraph, augmgraph) = init (igraph, mgraph)
           val (simpigraph, stack) = simplify (augigraph, augmgraph)
           val augTempMap = colorSimpGraph(simpigraph, MipsFrame.tempMap)
-          val (finaligraph, colorMap) = select (simpigraph, augTempMap)
+          val (finaligraph, colorMap) = select (simpigraph, augTempMap, stack)
       in makeRegAllocMips (colorMap, instr) (*Returns a list of strings that is our mips code*)
       end
