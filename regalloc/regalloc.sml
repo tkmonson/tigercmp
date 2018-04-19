@@ -104,3 +104,24 @@ fun select(rgraph, tempMap, []) = (rgraph, tempMap)
            then (print "AHHH FAILED TO COLOR THE GRAPH AHHHH"; (rgraph, tempMap))
            else select(updatedGraph, Temp.Map.insert(tempMap, temp, List.hd(StringSet.listItems(validColors))), newStack)
         end
+
+  fun makeRegAllocMips (colorMap, instrs) =
+      let fun printTemp t = let val color = Temp.Map.find(colorMap, t)
+                            in case color of
+                               SOME(reg) => reg
+                               | NONE     => (print ("we done fucked up"); "")
+                            end
+          val format = Assem.format(printTemp)
+        (* val () = Printtree.printtree(out,body) *)
+      in
+        map format instrs
+      end
+
+(*Map over fragments in main*)
+  fun regAllocation (igraph, mgraph, instr)
+      let val (augigraph, augmgraph) = init (igraph, mgraph)
+          val (simpigraph, stack) = simplify (augigraph, augmgraph)
+          val augTempMap = colorSimpGraph(simpigraph, MipsFrame.tempMap)
+          val (finaligraph, colorMap) = select (simpigraph, augTempMap)
+      in makeRegAllocMips (colorMap, instr) (*Returns a list of strings that is our mips code*)
+      end
