@@ -190,15 +190,20 @@ fun printLivenessInfo(liveIn, liveOut, id) =
     end
 
   fun main filename =
-    let val conflowList = Flow.main filename
-        val Flow.CONFLOW{control=gr, def=d, use=u, ismove=im, temps=t} = List.hd conflowList
-        val sinks = map (fn (id) => FlowGraph.getNode(gr, id))
-                        (IntSet.listItems(findSinks(gr, 0, IntSet.empty, IntSet.empty)))
-        val (liveIns, liveOuts) = genLivenessInfo(initLivenessTable gr, initLivenessTable gr, gr, sinks)
-        val baseInterferenceGraph = createBaseIntGraph(t)
-        val (intGraph, moveGraph) = makeInterferenceGraph(liveOuts, gr, d, im, u, baseInterferenceGraph, baseInterferenceGraph)
+    let val fragList = Flow.main filename
+        fun handleFrag(cflow, instrs) =
+        let
+          val Flow.CONFLOW{control=gr, def=d, use=u, ismove=im, temps=t} = cflow
+          val sinks = map (fn (id) => FlowGraph.getNode(gr, id))
+                          (IntSet.listItems(findSinks(gr, 0, IntSet.empty, IntSet.empty)))
+          val (liveIns, liveOuts) = genLivenessInfo(initLivenessTable gr, initLivenessTable gr, gr, sinks)
+          val baseInterferenceGraph = createBaseIntGraph(t)
+          val (intGraph, moveGraph) = makeInterferenceGraph(liveOuts, gr, d, im, u, baseInterferenceGraph, baseInterferenceGraph)
+        in
+          (intGraph, moveGraph, instrs)
+        end
     in
-      (intGraph, moveGraph)
+      map handleFrag fragList
     end
 
     fun printTempGraph gr =
