@@ -1,8 +1,8 @@
 
 structure StringSet = SplaySetFn(type ord_key = string val compare = String.compare)
-val regSet = StringSet.addList(StringSet.empty, map MipsFrame.getRegName (map MipsFrame.getTemp (MipsFrame.argRegs @
-							                                         MipsFrame.calleeSaves @
-							                                         MipsFrame.callerSaves)))
+val regNodes = MipsFrame.argRegs @ MipsFrame.calleeSaves @ MipsFrame.callerSaves
+val allTemps = map MipsFrame.getTemp regNodes			       
+val regSet = StringSet.addList(StringSet.empty, map MipsFrame.getRegName allTemps)
 
 (*Generate liveness information*)
 (*Grab MipsFrame.tempMap*)
@@ -11,9 +11,13 @@ val regSet = StringSet.addList(StringSet.empty, map MipsFrame.getRegName (map Mi
 (*Returns a Temp.Map and an interference graph*)
 fun init filename =
     let
-	val (ig,mg) = Liveness.main filename
+	val (igraph,mgraph) = Liveness.main filename
+	val tempList = map Liveness.TempGraph.getNodeID (Liveness.TempGraph.nodes igraph)
     in
-        ()
+        (map (fn temp => if (List.exists (fn node => node = temp) tempList)
+			 then igraph
+	                 else Liveness.TempGraph.addNode(igraph,temp,temp)) allTemps;
+	 map (fn t1 => (map (fn t2 => Liveness.TempGraph.addEdge(igraph,{from=t1,to=t2})) allTemps)) allTemps)
     end
 	
     
@@ -27,13 +31,13 @@ fun pop(list) = (List.hd(list), List.tl(list))
 (*Remember to take into account move edges when counting degree!*)
 fun simplify(igraph, mgraph) =
     let
-	val nodeSet = Liveness.TempGraph.nodes igraph
+	val nodeList = Liveness.TempGraph.nodes igraph
 	val change = ref 0
 	fun removeTrivials stack =
 	    ((foldl (fn (node, (ig,stk)) => if (Liveness.TempGraph.degree(node) < MipsFrame.numRegs)
 	                                    then (change:=1; (Liveness.TempGraph.remove(ig, node), push((node,Liveness.TempGraph.adj(node)),stk)))
 				            else (ig,stk))
-	    (igraph,stack) nodeSet);
+	    (igraph,stack) nodeList);
 	    if !change = 1
 	    then (change:=0; removeTrivials stack)
 	    else (igraph,stack))
