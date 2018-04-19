@@ -3,6 +3,9 @@
 -Don't make calleSaves liveOut in procEntryExit2 (shouldn't matter if they are or aren't...)
 *)
 
+structure RegAlloc =
+struct
+
 structure StringSet = SplaySetFn(type ord_key = string val compare = String.compare)
 val regNodes = MipsFrame.argRegs @ MipsFrame.calleeSaves @ MipsFrame.callerSaves @MipsFrame.specials
 
@@ -40,17 +43,24 @@ fun push(element, list) = element::list
 
 fun pop(list) = (List.hd(list), List.tl(list))
 
+fun printList [] = "\n"
+|   printList (a::l) = Int.toString(a) ^ ", " ^ (printList l)
+
 (*Remove all nodes of trivial degree until we reach a base case (single node) or can't simplify any further*)
 (*returns the fully simplified graph, and a stack containing all the nodes that we have removed from the graph*)
 fun simplify(igraph, mgraph) =
   let
 	 val change = ref 0
 	 fun removeTrivials (graph, stack) =
-	    let val (newgraph, newstack) = (foldl (fn (node, (ig,stk)) => if (Liveness.TempGraph.degree(node) < MipsFrame.numRegs)
-	                                                                   then (change:=1; (Liveness.TempGraph.remove(ig, node),
-                                                                                       push((Liveness.TempGraph.getNodeID(node),Liveness.TempGraph.adj(node)),stk)))
-				                                                             else (ig,stk))
-	                                           (graph,stack) (Liveness.TempGraph.nodes graph))
+	    let fun removeNode (id, (ig,stk)) = let   val node = Liveness.TempGraph.getNode(ig, id)
+                                                val adjs = Liveness.TempGraph.adj'(ig) (node)
+                                                val neighborIDs = map Liveness.TempGraph.getNodeID (Liveness.TempGraph.adj'(ig) (node))
+                                                val rmgraph = Liveness.TempGraph.removeNode(ig, id)
+                                          in   if (Liveness.TempGraph.degree(node) < MipsFrame.numRegs)
+	                                             then (change:=1; (rmgraph, push((id, neighborIDs), stk)))
+				                                       else (ig,stk)
+                                            end
+          val (newgraph, newstack) = foldl removeNode (graph, stack) (map Liveness.TempGraph.getNodeID (Liveness.TempGraph.nodes(graph)))
 	     in if !change = 1
 	        then (change:=0; removeTrivials(newgraph, newstack))
 	        else (graph,stack)
@@ -86,14 +96,16 @@ fun select(rgraph, tempMap, []) = (rgraph, tempMap)
             val augGraph = Liveness.TempGraph.addNode(rgraph, temp, temp)
             (*iterate over list of neighbors, create edges, remove color of neighbors from list*)
             fun handleNeighbor (neighbor, (graph, set)) =
-                let val newGraph = Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor})
+                let
+                    val newGraph = Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor})
                     val newSet = case Temp.Map.find(tempMap, neighbor) of
                                 SOME(color) => StringSet.delete(set, color)
                                 | NONE => (print("ERROR: Neighboring node is not yet colored"); set)
                 in (newGraph, newSet)
                 end
-                handle NotFound => (print "Multiple neighbors colored the same, we good";
+                handle NotFound => (print "Multiple neighbors colored the same, we good\n";
 				                            (Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor}), set))
+                handle Liveness.TempGraph.NoSuchNode(id) => (print("Couldn't find node " ^ Int.toString id ^ " When adding node " ^ Int.toString temp ^ "\n"); (graph, set))
             val (updatedGraph, validColors) = foldl handleNeighbor (augGraph, regSet) nList
             (*choose first from list to color this node, recurse*)
         in if StringSet.isEmpty(validColors)
@@ -121,3 +133,5 @@ fun select(rgraph, tempMap, []) = (rgraph, tempMap)
           val (finaligraph, colorMap) = select (simpigraph, augTempMap, stack)
       in makeRegAllocMips (colorMap, instr) (*Returns a list of strings that is our mips code*)
       end
+
+end

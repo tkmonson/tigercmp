@@ -189,6 +189,8 @@ fun printLivenessInfo(liveIn, liveOut, id) =
       foldl (fn(temp, graph) => TempGraph.addNode(graph, temp, temp)) TempGraph.empty tempList
     end
 
+  (*Calls Flow.main, which returns a list of tuples of form (conflow, instr list)*)
+  (*Returns a list of tuples of form (interference graph, move graph, instr list)*)
   fun main filename =
     let val fragList = Flow.main filename
         fun handleFrag(cflow, instrs) =
