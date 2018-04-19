@@ -1,26 +1,39 @@
 
 structure StringSet = SplaySetFn(type ord_key = string val compare = String.compare)
-val regNodes = MipsFrame.argRegs @ MipsFrame.calleeSaves @ MipsFrame.callerSaves
-val allTemps = map MipsFrame.getTemp regNodes			       
-val regSet = StringSet.addList(StringSet.empty, map MipsFrame.getRegName allTemps)
+val regNodes = MipsFrame.argRegs @ MipsFrame.calleeSaves @ MipsFrame.callerSaves @MipsFrame.specials
+
+(*Precolored temps*)
+val pcTemps = map MipsFrame.getTemp regNodes
+
+(*Colors of precolored nodes*)
+val regSet = StringSet.addList(StringSet.empty, map MipsFrame.getRegName pcTemps)
 
 (*Generate liveness information*)
-(*Grab MipsFrame.tempMap*)
 (*In interference graph, add all precolored temps that aren't already in the graph*)
 (*Make all precolored temps interfere with each other (Appel possibly proposes an efficient/easy way to do this?)*)
-(*Returns a Temp.Map and an interference graph*)
+(*Returns an interference graph and a move graph*)
 fun init filename =
-    let
-	val (igraph,mgraph) = Liveness.main filename
-	val tempList = map Liveness.TempGraph.getNodeID (Liveness.TempGraph.nodes igraph)
-    in
-        (map (fn temp => if (List.exists (fn node => node = temp) tempList)
-			 then igraph
-	                 else Liveness.TempGraph.addNode(igraph,temp,temp)) allTemps;
-	 map (fn t1 => (map (fn t2 => Liveness.TempGraph.addEdge(igraph,{from=t1,to=t2})) allTemps)) allTemps)
-    end
-	
-    
+  let
+	 val (igraph,mgraph) = Liveness.main filename
+	 val tempList = map Liveness.TempGraph.getNodeID (Liveness.TempGraph.nodes igraph)
+
+   (*Adds a temp to the graph, unless it's already in the graph*)
+   fun addTempToInterferenceGraph(temp, graph) = if (List.exists (fn node => node = temp) tempList)
+                                                then graph
+                                                else Liveness.TempGraph.addNode(graph,temp,temp)
+
+   (*Adds edges between the given temp and all the pc temps*)
+   fun addPCEdges(temp, graph) = foldl (fn(pc, gr) => Liveness.TempGraph.doubleEdge(gr,temp,pc)) graph pcTemps
+
+   (*Add all precolored nodes to the interference graph*)
+   val igraphWithPCNodes = foldl addTempToInterferenceGraph igraph pcTemps
+   (*Add edges from each precolored node to every precolored node, including self*)
+   val igraphWithPCEdges = foldl addPCEdges igraph pcTemps
+  in
+   (igraphWithPCEdges, mgraph)
+  end
+
+
 
 fun push(element, list) = element::list
 
@@ -28,22 +41,22 @@ fun pop(list) = (List.hd(list), List.tl(list))
 
 (*Remove all nodes of trivial degree until we reach a base case (single node) or can't simplify any further*)
 (*returns the fully simplified graph, and a stack containing all the nodes that we have removed from the graph*)
-(*Remember to take into account move edges when counting degree!*)
 fun simplify(igraph, mgraph) =
-    let
-	val nodeList = Liveness.TempGraph.nodes igraph
-	val change = ref 0
-	fun removeTrivials stack =
-	    ((foldl (fn (node, (ig,stk)) => if (Liveness.TempGraph.degree(node) < MipsFrame.numRegs)
-	                                    then (change:=1; (Liveness.TempGraph.remove(ig, node), push((node,Liveness.TempGraph.adj(node)),stk)))
-				            else (ig,stk))
-	    (igraph,stack) nodeList);
-	    if !change = 1
-	    then (change:=0; removeTrivials stack)
-	    else (igraph,stack))
-    in
-	removeTrivials []
-    end
+  let
+	 val change = ref 0
+	 fun removeTrivials (graph, stack) =
+	    let val (newgraph, newstack) = (foldl (fn (node, (ig,stk)) => if (Liveness.TempGraph.degree(node) < MipsFrame.numRegs)
+	                                                                   then (change:=1; (Liveness.TempGraph.remove(ig, node),
+                                                                                       push((node,Liveness.TempGraph.adj(node)),stk)))
+				                                                             else (ig,stk))
+	                                           (graph,stack) (Liveness.TempGraph.nodes graph))
+	     in if !change = 1
+	        then (change:=0; removeTrivials(newgraph, newstack))
+	        else (graph,stack)
+       end
+  in
+	 removeTrivials(igraph, [])
+  end
 
 fun colorSimpGraph(sgraph, tempMap) =
     let val nodes = Liveness.TempGraph.nodes(sgraph)
@@ -58,6 +71,7 @@ fun colorSimpGraph(sgraph, tempMap) =
 						end)
 		in foldl precolor tempMap nodes
 		end
+    handle Empty => (print "Couldn't color all of the nodes in the simplified interference graph! Boo hoo!"; tempMap)
 
 (*Takes as arguments the output of simplify*)
 (*Rebuild graph: First, color the base igraph which should be trivial. Then, add nodes from the stack and color each one*)
@@ -78,10 +92,10 @@ fun select(rgraph, tempMap, []) = (rgraph, tempMap)
                 in (newGraph, newSet)
                 end
                 handle NotFound => (print "Multiple neighbors colored the same, we good";
-				   (Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor}), set))
+				                            (Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor}), set))
             val (updatedGraph, validColors) = foldl handleNeighbor (augGraph, regSet) nList
             (*choose first from list to color this node, recurse*)
         in if StringSet.isEmpty(validColors)
-           then (*TODO:Raise execption, cannot color!!!*) (*Do we want to spill idk*) (rgraph, tempMap)
+           then (print "AHHH FAILED TO COLOR THE GRAPH AHHHH"; (rgraph, tempMap))
            else select(updatedGraph, Temp.Map.insert(tempMap, temp, List.hd(StringSet.listItems(validColors))), newStack)
         end
