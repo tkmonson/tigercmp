@@ -14,6 +14,7 @@ val pcTemps = map MipsFrame.getTemp regNodes
 
 (*Colors of precolored nodes*)
 val regSet = StringSet.addList(StringSet.empty, map MipsFrame.getRegName pcTemps)
+val selectSet = StringSet.delete(regSet, "$ra") (*Removing ra to deal with the fact that it's not liveout for fn calls*)
 
 (* Input: a list of (igraph,mgraph) tuples *)
 fun init (igraph,mgraph) =
@@ -24,7 +25,7 @@ fun init (igraph,mgraph) =
    fun addTempToInterferenceGraph(temp, graph) = if (List.exists (fn node => node = temp) tempList)
                                                 then graph
                                                 else Liveness.TempGraph.addNode(graph,temp,temp)
-      handle Liveness.TempGraph.NoSuchNode(id) => (print("No node of id " ^ Int.toString id ^ " in addTempToInterferenceGraph"); graph)
+      handle Liveness.TempGraph.NoSuchNode(id) => (print("No node of id " ^ Int.toString id ^ " in addTempToInterferenceGraph\n"); graph)
 
    (*Adds edges between the given temp and all the pc temps*)
    fun addPCEdges(temp, graph) = foldl (fn(pc, gr) => Liveness.TempGraph.doubleEdge(gr,temp,pc)) graph pcTemps
@@ -71,19 +72,24 @@ fun simplify(igraph, mgraph) =
 
 fun colorSimpGraph(sgraph, tempMap) =
     let val nodes = Liveness.TempGraph.nodes(sgraph)
-		    fun precolor(temp, map) =
-				    (let val neighbors = Liveness.TempGraph.adj(temp)
-						     fun getValidColors(neighbor, set) =
-								    case Temp.Map.find(map, neighbor) of
-										     SOME(color) => if StringSet.member(set, color) then StringSet.delete(set, color) else set
-										     | NONE => set
-								val validColors = foldl getValidColors regSet neighbors
-						in Temp.Map.insert(map, Liveness.TempGraph.nodeInfo(temp), List.hd(StringSet.listItems(validColors)))
-						end)
+		    fun color(temp, map) =
+				    (case Temp.Map.find(tempMap, Liveness.TempGraph.nodeInfo(temp)) of
+                  SOME(color) => map (*temp is precolored, don't overwrite just in case!*)
+                  | NONE => (*temp not yet in color map, let's try to color*)
+                      (let val neighbors = Liveness.TempGraph.adj(temp)
+                           fun getValidColors(neighbor, set) =
+                               case Temp.Map.find(map, neighbor) of
+                                    SOME(color) => if StringSet.member(set, color) then StringSet.delete(set, color) else set
+                                    | NONE => set
+                           val validColors = foldl getValidColors selectSet neighbors
+                       in if StringSet.isEmpty(validColors)
+                          then (print ("Couldn't color node " ^ Int.toString (Liveness.TempGraph.nodeInfo temp) ^ " in the simplified interference graph! Boo hoo!\n");
+                               Temp.Map.insert(map, Liveness.TempGraph.nodeInfo(temp), "SPILL"))
+                          else Temp.Map.insert(map, Liveness.TempGraph.nodeInfo(temp), List.hd(StringSet.listItems(validColors)))
+                       end))
             (* handle NotFound => (print "handle function for colorSimpGraph"; map)) *)
-		in foldl precolor tempMap nodes
+		in foldl color tempMap nodes
 		end
-    handle Empty => (print "Couldn't color all of the nodes in the simplified interference graph! Boo hoo!"; tempMap)
 
 (*Takes as arguments the output of simplify*)
 (*Rebuild graph: First, color the base igraph which should be trivial. Then, add nodes from the stack and color each one*)
@@ -101,14 +107,14 @@ fun select(rgraph, tempMap, []) = (rgraph, tempMap)
                     val newGraph = Liveness.TempGraph.addEdge(graph, {from=temp, to=neighbor})
                     val newSet = case Temp.Map.find(tempMap, neighbor) of
                                 SOME(color) => if StringSet.member(set, color) then StringSet.delete(set, color) else set
-                                | NONE => (print("ERROR: Neighboring node is not yet colored"); set)
+                                | NONE => (print("ERROR: Neighboring node " ^ Int.toString neighbor ^ " is not yet colored\n"); set)
                 in (newGraph, newSet)
                 end
                 (* handle Liveness.TempGraph.NoSuchNode(id) => (print("Couldn't find node " ^ Int.toString id ^ " When adding node " ^ Int.toString temp ^ "\n"); (graph, set)) *)
-            val (updatedGraph, validColors) = foldl handleNeighbor (augGraph, regSet) nList
+            val (updatedGraph, validColors) = foldl handleNeighbor (augGraph, selectSet) nList
             (*choose first from list to color this node, recurse*)
         in if StringSet.isEmpty(validColors)
-           then (print "AHHH FAILED TO COLOR THE GRAPH AHHHH"; (rgraph, tempMap))
+           then (print "AHHH FAILED TO COLOR THE GRAPH AHHHH\n"; (rgraph, tempMap))
            else select(updatedGraph, Temp.Map.insert(tempMap, temp, List.hd(StringSet.listItems(validColors))), newStack)
         end
 
@@ -116,7 +122,7 @@ fun select(rgraph, tempMap, []) = (rgraph, tempMap)
       let fun printTemp t = let val color = Temp.Map.find(colorMap, t)
                             in case color of
                                SOME(reg) => reg
-                               | NONE     => (print ("we done fucked up"); "")
+                               | NONE     => (print ("There's no color for " ^ Int.toString t ^ " we done fucked up\n"); "SPILL")
                             end
           val format = Assem.format(printTemp)
         (* val () = Printtree.printtree(out,body) *)
