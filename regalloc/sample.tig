@@ -1,0 +1,6 @@
+let
+  function factorial(x:int, a:int, b:int, c:int, d:int):int =
+     if x=1 then x else x*factorial(x-1, a,b,c,d)
+in
+ factorial(5, 1, 1,1,1)
+end
