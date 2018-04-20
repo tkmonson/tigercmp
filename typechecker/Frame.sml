@@ -93,12 +93,7 @@ struct
   val t8 = Temp.newtemp()
   val t9 = Temp.newtemp()
 
-  (* Kernel Registers  *)
-  val k0 = Temp.newtemp()
-  val k1 = Temp.newtemp()
-
-  (* Special Registers -- Global, Stack, Frame, Return *)
-  val GP = Temp.newtemp()
+  (* Special Registers -- Stack, Frame, Return *)
   val SP = Temp.newtemp()
   val FP = Temp.newtemp()
   val RA = Temp.newtemp()
@@ -115,7 +110,7 @@ struct
   val callerSaves = [(t0, "$t0"), (t1, "$t1"), (t2, "$t2"), (t3, "$t3"), (t4, "$t4"),
                      (t5, "$t5"), (t6, "$t6"), (t7, "$t7"), (t8, "$t8"), (t9, "$t9")]
 
-  val specials = [(FP, "$fp"), (SP, "$sp"), (RZ, "$zero"), (RA, "$ra"), (GP, "$gp"), (v0, "$v0")]
+  val specials = [(FP, "$fp"), (SP, "$sp"), (RZ, "$zero"), (RA, "$ra"), (v0, "$v0"), (v1, "$v1")]
 
   (*Register map : This table maps register labels (eg "t123") to friendly names (eg "SP") for temps that are used as special registers*)
   val tempMap = foldl (fn ((temp, tempName):reg_info, map) =>
@@ -133,7 +128,7 @@ struct
                       | NONE       => Temp.makestring temp
 
   val numRegs = 28
-						      
+
 (* Tells a caller where to put argument n, either in an arg reg or on the stack *)
 (* Arguments are 0-indexed *)
   fun getCallerArgLoc(n) =
@@ -208,7 +203,7 @@ struct
   fun procEntryExit2(frame, body) =
       body @
       [Assem.OPER{assem="",
-              src=[RZ,RA,SP, FP] @ (map getTemp calleeSaves),
+              src=[RZ,RA,SP,FP] @ (map getTemp calleeSaves),
               dst=[], jump=SOME[]}]
 
   fun externalCall (fname, argList) = Tree.CALL(Tree.NAME(Temp.namedlabel(fname)), argList)

@@ -421,7 +421,10 @@ structure Tr = Tree
                 val src = munchExp(arg)
             in
             munchStm(Tr.MOVE(dst, Tr.TEMP src));
-            src :: munchArgs(i+1,rest)
+
+            case dst of
+            Tree.TEMP(t) => t :: munchArgs(i+1,rest)
+            |_           => munchArgs(i+1, rest)
             end
           | munchArgs(i,[]) = []
 
@@ -440,6 +443,7 @@ structure Tr = Tree
     (*Prints assembly for a single fragment*)
     fun emitproc out (MipsFrame.PROC{body,frame}) =
             let val stms   = Canon.linearize body
+                (* val () = Printtree.printtree(TextIO.stdOut, body) *)
                 val stms'  = Canon.traceSchedule(Canon.basicBlocks stms)
                 val instrs = List.concat(map (codegen frame) stms')
                 val format0 = Assem.format(printTemp)
