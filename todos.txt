@@ -1,8 +1,18 @@
-nonexhaustive match failure in Semant.sml 532
+
+Known Bugs: 
+-nonexhaustive match failure in Semant.sml 532
+-multiple of the same label underneath unique label (why do we have double labels anyway?)
+-printing 12345 in correct tiger??? (IR phase)
+-code refers to labels that don't exist in printed code, label called to is one less than what is actually in the code
+
+-Can't parse break
+-Can't parse unparenthesized sequences
+
+Integration:
+-Procedure prolog/epilog
+-Adding string code
+-Linking with C runtime
+-writing instructions to a file
+
+Other: 
 get rid of noMove print statement and updating liveness info
-
-multiple of the same label underneath unique label (why do we have double labels anyway?)
-
-printing 12345 in correct tiger??? (IR phase)
-
-code refers to labels that don't exist in printed code, label called to is one less than what is actually in the code
