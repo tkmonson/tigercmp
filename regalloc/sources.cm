@@ -16,7 +16,7 @@ Group is
 ../typechecker/FindEscapes.sml
 
 (*Loading lexer*)
-../lexer/tiger.lex.sml
+../parser/tiger.lex.sml
 
 (*Loading parser*)
 ../parser/tiger.grm

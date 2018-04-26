@@ -4,15 +4,14 @@ struct
 structure As = Assem
 structure Tr = Tree
 
+  (* Check the minus here *)
+  fun int2str n = if n >= 0
+      then Int.toString(n)
+      else ("-" ^ Int.toString(0-n))
+
   fun codegen(frame)(stm:Tree.stm) : Assem.instr list =
   let val ilist = ref nil
   fun emit x = ilist := x :: !ilist
-
-	(* Check the minus here *)
-	fun int2str n = if n >= 0
-			then Int.toString(n)
-			else ("-" ^ Int.toString(0-n))
-
   fun result(gen) = let val t = Temp.newtemp() in gen t; t end
 
 	(* On a function call, these registers are trashed: caller-saves, return address, return value *)
@@ -269,6 +268,9 @@ structure Tr = Tree
         (let
             val callerSaves = map MipsFrame.getTemp MipsFrame.callerSaves
             val tempPairs = map (fn r => (Temp.newtemp(), r)) callerSaves
+            val () = MipsFrame.setLeaf(frame, false)
+            val () = print "Not a leaf!\n"
+            val () = MipsFrame.setOutgoingArgs(frame, List.length args)
             fun store t r = Tr.MOVE(Tr.TEMP t, Tr.TEMP r)
         in
             (* Since we're not doing spilling, we don't want to save the caller-saves! (map (fn (t,r) => munchStm(store t r)) tempPairs; *)
@@ -439,6 +441,49 @@ structure Tr = Tree
             | NONE     => Temp.makestring t
         end
 
+    (*Save/restore RA*)
+    fun handleRA(insns, frame) =
+    let
+      val RAlocation = MipsFrame.allocRA(frame)
+      val saveRA = [Assem.OPER{assem="sw `s0 " ^ int2str RAlocation ^ "(`s1)\n",
+                              src=[MipsFrame.RA, MipsFrame.FP],
+                              dst=[],
+                              jump=NONE}]
+      val restoreRA = [Assem.OPER{assem="lw `s0 " ^ int2str RAlocation ^ "(`s1)\n",
+                              src=[MipsFrame.RA, MipsFrame.FP],
+                              dst=[],
+                              jump=NONE}]
+    in
+      saveRA @ insns @ restoreRA
+    end
+
+    (*Save/restore FP, SP*)
+    fun handleFP(insns, frame) =
+    let val FPlocation = MipsFrame.allocFP(frame)
+        val frameSize = MipsFrame.allocOutgoingArgs(frame)
+        val saveFP = [Assem.OPER{assem="sw `s0 " ^ int2str FPlocation ^ "(`s1)\n",
+                                src=[MipsFrame.FP, MipsFrame.SP],
+                                dst=[],
+                                jump=NONE}]
+        val setFP = [Assem.OPER{assem="move `d0, `s0\n",
+                                src=[MipsFrame.SP],
+                                dst=[MipsFrame.FP],
+                                jump=NONE}]
+        val setSP = [Assem.OPER{assem="addi `d0, `s0 " ^ int2str(frameSize) ^ "\n",
+                                src=[MipsFrame.FP],
+                                dst=[MipsFrame.SP],
+                                jump=NONE}]
+        val restoreSP = [Assem.OPER{assem="move `d0, `s0\n",
+                                src=[MipsFrame.FP],
+                                dst=[MipsFrame.SP],
+                                jump=NONE}]
+        val restoreFP = [Assem.OPER{assem="lw `d0 " ^ int2str FPlocation ^ "(`s0)\n",
+                                src=[MipsFrame.SP],
+                                dst=[MipsFrame.FP],
+                                jump=NONE}]
+    in
+      saveFP @ setFP @ setSP @ insns @ restoreSP @ restoreFP
+    end
 
     (*Prints assembly for a single fragment*)
     fun emitproc out (MipsFrame.PROC{body,frame}) =
@@ -473,12 +518,21 @@ structure Tr = Tree
         end
 
    (*Returns a list of Assem.instr list for a fragment*)
+   (*Adds prolog and epilog*)
    fun getInstrList (MipsFrame.PROC{body,frame}) =
            let val stms   = Canon.linearize body
                val stms'  = Canon.traceSchedule(Canon.basicBlocks stms)
                val instrs = List.concat(map (codegen frame) stms')
+               val lab = [List.hd(instrs)]
+               val code = List.tl(instrs)
+               val code' = handleRA(code, frame)
+               val code'' = handleFP(code', frame)
+               val jumpToReturn = [Assem.OPER{assem="jr `s0\n",
+                                       src=[MipsFrame.RA],
+                                       dst=[],
+                                       jump=NONE}]
            in
-             MipsFrame.procEntryExit2(frame, instrs)
+             MipsFrame.procEntryExit2(frame, lab @ code'' @ jumpToReturn)
            end
        | getInstrList (MipsFrame.STRING(lab,s)) =  []
 
@@ -490,11 +544,12 @@ structure Tr = Tree
           val prog = (Parse.parse filename)
           val findEscapes = FindEscape.findEscape prog
           val {ty=progTy, exp=progIR} = (Semant.transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog))
-          val makeFrag = R.makeTopLevelFrag(progIR, mainLevel)
+          val () = R.makeTopLevelFrag(progIR, mainLevel)
           val (procfrags, stringfrags) = R.getResult()
           val () = Translate.procfrags := nil
           val () = Translate.stringfrags := nil
+          val fragInstrs = map getInstrList procfrags
        in
-          (map getInstrList procfrags, stringfrags)
+          (fragInstrs, stringfrags)
        end
 end

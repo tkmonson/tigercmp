@@ -371,8 +371,7 @@ structure F = MipsFrame
 
     val retValStm = Tr.MOVE(Tr.TEMP MipsFrame.v0, unEx funBody)
     val fullBody = MipsFrame.procEntryExit1(f, retValStm)
-    val jumpToReturn = Tr.JUMP(Tr.TEMP MipsFrame.RA, [])
-    val body = Tree.seq [Tr.LABEL fragLabel, fullBody, jumpToReturn]
+    val body = Tree.seq [Tr.LABEL fragLabel, fullBody]
 
     val funFrag = MipsFrame.PROC({body=body, frame=f})
   in procfrags := funFrag :: !procfrags
