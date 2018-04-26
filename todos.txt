@@ -6,17 +6,11 @@ Misc Bugs:
 -code refers to labels that don't exist in printed code, label called to is one less than what is actually in the code
 
 Lexer/Parser Bugs:
--Can't parse break
 -Can't parse unparenthesized sequences
--Can't handle comments
-
-Liveness/Regalloc Bugs:
--Test cases 3,6,7, 37, 42 all break with similar error message "trying to make graph for conflow without any nodes"
-	--> Looks like instruction selection works correctly for all of these test cases
+-Misses second element of a sequence
 
 Integration:
 -Procedure prolog/epilog
--Adding string code
 -Linking with C runtime
 -writing instructions to a file
 
