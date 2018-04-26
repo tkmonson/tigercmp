@@ -18,14 +18,15 @@ sig
 
   val makeFunction : exp*level -> unit
   val makeTopLevelFrag : exp*level -> unit
-  val getResult : unit -> frag list
+  val getResult : unit -> frag list * frag list
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   val newLevel : {parent:level, name:Temp.label, formals:bool list} -> level
 
   val formals : level -> access list
   val allocLocal : level -> bool -> access
-  val fraglistref : frag list ref
+  val procfrags : frag list ref
+  val stringfrags: frag list ref
 
   val simpleVar : access*level -> exp
   val subscript : exp*exp -> exp
@@ -111,7 +112,8 @@ structure F = MipsFrame
                                end
     | traverseLevels(_,_) = Tr.TEMP(MipsFrame.FP)
 
-  val fraglistref : frag list ref = ref nil
+  val procfrags : frag list ref = ref nil
+  val stringfrags : frag list ref = ref nil
 
 (* exp -> Tr.exp *)
   fun unEx (Ex e) = e
@@ -188,7 +190,7 @@ structure F = MipsFrame
 	  (* Find a fragment that corresponds to s (or don't find one) in fraglist, return exp *)
 	  val f = List.find (fn (fragment) => case fragment of
 					   F.PROC(arg) => false
-					 | F.STRING(label, str) => s=str) (!fraglistref)
+					 | F.STRING(label, str) => s=str) (!stringfrags)
       in
 	  case f of
 	      (* Didn't find fragment, make new label, put new fragment in fraglist *)
@@ -196,7 +198,7 @@ structure F = MipsFrame
 	          let
 		      val lab = Temp.newlabel()
  	          in
-                      fraglistref := F.STRING(lab,s)::(!fraglistref);
+                      stringfrags := F.STRING(lab,s)::(!stringfrags);
 		      Ex(Tr.NAME(lab))
 		  end
 	      (* Found fragment, return exp *)
@@ -373,7 +375,7 @@ structure F = MipsFrame
     val body = Tree.seq [Tr.LABEL fragLabel, fullBody, jumpToReturn]
 
     val funFrag = MipsFrame.PROC({body=body, frame=f})
-  in fraglistref := funFrag :: !fraglistref
+  in procfrags := funFrag :: !procfrags
   end
 
   fun makeTopLevelFrag(funBody, makeLevel{frame=f, parent=p, unq=u}) =
@@ -381,9 +383,9 @@ structure F = MipsFrame
     val fragLabel = MipsFrame.name f
     val body = Tree.seq [Tr.LABEL fragLabel, unNx funBody]
     val funFrag = MipsFrame.PROC({body=body, frame=f})
-  in fraglistref := funFrag :: !fraglistref
+  in procfrags := funFrag :: !procfrags
   end
 
-  fun getResult() = !fraglistref
+  fun getResult() = (!procfrags, !stringfrags)
 
 end

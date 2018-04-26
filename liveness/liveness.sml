@@ -192,7 +192,7 @@ fun printLivenessInfo(liveIn, liveOut, id) =
   (*Calls Flow.main, which returns a list of tuples of form (conflow, instr list)*)
   (*Returns a list of tuples of form (interference graph, move graph, instr list)*)
   fun main filename =
-    let val fragList = Flow.main filename
+    let val (procfrags, stringfrags) = Flow.main filename
         fun handleFrag(cflow, instrs) =
         let
           val Flow.CONFLOW{control=gr, def=d, use=u, ismove=im, temps=t} = cflow
@@ -205,7 +205,7 @@ fun printLivenessInfo(liveIn, liveOut, id) =
           (intGraph, moveGraph, instrs)
         end
     in
-      map handleFrag fragList
+      (map handleFrag procfrags, stringfrags)
     end
 
     fun printTempGraph gr =

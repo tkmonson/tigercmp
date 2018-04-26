@@ -453,20 +453,23 @@ structure Tr = Tree
             end
         | emitproc out (MipsFrame.STRING(lab,s)) =  ()
 
-    (*Prints assembly for a list of foragments*)
+    (*Prints assembly for a list of fragments*)
+    (*Actual top level*)
     fun transFrags fraglist = app (emitproc TextIO.stdOut) fraglist
 
     (*Prints assembly for all fragments of a Tiger file*)
+    (*For testing only*)
     fun transProg filename =
         let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
             val prog = (Parse.parse filename)
             val findEscapes = FindEscape.findEscape prog
             val {ty=progTy, exp=progIR} = (Semant.transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog))
             val makeFrag = R.makeTopLevelFrag(progIR, mainLevel)
-            val fragList = R.getResult()
-            val a = Translate.fraglistref := nil
+            val (procfrags, stringfrags) = R.getResult()
+            val () = Translate.procfrags := nil
+            val () = Translate.stringfrags := nil
         in
-          transFrags fragList
+          transFrags procfrags
         end
 
    (*Returns a list of Assem.instr list for a fragment*)
@@ -481,15 +484,17 @@ structure Tr = Tree
 
     (*Returns an Assem.instr list list*)
     (*One list per fragment in a Tiger program*)
+    (*Also returns all the string fragments*)
     fun transFrags filename =
       let val mainLevel = R.newLevel({parent=R.outermost, name=Symbol.symbol "tig_main", formals=[]})
           val prog = (Parse.parse filename)
           val findEscapes = FindEscape.findEscape prog
           val {ty=progTy, exp=progIR} = (Semant.transExp(Env.base_venv, Env.base_tenv, mainLevel, false, Temp.newlabel()) (prog))
           val makeFrag = R.makeTopLevelFrag(progIR, mainLevel)
-          val fragList = R.getResult()
-          val a = Translate.fraglistref := nil
+          val (procfrags, stringfrags) = R.getResult()
+          val () = Translate.procfrags := nil
+          val () = Translate.stringfrags := nil
        in
-          map getInstrList fragList
+          (map getInstrList procfrags, stringfrags)
        end
 end
