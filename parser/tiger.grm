@@ -17,28 +17,29 @@ structure A = Absyn
    every nonterm of type A.exp is unnecessary and can be put under the exp nonterm (except program and exp),
    THESE NEED TO BE CHECKED FOR ACCURACY *)
 
-%nonterm program      of A.exp
-       | exp          of A.exp
-       | expList      of (A.exp*pos) list
-       | expTail      of (A.exp*pos) -> (A.exp*pos) list
-       | dec          of A.dec
-       | decList      of A.dec list
-       | typeDec      of A.dec
-       | ty           of A.ty
-       | arrty        of A.ty
-       | recty        of A.ty
-       | varDec       of A.dec
-       | fieldDec     of A.field
-       | functionDec  of A.dec
-       | field        of A.field
-       | flist        of (A.symbol*A.exp*pos) list
-       | flistTail    of (A.symbol*A.exp*pos) -> (A.symbol*A.exp*pos) list
-       | funArgs      of A.exp list
-       | funArgsTail  of A.exp list
-       | lvalue       of A.var
-       | ltail        of A.var -> A.var
+%nonterm program       of A.exp
+       | exp           of A.exp
+       | expList       of (A.exp*pos) list
+       | expTail       of (A.exp*pos) -> (A.exp*pos) list
+       | dec           of A.dec
+       | decList       of A.dec list
+       | typeDec       of A.dec
+       | ty            of A.ty
+       | arrty         of A.ty
+       | recty         of A.ty
+       | varDec        of A.dec
+       | fieldDec      of A.field
+       | functionDec   of A.dec
+       | field         of A.field
+       | flist         of (A.symbol*A.exp*pos) list
+       | flistTail     of (A.symbol*A.exp*pos) -> (A.symbol*A.exp*pos) list
+       | funArgs       of A.exp list
+       | funArgsTail   of A.exp list
+       | lvalue        of A.var
+       | ltail         of A.var -> A.var
        | fieldList     of A.field list
        | fieldListTail of A.field -> A.field list
+       | letbody       of A.exp 
 
 %pos int
 %verbose
@@ -74,7 +75,10 @@ exp: LPAREN expList RPAREN	            (A.SeqExp expList1)
 
 expList: exp expTail			              (expTail1 (exp1, exp1left:pos))
 expTail: SEMICOLON exp expTail          (fn (e:A.exp, pos:pos) => (e, pos)::expTail1 (exp1, exp1left))
-                                      | (fn (e:A.exp, pos:pos) => (e, pos)::[])
+       |                                (fn (e:A.exp, pos:pos) => (e, pos)::[])
+
+letbody: exp expTail                    (A.SeqExp((exp,expleft)::(expTail(exp,expleft))))
+       |                                (A.NilExp)
 
 exp: INT                                (A.IntExp INT)
    | STRING                             (A.StringExp(STRING, STRINGleft))
@@ -104,7 +108,7 @@ exp: INT                                (A.IntExp INT)
    | FOR ID ASSIGN exp TO exp DO exp    (A.ForExp {var=Symbol.symbol ID, escape=ref false, lo=exp1,hi=exp2,body=exp3,pos=FORleft:pos})
 
 
-   | LET decList IN exp END             (A.LetExp {decs=
+   | LET decList IN letbody END             (A.LetExp {decs=
                                                        let
                                                          fun matchPair (A.FunctionDec(a), A.FunctionDec(b)) = true
                                                                      | matchPair (A.TypeDec(a), A.TypeDec(b)) = true
@@ -121,7 +125,7 @@ exp: INT                                (A.IntExp INT)
                                                        in
                                                            groupList (decList1)
                                                        end,
-                                                       body=exp, pos=LETleft:pos})
+                                                       body=letbody, pos=LETleft:pos})
    | lvalue                             (A.VarExp lvalue1)
 
 dec: typeDec                            (typeDec1)
