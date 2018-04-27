@@ -414,7 +414,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
             in transDecs(v', t', l, irList, level) end
 
   and transDec (venv, tenv, Absyn.VarDec(vd), irList, level) = (let val (venv', ir) = transVarDec(venv, tenv, Absyn.VarDec vd, level)
-                                                         in (venv', tenv, ir::irList) end)
+                                                         in (venv', tenv, irList@[ir]) end)
     | transDec (venv, tenv, Absyn.TypeDec(td), irList, level) = (venv, transTy(tenv, Absyn.TypeDec td), irList)
     | transDec (venv, tenv, Absyn.FunctionDec(fundecs), irList, level)  = (transFunDec (venv, tenv, Absyn.FunctionDec fundecs, level), tenv, irList)
 
