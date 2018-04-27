@@ -366,9 +366,6 @@ structure F = MipsFrame
   fun makeFunction(funBody, makeLevel{frame=f, parent=p, unq=u}) =
   let
     val fragLabel = MipsFrame.name f
-
-    (*pEE1 takes Tree.stm*)
-
     val retValStm = Tr.MOVE(Tr.TEMP MipsFrame.v0, unEx funBody)
     val fullBody = MipsFrame.procEntryExit1(f, retValStm)
     val body = Tree.seq [Tr.LABEL fragLabel, fullBody]

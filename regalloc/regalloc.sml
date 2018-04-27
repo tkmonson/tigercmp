@@ -14,7 +14,7 @@ val pcTemps = map MipsFrame.getTemp regNodes
 
 (*Colors of precolored nodes*)
 val regSet = StringSet.addList(StringSet.empty, map MipsFrame.getRegName pcTemps)
-val selectSet = StringSet.delete(regSet, "$ra") (*Removing ra to deal with the fact that it's not liveout for fn calls*)
+val selectSet = foldl (fn(item, set) => StringSet.delete(set, item)) regSet ["$ra", "$sp", "$zero", "$fp"]
 
 (* Input: a list of (igraph,mgraph) tuples *)
 fun init (igraph,mgraph) =

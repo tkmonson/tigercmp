@@ -37,7 +37,7 @@ fun printType ty = case ty of
 
 fun tenvLookUp (tenv, n, pos) = case S.look(tenv, n) of
                  SOME x => x
-	       | NONE => (printError("Type does not exist in type environment.", pos); T.BOTTOM)
+	               | NONE => (printError("Type does not exist in type environment.", pos); T.BOTTOM)
 
 fun checkDups (nil, nil) = ()
   | checkDups (name::others, pos::poss) =
@@ -420,7 +420,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
 	and processFunDecHead ({name, params, result, body, pos}:A.fundec, (venv, tenv, level)) =
 	    let
-		(* 1. Check that resu, lt has valid type *)
+		(* 1. Check that result has valid type *)
 		val rt = case result of
 	                     NONE => T.UNIT
 			   | SOME (typ, pos) => tenvLookUp(tenv, typ, pos)
@@ -437,19 +437,24 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
   		(* 3. Check that no params share a name *)
 		checkDups(map getNameFromField params, map getPosFromField params);
 
-		(* 4. Return venv with FunEntry *)
+		(* 4. Return venv with FunEntry; leave tenv, level unchanged *)
                 (S.enter(venv, name, E.FunEntry{level= funLevel,
-						label=funLab,
-						formals = types,
-						result = rt}), tenv, funLevel)
+						                                    label=funLab,
+						                                    formals = types,
+						                                    result = rt}),
+                tenv,
+                level)
 	    end
 
-	and processFunDecBody ({name, params, result, body, pos}:A.fundec,(venv,tenv, funLevel)) =
+	and processFunDecBody ({name, params, result, body, pos}:A.fundec,(venv,tenv, parLevel)) =
 	    let
 		  (* 1. Make sure parameters have valid types  *)
 		  fun transparam ({typ,pos,...}:Absyn.field) = tenvLookUp(tenv, typ, pos)
   		val names = map getNameFromField params
   		val types = map transparam params
+      val funLevel = case S.look(venv, name) of
+                          SOME (E.FunEntry{level=l,label=_,formals=_,result=_}) => l
+      	                  | NONE => (printError("Function does not exist in var environment.", pos); parLevel)
       val accesses = R.formals funLevel
 
 		(* 2. Declare the parameters to be in scope within the body of the function *)
@@ -464,7 +469,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
       val venv' = foldr enterVars venv (combineLists(names, vEntries))
 
 		(* 3. Make sure body variables are in scope and evaluate the overall result type of the function's body *)
-		  val {exp,ty} = transExp(venv', tenv, funLevel, false, Temp.newlabel()) body
+		  val {exp,ty} = transExp(venv', tenv, parLevel, false, Temp.newlabel()) body
 
 		(* 4. Make sure that type of body matches expected return type of function *)
 		val expectedReturnType = case result of SOME(rSym,rPos) => actualType(tenvLookUp (tenv, rSym, rPos), pos)
@@ -477,19 +482,20 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 		| _        =>	if isCompatible(actualReturnType, expectedReturnType) then () else printError("Result type of function header does not match result type of function body.", pos)
 
     val createFunFrag = R.makeFunction(exp, funLevel)
+    (* val _ = print () *)
 		in
 		(* 5. Result is unimportant, this function is strictly side-effecting *)
-		(venv,tenv, funLevel)
+		(venv,tenv, parLevel)
 	    end
 
 	and transFunDec (venv: Env.enventry S.table, tenv:T.ty S.table, Absyn.FunctionDec fundecs, level) =
 	    let
   		(* 1. processFunDecHead takes a function header and updates the venv to include the function *)
-		val (venv',tenv, funLevel) = foldl processFunDecHead (venv,tenv, level) fundecs
+		val (venv',_,_) = foldl processFunDecHead (venv,tenv,level) fundecs
 	    in
 		(*2.  Make sure body variables have valid type and are in scope, compare body and header result types
 	              This function is strictly side-effecting for the purpose of returning error messages *)
-		foldl processFunDecBody (venv',tenv, funLevel) fundecs;
+		foldl processFunDecBody (venv',tenv, level) fundecs;
 
   		(* 3. Check that there are no identical function names *)
   		checkDups(map getNameFromFunDec fundecs, map getPosFromFunDec fundecs);
