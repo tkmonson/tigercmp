@@ -16,7 +16,8 @@ structure Tr = Tree
 
 	(* On a function call, these registers are trashed: caller-saves, return address, return value *)
 	val codedefs = [MipsFrame.t0,MipsFrame.t1,MipsFrame.t2,MipsFrame.t3,MipsFrame.t4,MipsFrame.t5,
-			MipsFrame.t6,MipsFrame.t7,MipsFrame.t8,MipsFrame.t9,MipsFrame.RA,MipsFrame.v0]
+			MipsFrame.t6,MipsFrame.t7,MipsFrame.t8,MipsFrame.t9,MipsFrame.RA,MipsFrame.v0,
+      MipsFrame.a0, MipsFrame.a1, MipsFrame.a2, MipsFrame.a3]
 
             (*This function handles insn selection for a Tree.exp
                 It returns the result of the exp in a Temp, and emits MIPS as a side-effect. p. 205*)

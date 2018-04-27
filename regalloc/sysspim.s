@@ -14,21 +14,21 @@ malloc:
 	# allocate the memory with sbrk()
 	li $v0, 9
 	syscall
-	
+
 	j $ra
 
 	.end malloc
 
-	
+
 
 	.data
 	.align 4
-getchar_buf:	.byte 0,0
+getchar_buf:	.byte 0, 0
 
 	.text
 getchar:
 	# read the character
-	la $a0, getchar_buf
+	la $a0,  getchar_buf
 	li $a1, 2
 	li $v0, 8
 	syscall
@@ -36,15 +36,15 @@ getchar:
 	# return it
 	lb $v0, ($a0)
 	j $ra
-	
+
 
 	.data
 	.align 4
-putchar_buf:	.byte 0,0
+putchar_buf:	.byte 0, 0
 
 	.text
 putchar:
-	# save the character so that it is NUL-terminated 
+	# save the character so that it is NUL-terminated
 	la $t0, putchar_buf
 	sb $a0, ($t0)
 
@@ -56,7 +56,7 @@ putchar:
 	j $ra
 
 
-	.text	
+	.text
 # just prints the format string, not the arguments
 printf:
 	li $v0, 4
@@ -68,4 +68,3 @@ printf:
 exit:
 	li $v0, 10
 	syscall
-	
