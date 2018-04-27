@@ -267,20 +267,14 @@ structure Tr = Tree
 
       | munchExp (Tr.CALL(exp1, args)) =
         (let
-            val callerSaves = map MipsFrame.getTemp MipsFrame.callerSaves
-            val tempPairs = map (fn r => (Temp.newtemp(), r)) callerSaves
             val () = MipsFrame.setLeaf(frame, false)
-            val () = print "Not a leaf!\n"
             val () = MipsFrame.setOutgoingArgs(frame, List.length args)
-            fun store t r = Tr.MOVE(Tr.TEMP t, Tr.TEMP r)
         in
-            (* Since we're not doing spilling, we don't want to save the caller-saves! (map (fn (t,r) => munchStm(store t r)) tempPairs; *)
             (result (fn r => emit(As.OPER{
                                     assem="jal `s0\n",
                                     src=munchExp(exp1) :: munchArgs(0,args),
                                     dst=codedefs,
                                     jump=NONE}));
-            (* map (fn (t,r) => munchStm(store r t)) tempPairs; *)
             MipsFrame.v0)
         end)
 
@@ -305,7 +299,7 @@ structure Tr = Tree
                                                                                               dst=[],
                                                                                               jump=NONE})
             | munchStm(Tr.MOVE(Tr.MEM(exp1), Tr.MEM(exp2))) = emit (As.OPER{
-                                                                    assem="sw `s0, `s1\n",
+                                                                    assem="sw `s0, (`s1)\n",
                                                                     src=[munchExp (Tr.MEM(exp2)), munchExp (exp1)],
                                                                     dst=[],
                                                                     jump=NONE})
@@ -317,7 +311,7 @@ structure Tr = Tree
                                                                   jump=NONE})
 
             | munchStm(Tr.MOVE(Tr.MEM(exp1), exp2)) = emit (As.OPER{
-                                                           assem="sw `s0, `s1\n",
+                                                           assem="sw `s0, (`s1)\n",
                                                            src=[munchExp exp2, munchExp exp1],
                                                            dst=[],
                                                            jump=NONE})

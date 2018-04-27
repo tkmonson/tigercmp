@@ -240,7 +240,7 @@ structure F = MipsFrame
   fun recCreate(fieldList, numFields) =
    let
     val baseAddr = Temp.newtemp()
-    val getBaseAddr = MipsFrame.externalCall("tig_malloc",[Tr.CONST(numFields*MipsFrame.wordsize)])
+    val getBaseAddr = MipsFrame.externalCall("malloc",[Tr.CONST(numFields*MipsFrame.wordsize)])
     val storeBaseAddr = Tr.MOVE(Tr.TEMP(baseAddr), getBaseAddr)
     val offset = ref 0
     fun genMove(field) = (offset := (!offset) + 1;
@@ -340,7 +340,7 @@ structure F = MipsFrame
     val allGood = Temp.newlabel()
     val checkOutOfBounds = Tr.CJUMP(Tr.GE, unEx(index), arrSize, ifOutOFBounds, allGood)
     val checkBelowZero = Tr.CJUMP(Tr.LT, unEx(index), Tr.CONST 0, ifBelowZero, ifAboveZero)
-    val retVal = Tr.MEM(Tr.BINOP(Tr.PLUS, unEx(baseAddr), unEx(index)))
+    val retVal = Tr.MEM(Tr.BINOP(Tr.PLUS, unEx(baseAddr), Tr.BINOP(Tr.MUL, Tr.CONST F.wordsize, unEx(index))))
     val exit = Tr.EXP(MipsFrame.externalCall("tig_exit", [Tr.CONST 1]))
   in
     Ex (Tr.ESEQ(Tr.seq [checkBelowZero, Tr.LABEL ifBelowZero, exit, Tr.LABEL ifAboveZero,
