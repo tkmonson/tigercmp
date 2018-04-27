@@ -7,7 +7,7 @@ structure RegAlloc =
 struct
 
 structure StringSet = SplaySetFn(type ord_key = string val compare = String.compare)
-val regNodes = MipsFrame.argRegs @ MipsFrame.calleeSaves @ MipsFrame.callerSaves @MipsFrame.specials
+val regNodes =  MipsFrame.callerSaves @ MipsFrame.argRegs @ MipsFrame.calleeSaves @MipsFrame.specials
 
 (*Precolored temps*)
 val pcTemps = map MipsFrame.getTemp regNodes
