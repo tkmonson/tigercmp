@@ -1,18 +1,12 @@
 
 Misc Bugs: 
 -nonexhaustive match failure in Semant.sml 532
--multiple of the same label underneath unique label (why do we have double labels anyway?)
--printing 12345 in correct tiger??? (IR phase)
--code refers to labels that don't exist in printed code, label called to is one less than what is actually in the code
 
 Lexer/Parser Bugs:
 -Can't parse unparenthesized sequences
--Misses second element of a sequence
 
 Integration:
--Procedure prolog/epilog
 -Linking with C runtime
--writing instructions to a file
 
 Other: 
-get rid of noMove print statement and updating liveness info
+get rid of print statements
