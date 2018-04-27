@@ -5,8 +5,18 @@ Misc Bugs:
 Lexer/Parser Bugs:
 -Can't parse unparenthesized sequences
 
-Integration:
--Linking with C runtime
-
 Other: 
 get rid of print statements
+throw errors when user defines functions with same name as a library function
+
+
+
+
+Testing: 
+-Strings and printing
+-Arrays
+	-Bug: Currently processing decs in reverse order. We need to fix this!
+-Records
+-Loops
+	-For loops working
+
