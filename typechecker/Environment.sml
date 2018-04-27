@@ -41,7 +41,7 @@ struct
 					   FunEntry{level   = R.newLevel{parent  = R.outermost,
 									 name    = Temp.namedlabel(name),
 									 formals = map (fn _ => false) formals},
-						    label   = Temp.namedlabel(name),
+						    label   = Temp.namedlabel("tig_" ^ name),
 						    formals = formals,
 						    result  = result})
 			       ) S.empty base_funs

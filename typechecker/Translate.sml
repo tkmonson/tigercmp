@@ -63,6 +63,9 @@ struct
 structure Tr = Tree
 structure F = MipsFrame
 
+  val libFuns = ["tig_print", "tig_flush", "tig_getchar", "tig_ord",
+                  "tig_chr", "tig_substring", "tig_concat", "tig_not", "tig_exit"]
+
   (*Associated with a function *)
   (*Static link: One example of static link following is MEM(MEM(FP))*)
   (*See pg 143 for description of outermost level*)
@@ -225,7 +228,7 @@ structure F = MipsFrame
   fun arrayCreate(size, initValue) =
   let
    val baseAddr = Temp.newtemp()
-   val getBaseAddr = MipsFrame.externalCall("initArray", [Tr.BINOP(Tr.PLUS, Tr.CONST 1, unEx(size)), unEx(initValue)])
+   val getBaseAddr = MipsFrame.externalCall("tig_initArray", [Tr.BINOP(Tr.PLUS, Tr.CONST 1, unEx(size)), unEx(initValue)])
    val storeBaseAddr = Tr.MOVE(Tr.TEMP(baseAddr), Tr.BINOP(Tr.PLUS, Tr.CONST 4, getBaseAddr))
    val storeArrSize = Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.MINUS, Tr.TEMP(baseAddr), Tr.CONST 4)), unEx(size))
   in Ex(Tr.ESEQ(Tr.seq([storeBaseAddr, storeArrSize]), Tr.TEMP(baseAddr)))
@@ -237,7 +240,7 @@ structure F = MipsFrame
   fun recCreate(fieldList, numFields) =
    let
     val baseAddr = Temp.newtemp()
-    val getBaseAddr = MipsFrame.externalCall("malloc",[Tr.CONST(numFields*MipsFrame.wordsize)])
+    val getBaseAddr = MipsFrame.externalCall("tig_malloc",[Tr.CONST(numFields*MipsFrame.wordsize)])
     val storeBaseAddr = Tr.MOVE(Tr.TEMP(baseAddr), getBaseAddr)
     val offset = ref 0
     fun genMove(field) = (offset := (!offset) + 1;
@@ -275,7 +278,9 @@ structure F = MipsFrame
   (*need level where fun was declared, then level where it was called*)
   (*Need level of f and level of fn calling f to compute static link*)
   fun callExp (makeLevel{frame=frame, parent=level, unq=_}, currLevel, label:Temp.label, argExpList) =
-      Ex(Tr.CALL(Tr.NAME label, (traverseLevels(level, currLevel)::(map unEx argExpList))))
+      case List.find (fn s => s = (Symbol.name label)) libFuns of
+          SOME(x) => Ex(Tr.CALL(Tr.NAME label, (map unEx argExpList)))(*We're in a lib fun, don't use SL*)
+          | NONE => Ex(Tr.CALL(Tr.NAME label, (traverseLevels(level, currLevel)::(map unEx argExpList))))
 
   (*return exp of assignment expression to initialize var
     do we call assignExp on the var...?*)
@@ -336,7 +341,7 @@ structure F = MipsFrame
     val checkOutOfBounds = Tr.CJUMP(Tr.GE, unEx(index), arrSize, ifOutOFBounds, allGood)
     val checkBelowZero = Tr.CJUMP(Tr.LT, unEx(index), Tr.CONST 0, ifBelowZero, ifAboveZero)
     val retVal = Tr.MEM(Tr.BINOP(Tr.PLUS, unEx(baseAddr), unEx(index)))
-    val exit = Tr.EXP(MipsFrame.externalCall("exit", [Tr.CONST 1]))
+    val exit = Tr.EXP(MipsFrame.externalCall("tig_exit", [Tr.CONST 1]))
   in
     Ex (Tr.ESEQ(Tr.seq [checkBelowZero, Tr.LABEL ifBelowZero, exit, Tr.LABEL ifAboveZero,
                     checkOutOfBounds, Tr.LABEL ifOutOFBounds, exit, Tr.LABEL allGood],
