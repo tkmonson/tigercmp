@@ -55,7 +55,7 @@ struct
   and       frag = PROC of {body:Tree.stm, frame:frame}
                  | STRING of Temp.label * string
 
-  fun string(STRING(label, str)) = Symbol.name label ^ ": .asciiz \"" ^ str ^ "\"" ^ "\n"
+  fun string(STRING(label, str)) = (Symbol.name label) ^ ": .word " ^ Int.toString (String.size str) ^ "\n.asciiz \"" ^ str ^ "\"" ^ "\n"
 
   val wordsize = 4
 
