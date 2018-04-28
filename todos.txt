@@ -2,23 +2,28 @@
 Misc Bugs:
 -nonexhaustive match failure in Semant.sml 532
 
-Other:
+Other: 
 throw errors when user defines functions with same name as a library function
 
+Known Issues: 
+-Merge doesn't work (compiles without errors but when you run it it never prints anything)
+-Queens compiles forever
+-Liveness doesn't terminate for some programs
+
 Testing:
--Arrays: Tested, odd indexing tested
+-Arrays: Tested
 -Records: Tested
 -Lib functions:
     -print (x)
-		-flush (?)
-		-getchar (x)
+		-flush ()
+		-getchar ()
 		-size (x)
 		-ord (x)
 		-chr (x)
 		-substring (x)
 		-concat (x)
-		-not (x)
-		-exit(?)
+		-not ()
+		-exit()	
 -Loops
-	  -For loops bug fixed (unit return type)
+	  -For loops working
 	  -While loops working
