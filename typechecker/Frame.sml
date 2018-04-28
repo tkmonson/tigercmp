@@ -6,13 +6,16 @@ sig
   type reg_info = Temp.temp * register
 
 
-  datatype frame = makeFrame of {name: Temp.label, formals:access list, offset: int ref, moves: Tree.stm list}
+  datatype frame = makeFrame of {name: Temp.label, formals:access list, offset: int ref, moves: Tree.stm list, isLeaf: bool ref, numOGArgs: int ref}
   and      access =  InFrame of int
                    | InReg   of Temp.temp
   and       frag = PROC of {body:Tree.stm, frame:frame}
                | STRING of Temp.label * string
 
-  val isLeaf : bool ref
+  val setLeaf : frame*bool -> unit
+  val setOutgoingArgs : frame*int -> unit
+  val allocRA : frame -> int
+  val allocOutgoingArgs : frame -> int
   val FP : Temp.temp
   val wordsize : int
   val exp: access -> Tree.exp -> Tree.exp
@@ -33,7 +36,7 @@ sig
 
   val tempMap : string Temp.Map.map
   val getRegName : Temp.temp -> string
-
+  val numRegs : int
 end
 
 structure MipsFrame =
@@ -43,7 +46,7 @@ struct
   type reg_info = Temp.temp * register
 
   (*name of the frame, access for each formal, AND a ref int that represents the offset for the next local variable*)
-  datatype frame = makeFrame of {name: Temp.label, formals:access list, offset:int ref, moves:Tree.stm list}
+  datatype frame = makeFrame of {name: Temp.label, formals:access list, offset:int ref, moves:Tree.stm list, isLeaf: bool ref, numOGArgs: int ref}
 
   (*Represents the location (in register or in frame) of any formal or local variable*)
   and      access =  InFrame of int
@@ -52,7 +55,7 @@ struct
   and       frag = PROC of {body:Tree.stm, frame:frame}
                  | STRING of Temp.label * string
 
-  fun string(STRING(label, str)) = Symbol.name label ^ " .asciiz \"" ^ str ^ "\""
+  fun string(STRING(label, str)) = (Symbol.name label) ^ ": .word " ^ Int.toString (String.size str) ^ "\n.asciiz \"" ^ str ^ "\"" ^ "\n"
 
   val wordsize = 4
 
@@ -93,12 +96,7 @@ struct
   val t8 = Temp.newtemp()
   val t9 = Temp.newtemp()
 
-  (* Kernel Registers  *)
-  val k0 = Temp.newtemp()
-  val k1 = Temp.newtemp()
-
-  (* Special Registers -- Global, Stack, Frame, Return *)
-  val GP = Temp.newtemp()
+  (* Special Registers -- Stack, Frame, Return *)
   val SP = Temp.newtemp()
   val FP = Temp.newtemp()
   val RA = Temp.newtemp()
@@ -115,7 +113,7 @@ struct
   val callerSaves = [(t0, "$t0"), (t1, "$t1"), (t2, "$t2"), (t3, "$t3"), (t4, "$t4"),
                      (t5, "$t5"), (t6, "$t6"), (t7, "$t7"), (t8, "$t8"), (t9, "$t9")]
 
-  val specials = [(FP, "$fp"), (SP, "$sp"), (RZ, "$zero"), (RA, "$ra"), (GP, "$gp"), (v0, "$v0")]
+  val specials = [(FP, "$fp"), (SP, "$sp"), (RZ, "$zero"), (RA, "$ra"), (v0, "$v0"), (v1, "$v1")]
 
   (*Register map : This table maps register labels (eg "t123") to friendly names (eg "SP") for temps that are used as special registers*)
   val tempMap = foldl (fn ((temp, tempName):reg_info, map) =>
@@ -132,15 +130,17 @@ struct
                         SOME(name) => name
                       | NONE       => Temp.makestring temp
 
+  val numRegs = 28
+
 (* Tells a caller where to put argument n, either in an arg reg or on the stack *)
 (* Arguments are 0-indexed *)
   fun getCallerArgLoc(n) =
     if n < 4 then Tree.TEMP (getTemp (List.nth (argRegs, n)))
-    else Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.TEMP SP, Tree.CONST (wordsize*(n-4))))
+    else Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.TEMP SP, Tree.CONST (wordsize*(n-3))))
 
 (* Tells a callee where to find argument n, either in an arg reg or on the stack *)
 (* Arguments are 0-indexed *)
-(*The 4th argument will be passed on the stack at FP+4 from the callee's POV, and at SP+0 from the caller's POV*)
+(*The 4th argument will be passed on the stack at FP+4 from the callee's POV, and at SP+4 from the caller's POV*)
   fun getCalleeArgLoc(n) =
     if n < 4 then Tree.TEMP (getTemp (List.nth (argRegs, n)))
     else Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.TEMP FP, Tree.CONST (wordsize*(n-3))))
@@ -164,16 +164,34 @@ struct
                  end
         val (accesses, viewshifts) = processFormals([],[],0)
 
-      in makeFrame({name=name, formals=accesses, offset=oset, moves=viewshifts})
+      in makeFrame({name=name, formals=accesses, offset=oset, moves=viewshifts, isLeaf=ref true, numOGArgs = ref 0})
       end
 
-  fun name (makeFrame{name, formals, offset, moves}) = name
-  fun formals (makeFrame{name, formals, offset, moves}) = formals
+  (*Set whether current function is a leaf or not*)
+  fun setLeaf(makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}, leaf) = isLeaf := leaf
+
+  (*Set max number of outgoing args for this function*)
+  fun setOutgoingArgs((makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}, num)) = if num > !numOGArgs then numOGArgs := num else ()
+
+  fun name (makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}) = name
+  fun formals (makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}) = formals
   val funclabel = Temp.newlabel()
 
-  val isLeaf = ref false
+  fun allocRA(makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}) = if !isLeaf then wordsize*(!offset)
+                                                                            else (offset:=(!offset)-1; wordsize*(!offset))
 
-  fun allocLocal (makeFrame{name, formals, offset, moves}) = fn(x:bool) => if x then (offset:=(!offset)-1; InFrame ((!offset)+1)) else InReg(Temp.newtemp())
+  fun allocOutgoingArgs(makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}) =
+    let val numArgRegs = List.length argRegs
+        val numStackArgs = !numOGArgs - numArgRegs
+    in
+      if !numOGArgs <= numArgRegs then wordsize*(!offset) - wordsize (*Allocate extra space for stack pointer*)
+      else (offset := (!offset)-numStackArgs; wordsize*(!offset)) - wordsize
+    end
+
+  fun allocFP(makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}) = (offset := (!offset)-1; wordsize*(!offset))
+
+
+  fun allocLocal (makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}) = fn(x:bool) => if x then (offset:=(!offset)-1; InFrame ((!offset)+1)) else InReg(Temp.newtemp())
 
   fun exp (a:access) = fn(e:Tree.exp) => case a of
                                          InReg(t:Temp.temp) => Tree.TEMP(t)
@@ -183,10 +201,12 @@ struct
       Move escaping args to the stack and nonescaping args to temps (view shift)
       Save and restore calleeSaves*)
   (*Returns a Tree.stm*)
-  fun procEntryExit1 (makeFrame{name, formals, offset, moves}, stat:Tree.stm) =
+  fun procEntryExit1 (makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}, stat:Tree.stm) =
     let
     (* This let block generates pre, which copies all calleesaves onto the stack, and post which copies them back *)
-      val fr = makeFrame{name=name, formals=formals, offset=offset, moves=moves}
+      val fr = makeFrame{name=name, formals=formals, offset=offset, moves=moves, isLeaf=isLeaf, numOGArgs=numOGArgs}
+
+      (*Treat callesaves like escaping variables so that we allocate space for them properly*)
       val accesses = map (fn(x) => allocLocal(fr)(x)) (map (fn(x) => true) calleeSaves)
       val cstemps = map getTemp calleeSaves
       val pre = ListPair.map (fn(x,y) => case x of
@@ -203,11 +223,21 @@ struct
 
   (*This makes it so that RZ, RA, SP, FP are constantly liveOut so they will interfere with every other register*)
   (*calleesaves will be live out at proc exit, but they get defined just before proc exit, so they are still usable in the proc body*)
-  fun procEntryExit2(frame, body) =
-      body @
-      [Assem.OPER{assem="",
-              src=[RZ,RA,SP, FP] @ (map getTemp calleeSaves),
-              dst=[], jump=SOME[]}]
+  (*Do we need to save/restore calleesaves in tig_main, or can we get away with trashing them?*)
+  fun procEntryExit2(makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}, body) =
+      let val sink1 = [Assem.OPER{assem="",
+                                 src=[RZ,RA,SP,FP] @ (map getTemp calleeSaves),
+                                 dst=[],
+                                 jump=SOME[]}]
+          val sink2 = [Assem.OPER{assem="",
+                                     src=[RZ,RA,SP,FP],
+                                     dst=[],
+                                     jump=SOME[]}]
+          val isTigMain = Symbol.name name = "tig_main"
+      in
+          if isTigMain then body @ sink2 else body @ sink1
+      end
+
 
   fun externalCall (fname, argList) = Tree.CALL(Tree.NAME(Temp.namedlabel(fname)), argList)
 

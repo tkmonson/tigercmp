@@ -1,0 +1,15 @@
+let
+
+var f := 1
+var g := 2
+
+function outer(a:int, b:int):int =
+    let function inner1():int = a * a
+        function inner2():int = b * b
+    in inner1() + inner2()
+    end
+
+function after(a:int, b:int):int = a - b
+
+in after(outer(f, g),g)
+end

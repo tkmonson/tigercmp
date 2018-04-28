@@ -6,8 +6,9 @@ errormsg.sml
 table.sig
 table.sml
 symbol.sml
+
 tiger.lex
-parse.sml (*Change this to parse.sml once you have semantic values for all of the grammar rules?*)
+parse.sml
 $/smlnj-lib.cm
 $/ml-yacc-lib.cm
 $/basis.cm

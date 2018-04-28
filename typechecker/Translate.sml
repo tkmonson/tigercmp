@@ -18,14 +18,15 @@ sig
 
   val makeFunction : exp*level -> unit
   val makeTopLevelFrag : exp*level -> unit
-  val getResult : unit -> frag list
+  val getResult : unit -> frag list * frag list
 
   (*This function calls Frame.newFrame to create a frame with the formals and a static link*)
   val newLevel : {parent:level, name:Temp.label, formals:bool list} -> level
 
   val formals : level -> access list
   val allocLocal : level -> bool -> access
-  val fraglistref : frag list ref
+  val procfrags : frag list ref
+  val stringfrags: frag list ref
 
   val simpleVar : access*level -> exp
   val subscript : exp*exp -> exp
@@ -63,6 +64,10 @@ struct
 
 structure Tr = Tree
 structure F = MipsFrame
+
+  val libFuns = ["tig_print", "tig_flush", "tig_getchar", "tig_ord",
+                  "tig_chr", "tig_substring", "tig_concat", "tig_not",
+                  "tig_exit", "tig_size"]
 
   (*Associated with a function *)
   (*Static link: One example of static link following is MEM(MEM(FP))*)
@@ -114,7 +119,8 @@ structure F = MipsFrame
                                end
     | traverseLevels(_,_) = Tr.TEMP(MipsFrame.FP)
 
-  val fraglistref : frag list ref = ref nil
+  val procfrags : frag list ref = ref nil
+  val stringfrags : frag list ref = ref nil
 
 (* exp -> Tr.exp *)
   fun unEx (Ex e) = e
@@ -205,7 +211,7 @@ structure F = MipsFrame
 	  (* Find a fragment that corresponds to s (or don't find one) in fraglist, return exp *)
 	  val f = List.find (fn (fragment) => case fragment of
 					   F.PROC(arg) => false
-					 | F.STRING(label, str) => s=str) (!fraglistref)
+					 | F.STRING(label, str) => s=str) (!stringfrags)
       in
 	  case f of
 	      (* Didn't find fragment, make new label, put new fragment in fraglist *)
@@ -213,7 +219,7 @@ structure F = MipsFrame
 	          let
 		      val lab = Temp.newlabel()
  	          in
-                      fraglistref := F.STRING(lab,s)::(!fraglistref);
+                      stringfrags := F.STRING(lab,s)::(!stringfrags);
 		      Ex(Tr.NAME(lab))
 		  end
 	      (* Found fragment, return exp *)
@@ -240,7 +246,7 @@ structure F = MipsFrame
   fun arrayCreate(size, initValue) =
   let
    val baseAddr = Temp.newtemp()
-   val getBaseAddr = MipsFrame.externalCall("initArray", [Tr.BINOP(Tr.PLUS, Tr.CONST 1, unEx(size)), unEx(initValue)])
+   val getBaseAddr = MipsFrame.externalCall("tig_initArray", [Tr.BINOP(Tr.PLUS, Tr.CONST 1, unEx(size)), unEx(initValue)])
    val storeBaseAddr = Tr.MOVE(Tr.TEMP(baseAddr), Tr.BINOP(Tr.PLUS, Tr.CONST 4, getBaseAddr))
    val storeArrSize = Tr.MOVE(Tr.MEM(Tr.BINOP(Tr.MINUS, Tr.TEMP(baseAddr), Tr.CONST 4)), unEx(size))
   in Ex(Tr.ESEQ(Tr.seq([storeBaseAddr, storeArrSize]), Tr.TEMP(baseAddr)))
@@ -314,7 +320,9 @@ structure F = MipsFrame
   (*need level where fun was declared, then level where it was called*)
   (*Need level of f and level of fn calling f to compute static link*)
   fun callExp (makeLevel{frame=frame, parent=level, unq=_}, currLevel, label:Temp.label, argExpList) =
-      Ex(Tr.CALL(Tr.NAME label, (traverseLevels(level, currLevel)::(map unEx argExpList))))
+      case List.find (fn s => s = (Symbol.name label)) libFuns of
+          SOME(x) => Ex(Tr.CALL(Tr.NAME label, (map unEx argExpList)))(*We're in a lib fun, don't use SL*)
+          | NONE => Ex(Tr.CALL(Tr.NAME label, (traverseLevels(level, currLevel)::(map unEx argExpList))))
 
   (*return exp of assignment expression to initialize var
     do we call assignExp on the var...?*)
@@ -374,8 +382,8 @@ structure F = MipsFrame
     val allGood = Temp.newlabel()
     val checkOutOfBounds = Tr.CJUMP(Tr.GE, unEx(index), arrSize, ifOutOFBounds, allGood)
     val checkBelowZero = Tr.CJUMP(Tr.LT, unEx(index), Tr.CONST 0, ifBelowZero, ifAboveZero)
-    val retVal = Tr.MEM(Tr.BINOP(Tr.PLUS, unEx(baseAddr), Tr.BINOP(Tr.MUL, unEx(index), Tr.CONST MipsFrame.wordsize)))
-    val exit = Tr.EXP(MipsFrame.externalCall("exit", [Tr.CONST 1]))
+    val retVal = Tr.MEM(Tr.BINOP(Tr.PLUS, unEx(baseAddr), Tr.BINOP(Tr.MUL, Tr.CONST F.wordsize, unEx(index))))
+    val exit = Tr.EXP(MipsFrame.externalCall("tig_exit", [Tr.CONST 1]))
   in
     Ex (Tr.ESEQ(Tr.seq [checkBelowZero, Tr.LABEL ifBelowZero, exit, Tr.LABEL ifAboveZero,
                     checkOutOfBounds, Tr.LABEL ifOutOFBounds, exit, Tr.LABEL allGood],
@@ -405,16 +413,12 @@ structure F = MipsFrame
   fun makeFunction(funBody, makeLevel{frame=f, parent=p, unq=u}) =
   let
     val fragLabel = MipsFrame.name f
-
-    (*pEE1 takes Tree.stm*)
-
     val retValStm = Tr.MOVE(Tr.TEMP MipsFrame.v0, unEx funBody)
     val fullBody = MipsFrame.procEntryExit1(f, retValStm)
-    val jumpToReturn = Tr.JUMP(Tr.TEMP MipsFrame.RA, [])
-    val body = Tree.seq [Tr.LABEL fragLabel, fullBody, jumpToReturn]
+    val body = Tree.seq [Tr.LABEL fragLabel, fullBody]
 
     val funFrag = MipsFrame.PROC({body=body, frame=f})
-  in fraglistref := funFrag :: !fraglistref
+  in procfrags := funFrag :: !procfrags
   end
 
   fun makeTopLevelFrag(funBody, makeLevel{frame=f, parent=p, unq=u}) =
@@ -422,9 +426,9 @@ structure F = MipsFrame
     val fragLabel = MipsFrame.name f
     val body = Tree.seq [Tr.LABEL fragLabel, unNx funBody]
     val funFrag = MipsFrame.PROC({body=body, frame=f})
-  in fraglistref := funFrag :: !fraglistref
+  in procfrags := funFrag :: !procfrags
   end
 
-  fun getResult() = !fraglistref
+  fun getResult() = (!procfrags, !stringfrags)
 
 end

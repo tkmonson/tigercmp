@@ -1,0 +1,9 @@
+let
+    var N := 8
+    type intArray = array of int
+    var myArray := intArray[N] of 7
+    function dummy (c:int, d:int) : int = c*d
+
+in
+    dummy(N,myArray[0])
+end

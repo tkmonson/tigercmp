@@ -29,7 +29,8 @@ struct
          ("flush",[],T.UNIT),
 	 ("getchar",[],T.STRING),
 	 ("ord",[T.STRING],T.INT),
-	 ("chr",[T.INT],T.INT),
+	 ("chr",[T.INT],T.STRING),
+   ("size",[T.STRING],T.INT),
 	 ("substring",[T.STRING,T.INT,T.INT],T.STRING),
 	 ("concat",[T.STRING,T.STRING],T.STRING),
 	 ("not",[T.INT],T.INT),
@@ -41,7 +42,7 @@ struct
 					   FunEntry{level   = R.newLevel{parent  = R.outermost,
 									 name    = Temp.namedlabel(name),
 									 formals = map (fn _ => false) formals},
-						    label   = Temp.namedlabel(name),
+						    label   = Temp.namedlabel("tig_" ^ name),
 						    formals = formals,
 						    result  = result})
 			       ) S.empty base_funs

@@ -103,7 +103,7 @@ fun update(node, liveIns, liveOuts, visited, graph) =
     let fun updateWrapper(node, (liveIns, liveOuts)) = update(node, liveIns, liveOuts, IntSet.empty, graph)
         val (newLI, newLO) = foldl updateWrapper (LI, LO) sinkList
     in
-      if !updated then (print ("updating liveness info\n"); updated := false; genLivenessInfo(newLI, newLO, graph, sinkList))
+      if !updated then (updated := false; genLivenessInfo(newLI, newLO, graph, sinkList))
                   else (newLI, newLO)
     end
 
@@ -142,7 +142,7 @@ fun update(node, liveIns, liveOuts, visited, graph) =
                               | NONE    => []
                 val isMove = case Flow.look(moveTable, id) of
                              SOME(x) => x
-                            |NONE    => (print("No isMove value for node " ^ Int.toString id ^ "\n"); false)
+                            |NONE    => false
                 val newLGraph = addEdges(lgraph, defs, liveOuts, isMove, uses)
                 val newMGraph = if isMove then addMoveEdges(mgraph, defs, uses) else mgraph
             in (newLGraph, newMGraph)
@@ -189,16 +189,23 @@ fun printLivenessInfo(liveIn, liveOut, id) =
       foldl (fn(temp, graph) => TempGraph.addNode(graph, temp, temp)) TempGraph.empty tempList
     end
 
+  (*Calls Flow.main, which returns a list of tuples of form (conflow, instr list)*)
+  (*Returns a list of tuples of form (interference graph, move graph, instr list)*)
   fun main filename =
-    let val conflowList = Flow.main filename
-        val Flow.CONFLOW{control=gr, def=d, use=u, ismove=im, temps=t} = List.hd conflowList
-        val sinks = map (fn (id) => FlowGraph.getNode(gr, id))
-                        (IntSet.listItems(findSinks(gr, 0, IntSet.empty, IntSet.empty)))
-        val (liveIns, liveOuts) = genLivenessInfo(initLivenessTable gr, initLivenessTable gr, gr, sinks)
-        val baseInterferenceGraph = createBaseIntGraph(t)
-        val (intGraph, moveGraph) = makeInterferenceGraph(liveOuts, gr, d, im, u, baseInterferenceGraph, baseInterferenceGraph)
+    let val (procfrags, stringfrags) = Flow.main filename
+        fun handleFrag(cflow, instrs) =
+        let
+          val Flow.CONFLOW{control=gr, def=d, use=u, ismove=im, temps=t} = cflow
+          val sinks = map (fn (id) => FlowGraph.getNode(gr, id))
+                          (IntSet.listItems(findSinks(gr, 0, IntSet.empty, IntSet.empty)))
+          val (liveIns, liveOuts) = genLivenessInfo(initLivenessTable gr, initLivenessTable gr, gr, sinks)
+          val baseInterferenceGraph = createBaseIntGraph(t)
+          val (intGraph, moveGraph) = makeInterferenceGraph(liveOuts, gr, d, im, u, baseInterferenceGraph, baseInterferenceGraph)
+        in
+          (intGraph, moveGraph, instrs)
+        end
     in
-      (intGraph, moveGraph)
+      (map handleFrag procfrags, stringfrags)
     end
 
     fun printTempGraph gr =

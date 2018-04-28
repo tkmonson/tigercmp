@@ -43,6 +43,9 @@ Group is
 ../liveness/flow.sml
 ../liveness/liveness.sml
 
+regalloc.sml
+main.sml
+
 (*SML libraries*)
 $/smlnj-lib.cm
 $/ml-yacc-lib.cm

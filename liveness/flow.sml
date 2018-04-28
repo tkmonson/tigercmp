@@ -125,14 +125,14 @@ fun createGraph [] = (print("Error, trying to make graph for conflow without any
     (*program = Assem.instr list list*)
     (*one list per fragment*)
     fun test filename =
-      let val program = MipsGen.transFrags filename
+      let val (procfrags, stringfrags) = MipsGen.transFrags filename
       in
-        printFlowGraphs program
+        printFlowGraphs procfrags
       end
 
   (*Generates a list of CONFLOW, with one CONFLOW per fragment in the program*)
     fun generateFlowInfo filename =
-      let val program = MipsGen.transFrags filename
+      let val (procfrags, stringfrags) = MipsGen.transFrags filename
           fun processFragment fragInstrs=
             let
               val CONFLOW{control=gr, def=_, use=_, ismove=_, temps=_} = createGraph fragInstrs
@@ -140,20 +140,22 @@ fun createGraph [] = (print("Error, trying to make graph for conflow without any
             in gr
             end
       in
-        map processFragment program
+        map processFragment procfrags
       end
 
+(*Returns a list of tuples
+  Each tuple has form (conflow, instr list)*)
   fun main filename =
-      let val program = MipsGen.transFrags filename
-      
+      let val (program, stringfrags) = MipsGen.transFrags filename
+
         fun processFragment fragInstrs=
           let
             val cflow = createGraph fragInstrs
             val reset = AssemNode.curID := 0
-          in cflow
+          in (cflow, fragInstrs)
           end
       in
-      map processFragment program
+      (map processFragment program, stringfrags)
       end
 
 
