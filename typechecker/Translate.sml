@@ -183,9 +183,9 @@ structure F = MipsFrame
                                     val join = Tr.JUMP(Tr.NAME(joinLabel),[joinLabel])
                                 in
                                     case TreeRelop(oper) of
-                                         Tr.EQ =>  Ex (MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2]))
+                                         Tr.EQ =>  Ex (MipsFrame.externalCall("tig_stringEqual", [unEx s1, unEx s2]))
                                        | Tr.NE =>  Ex (Tr.ESEQ(Tr.seq[
-                                                       Tr.CJUMP(Tr.EQ, (MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2])), Tr.CONST 0, tLabel, fLabel),
+                                                       Tr.CJUMP(Tr.EQ, (MipsFrame.externalCall("tig_stringEqual", [unEx s1, unEx s2])), Tr.CONST 0, tLabel, fLabel),
                                                        Tr.LABEL(tLabel),
                                                        Tr.MOVE(Tr.TEMP(retVal), Tr.CONST 1), join,
                                                        Tr.LABEL(fLabel),
@@ -196,10 +196,10 @@ structure F = MipsFrame
                                        | Tr.GT => Ex (MipsFrame.externalCall("stringGT", [unEx s1, unEx s2]))
                                        | Tr.LE => Ex (Tr.BINOP(Tr.OR,
 							       MipsFrame.externalCall("stringLT", [unEx s1, unEx s2]),
-							       MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2])))
+							       MipsFrame.externalCall("tig_stringEqual", [unEx s1, unEx s2])))
                                        | Tr.GE => Ex (Tr.BINOP(Tr.OR,
 							       MipsFrame.externalCall("stringGT", [unEx s1, unEx s2]),
-							       MipsFrame.externalCall("stringEqual", [unEx s1, unEx s2])))
+							       MipsFrame.externalCall("tig_stringEqual", [unEx s1, unEx s2])))
                                end
 
   val NilExp = Ex(Tr.CONST 0)
@@ -308,7 +308,8 @@ structure F = MipsFrame
 	end
 
   (*make eseq to turn everything but last one into statement and return last one as exp*)
-  fun seqExp (e::[]) = Ex(unEx (e))
+  fun seqExp [] = Ex(Tr.CONST 0)
+      |seqExp (e::[]) = Ex(unEx (e))
       |seqExp (elist) = Ex(Tr.ESEQ (Tr.seq (map unNx (List.take (elist, (List.length elist) - 1))), unEx (List.last(elist))))
 
   (*location comes from transvar call in semant, exp comes from recursivecall in semant*)

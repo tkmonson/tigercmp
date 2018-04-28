@@ -97,6 +97,7 @@ fun lookupFieldType (Types.RECORD(fieldlist, u), s, pos) = traverseFieldList (fi
 fun isCompatible (T.BOTTOM, b:Types.ty) = true
   | isCompatible (a:T.ty, T.UNIT) = true
   | isCompatible(T.NIL, T.RECORD(arg1,arg2)) = true
+  | isCompatible(T.RECORD(arg1,arg2), T.NIL) = true
   | isCompatible(a:T.ty, b:T.ty) = a=b
 
 (*take header, represent as ty, add to tenv'*)
@@ -283,7 +284,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
                                                   | NONE => {exp=R.dummy, ty=T.UNIT}
              in
               (case elsecase of
-              SOME(e) => (if thenty = elsety
+              SOME(e) => (if isCompatible(thenty, elsety)
                           then {exp = R.translateIfThenElse(testexp, thenexp, elseexp), ty = thenty}
                           else (printError("Type mismatch in then and else statements", p); {exp=R.dummy, ty=T.BOTTOM}))
 
@@ -372,7 +373,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 
 	and trvar (v:A.var) = transVar (venv, tenv, v, level, isLoop)
 
-	and trseq expList = case expList of [] =>(printError("Empty sequence expression", 1); {exp=R.dummy, ty=T.UNIT})
+	and trseq expList = case expList of [] =>({exp=R.Ex(Tree.CONST 0), ty=T.UNIT})
                                       | a::l => List.last(map (fn (exp, pos) => trexp exp) expList)
   (* {exp=R.dummy, ty=T.UNIT} (*This should be unit and not bottom!*)
           | trseq ((a,p)::[]) = trexp a
