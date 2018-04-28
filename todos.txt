@@ -2,9 +2,6 @@
 Misc Bugs:
 -nonexhaustive match failure in Semant.sml 532
 
-Lexer/Parser Bugs:
--Can't parse unparenthesized sequences
-
 Other: 
 throw errors when user defines functions with same name as a library function
 
@@ -22,5 +19,5 @@ Testing:
 		-not ()
 		-exit	()	
 -Loops
-	  -For loops working
+	  -For loops bug!!
 	  -While loops working
