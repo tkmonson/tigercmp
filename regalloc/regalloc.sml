@@ -73,7 +73,7 @@ fun simplify(igraph, mgraph) =
 fun pickReg [] = (print "Error, reg list empty!\n"; "SPILL")
     | pickReg (regList) =
         let val tList = List.filter (fn (s) => String.substring(s, 1, 1) = "t") regList
-        in if List.length(tList) > 0 then (print "t regs available\n"; List.hd(tList)) else List.hd(regList)
+        in if List.length(tList) > 0 then List.hd(tList) else List.hd(regList)
         end
 
 fun colorSimpGraph(sgraph, tempMap) =

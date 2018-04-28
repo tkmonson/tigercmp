@@ -12,12 +12,13 @@ Testing:
     -print (x)
 		-flush ()
 		-getchar ()
-		-ord ()
-		-chr ()
-		-substring ()
-		-concat ()
+		-size (x)
+		-ord (x)
+		-chr (x)
+		-substring (x)
+		-concat (x)
 		-not ()
-		-exit	()	
+		-exit()	
 -Loops
 	  -For loops bug!!
 	  -While loops working

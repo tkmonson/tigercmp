@@ -64,7 +64,8 @@ structure Tr = Tree
 structure F = MipsFrame
 
   val libFuns = ["tig_print", "tig_flush", "tig_getchar", "tig_ord",
-                  "tig_chr", "tig_substring", "tig_concat", "tig_not", "tig_exit"]
+                  "tig_chr", "tig_substring", "tig_concat", "tig_not",
+                  "tig_exit", "tig_size"]
 
   (*Associated with a function *)
   (*Static link: One example of static link following is MEM(MEM(FP))*)

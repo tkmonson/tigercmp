@@ -170,7 +170,8 @@ fun transTy (tenv, Absyn.TypeDec(tylist)) = let val newTenv = processTypeDecBodi
 
 fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoop, label) =
   (*fn(e:Absyn.exp) => {exp=R.dummy, ty=T.UNIT}*)
-    let fun trexp (A.NilExp) = {exp = R.NilExp, ty = T.NIL}
+    let
+    fun trexp (A.NilExp) = {exp = R.NilExp, ty = T.NIL}
 
           | trexp (A.IntExp(num)) = {exp = R.IntExp(num), ty = T.INT}
 
@@ -265,15 +266,13 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
                                                   SOME(e) => trexp e
                                                   | NONE => {exp=R.dummy, ty=T.UNIT}
              in
-		          if elsety <> T.UNIT
-		            then
-                 if thenty = elsety
-                 then {exp = R.translateIfThenElse(testexp, thenexp, elseexp), ty = thenty}
-                 else (printError("Type mismatch in then and else statements", p); {exp=R.dummy, ty=T.BOTTOM})
-              (*If elsety is UNIT, thenty must also be unit*)
-              else
-                (if thenty <> T.UNIT then (printError("Then clause of an if/then statement can not return a value", p); {exp=R.dummy, ty=T.UNIT})
-                else ({exp = R.translateIfThen(testexp, thenexp), ty = T.UNIT}))
+              (case elsecase of
+              SOME(e) => (if thenty = elsety
+                          then {exp = R.translateIfThenElse(testexp, thenexp, elseexp), ty = thenty}
+                          else (printError("Type mismatch in then and else statements", p); {exp=R.dummy, ty=T.BOTTOM}))
+
+            | NONE    => (if thenty <> T.UNIT then (printError("Then clause of an if/then statement can not return a value", p); {exp=R.dummy, ty=T.UNIT})
+                          else ({exp = R.translateIfThen(testexp, thenexp), ty = T.UNIT})))
               end
 
           | trexp (A.WhileExp{test=t, body=b, pos=p}) =
@@ -315,6 +314,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
                   checkInt(l, p);
                   checkInt(h, p);
                   checkBody(S.enter (venv, v, Env.VarEntry{access=R.allocLocal(level)(!e), ty=T.INT, isCounter=true}), b, v, p, Temp.newlabel());
+                  (*BUG: This LetExp includes the loop body...which then gets typechecked with a non-augmented venv!*)
                   trexp(A.LetExp{decs=letdecs,body=loop,pos=p})
               end
 
@@ -377,7 +377,8 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	    end
 
 	and checkBody (venv':E.enventry S.table, b:A.exp, v, pos:A.pos, label) =
-	    let val {exp=_, ty=bTy} = transExp (venv', tenv, level, true, label) b
+	    let
+        val {exp=_, ty=bTy} = transExp (venv', tenv, level, true, label) b
 	    in
 		if bTy = T.UNIT then () else (printError("Unit return type expected; received " ^ printType bTy, pos);())
 	    end
