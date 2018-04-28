@@ -1,0 +1,15 @@
+simplify:
+-Create assembly that has several nodes of trivial degree, make sure that they all get removed
+-Create assembly that has non-precolored temps of nontrivial (>= 28) degree, make sure that they don't get removed
+  -Because of procEntryExit2, every temp will already interfere with at least 12 of the precolored temps.
+  -Might actually be really hard to create a test case that does this? Probably not worth spending a ton of time on if it turns out to be really hard
+
+
+colorSimpGraph:
+-For a graph that has non-precolored temps that can't get simplified, make sure they get colored
+  -Again, might be hard to make this happen in a testcase
+
+select:
+-Create simple programs, make sure that they get colored in a way that doesn't produce wrong assembly
+-Create more complicated programs (function calls, loops, nested functions)
+-Try and create a program that we can't allocate registers for 

@@ -1,0 +1,4 @@
+1: redundant move insns
+2: tig_initArray?
+3: malloc?
+4: does this loop enough?

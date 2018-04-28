@@ -1,0 +1,8 @@
+let
+
+  type intarray = array of int
+	var a := 0
+	var a := intarray[5] of 8
+in
+	0
+end
