@@ -19,12 +19,6 @@ fun getPosFromTypeDec  ({name, ty, pos}) = pos
 
 fun printError(msg, pos) = ErrorMsg.error pos (msg)
 
-fun checkLoopCounter(venv, A.SimpleVar(s,p)) = (case S.look (venv, s) of
-                                            SOME(E.VarEntry{access=access, ty=vartype, isCounter=c}) =>
-                                                if c then printError("Error: Can not assign value to for loop counter", p) else ()
-                                          | NONE => ())
-  | checkLoopCounter(venv, v:A.var) = ()
-
 fun printType ty = case ty of
     T.RECORD(_,_) =>  "record"
   | T.NIL => "nil"
@@ -66,6 +60,19 @@ fun checkType (t1:T.ty, t2:T.ty, pos) =
 	       | (T.NIL,T.RECORD(_,_)) => ()
 	       | (_,_) => printError("Expected "   ^ printType(t) ^
 				     ", received " ^ printType(tt) , pos)
+	else ()
+    end
+
+fun checkTypeWithErrorMsg (t1:T.ty, t2:T.ty, error:string, pos) =
+    let
+	val t = actualType(t1,pos)
+	val tt = actualType(t2,pos)
+    in
+	if (t <> tt)
+	then case (t,tt) of
+		 (T.RECORD(_,_),T.NIL) => ()
+	       | (T.NIL,T.RECORD(_,_)) => ()
+	       | (_,_) => printError(error, pos)
 	else ()
     end
 
@@ -228,12 +235,15 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
 	    in
 		case classify(oper) of
 		    ARITH => (checkArith(); {exp=R.binop(oper,lexp,rexp), ty=T.INT})
-		  | COMP  => (checkComp();  {exp=R.relop(oper,lexp,rexp), ty=T.INT})
-		  | EQ    => (checkEq();    {exp=R.relop(oper,lexp,rexp), ty=T.INT})
+		  | COMP  => (checkComp();  if lty = T.STRING
+					    then {exp=R.stringComp(oper,lexp,rexp), ty=T.INT}
+					    else {exp=R.relop(oper,lexp,rexp), ty=T.INT})
+		  | EQ    => (checkEq();    if lty = T.STRING
+					    then {exp=R.stringComp(oper,lexp,rexp), ty=T.INT}
+					    else {exp=R.relop(oper,lexp,rexp), ty=T.INT})
 	    end
 
 
-        (*TODO: Append ir to *)
           | trexp (A.LetExp{decs=d, body=b, pos=p}) =
             let val (venv', tenv', decIR) = transDecs (venv, tenv, d, [], level)
                 val {exp=bodyIR, ty=t} = transExp(venv', tenv', level, false, Temp.newlabel()) b
@@ -246,6 +256,12 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
             let val {exp=e, ty=exptype} = trexp(e)
 		            val {exp=varExp, ty=vartype} = trvar(v)
 		            val compat = isCompatible(actualType(exptype, p), actualType(vartype, p))
+                            fun checkLoopCounter(venv, A.SimpleVar(s,p)) = (case S.look (venv, s) of
+                                                                                SOME(E.VarEntry{access=access, ty=vartype, isCounter=c}) =>
+                                                                                    if c then printError("Error: Can not assign value to for loop counter", p) else ()
+                                                                              | NONE => ())
+                              | checkLoopCounter(venv, v:A.var) = ()
+
             in checkLoopCounter(venv,v); if compat then {exp=R.assignExp(varExp, e), ty=T.UNIT}
                                          else (printError("Assign statement type incompatible", p); {exp=R.dummy, ty=T.UNIT})
             end
@@ -288,35 +304,27 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
                 end
 	  (*What do we do with the var? Create new scope for variable, use it in ex3 in book ONLY then take out*)
           | trexp (A.ForExp{var=v, escape=e, lo=l, hi=h, body=b, pos=p}) =
-	      let
-		  val i = S.symbol "i"
-		  val limit = S.symbol "limit"
-		  val iVar = A.SimpleVar(i,p)
-		  val limitVar = A.SimpleVar(limit,p)
-                  val letdecs = [A.VarDec{name=i, escape=e, typ=NONE, init=l, pos=p},
-				 A.VarDec{name=limit, escape=ref false, typ=NONE, init=h, pos=p}]
-		  val loop = A.IfExp{test=  A.OpExp{left=l,oper=A.LeOp,right=h,pos=p},
-				     then'= A.WhileExp{test=A.OpExp{left=A.VarExp(iVar),
-								    oper=A.LeOp,
-								    right=A.VarExp(limitVar),
-								    pos=p},
-				                       body=A.SeqExp[(b,p),
-						                     (A.AssignExp{var=iVar,
-								                  exp=A.OpExp{left=A.VarExp(iVar),
-								                              oper=A.PlusOp,
-								  	                      right=A.IntExp(1),
-								                              pos=p},
-										  pos=p},p)],
-						       pos=p},
-				      else'= NONE,
-				      pos=p}
-	      in
-                  checkInt(l, p);
-                  checkInt(h, p);
-                  checkBody(S.enter (venv, v, Env.VarEntry{access=R.allocLocal(level)(!e), ty=T.INT, isCounter=true}), b, v, p, Temp.newlabel());
-                  (*BUG: This LetExp includes the loop body...which then gets typechecked with a non-augmented venv!*)
-                  trexp(A.LetExp{decs=letdecs,body=loop,pos=p})
-              end
+	    let
+		val venv' = S.enter(venv, v, E.VarEntry{access=R.allocLocal level true,ty=T.INT,isCounter=true})
+		val forLabel = Temp.newlabel()
+                val {ty=loTy, exp=loEx} = transExp (venv', tenv, level, true, forLabel) l
+		val {ty=hiTy, exp=hiEx} = transExp (venv', tenv, level, true, forLabel) h
+	        val {ty=bodyTy, exp=bodyNx} = transExp (venv', tenv, level, true, forLabel) b
+	    in
+		checkTypeWithErrorMsg(loTy, T.INT, "Initial counter value must be an int", p);
+		checkTypeWithErrorMsg(hiTy, T.INT, "Counter upper boundary must be an int", p);
+		checkTypeWithErrorMsg(bodyTy, T.UNIT, "For loop body must have no value", p);
+		case S.look(venv',v) of
+		    SOME x =>
+		        (case x of
+		            E.VarEntry{access,ty,isCounter} => {exp = R.forLoop(R.simpleVar(access,level),loEx,hiEx,bodyNx,forLabel),
+								ty = T.UNIT}
+			  | _ => (printError("Compiler error: var is not a VarEntry", p);
+			         {exp = R.dummy, ty = T.UNIT})
+		        )
+		  | _ => (printError("Can't find for loop counter variable", p);
+		         {exp = R.dummy, ty = T.UNIT})
+	    end
 
 
           | trexp (A.ArrayExp{typ=t, size=s, init=i, pos=p}) =
