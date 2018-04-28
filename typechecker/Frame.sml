@@ -223,13 +223,19 @@ struct
 
   (*This makes it so that RZ, RA, SP, FP are constantly liveOut so they will interfere with every other register*)
   (*calleesaves will be live out at proc exit, but they get defined just before proc exit, so they are still usable in the proc body*)
-  fun procEntryExit2(frame, body) =
-      let val sink = [Assem.OPER{assem="",
+  (*Do we need to save/restore calleesaves in tig_main, or can we get away with trashing them?*)
+  fun procEntryExit2(makeFrame{name, formals, offset, moves, isLeaf, numOGArgs}, body) =
+      let val sink1 = [Assem.OPER{assem="",
                                  src=[RZ,RA,SP,FP] @ (map getTemp calleeSaves),
                                  dst=[],
                                  jump=SOME[]}]
+          val sink2 = [Assem.OPER{assem="",
+                                     src=[RZ,RA,SP,FP],
+                                     dst=[],
+                                     jump=SOME[]}]
+          val isTigMain = Symbol.name name = "tig_main"
       in
-          body @ sink
+          if isTigMain then body @ sink2 else body @ sink1
       end
 
 

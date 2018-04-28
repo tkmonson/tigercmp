@@ -103,7 +103,7 @@ fun update(node, liveIns, liveOuts, visited, graph) =
     let fun updateWrapper(node, (liveIns, liveOuts)) = update(node, liveIns, liveOuts, IntSet.empty, graph)
         val (newLI, newLO) = foldl updateWrapper (LI, LO) sinkList
     in
-      if !updated then (print ("updating liveness info\n"); updated := false; genLivenessInfo(newLI, newLO, graph, sinkList))
+      if !updated then (updated := false; genLivenessInfo(newLI, newLO, graph, sinkList))
                   else (newLI, newLO)
     end
 
@@ -142,7 +142,7 @@ fun update(node, liveIns, liveOuts, visited, graph) =
                               | NONE    => []
                 val isMove = case Flow.look(moveTable, id) of
                              SOME(x) => x
-                            |NONE    => (print("No isMove value for node " ^ Int.toString id ^ "\n"); false)
+                            |NONE    => false
                 val newLGraph = addEdges(lgraph, defs, liveOuts, isMove, uses)
                 val newMGraph = if isMove then addMoveEdges(mgraph, defs, uses) else mgraph
             in (newLGraph, newMGraph)
