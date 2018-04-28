@@ -33,7 +33,7 @@ Semant.sml
 (*Frame and Translate*)
 Frame.sml
 Translate.sml
-../instrselect/Assem.sml
+../instrselect/assem.sml
 
 (*SML libraries*)
 $/smlnj-lib.cm
