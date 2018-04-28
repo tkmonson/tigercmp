@@ -2,7 +2,7 @@
 Misc Bugs:
 -nonexhaustive match failure in Semant.sml 532
 
-Other: 
+Other:
 throw errors when user defines functions with same name as a library function
 
 Testing:
@@ -11,14 +11,14 @@ Testing:
 -Lib functions:
     -print (x)
 		-flush ()
-		-getchar ()
+		-getchar (x)
 		-size (x)
 		-ord (x)
 		-chr (x)
 		-substring (x)
 		-concat (x)
 		-not ()
-		-exit()	
+		-exit()
 -Loops
 	  -For loops bug!!
 	  -While loops working
