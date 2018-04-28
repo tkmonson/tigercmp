@@ -6,12 +6,7 @@ Lexer/Parser Bugs:
 -Can't parse unparenthesized sequences
 
 Other: 
-get rid of print statements
 throw errors when user defines functions with same name as a library function
-
-Instruction Selection Bugs: 
--Need to make callee-saves NOT liveout of tig_main
-
 
 Testing: 
 -Arrays: Tested
