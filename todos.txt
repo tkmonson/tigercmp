@@ -5,7 +5,7 @@ Misc Bugs:
 Lexer/Parser Bugs:
 -Can't parse unparenthesized sequences
 
-Other: 
+Other:
 throw errors when user defines functions with same name as a library function
 
 Testing:
@@ -15,12 +15,12 @@ Testing:
     -print (x)
 		-flush ()
 		-getchar ()
-		-ord ()
-		-chr ()
+		-ord (x)
+		-chr (x)
 		-substring ()
 		-concat ()
 		-not ()
-		-exit	()	
+		-exit	()
 -Loops
 	  -For loops working
 	  -While loops working
