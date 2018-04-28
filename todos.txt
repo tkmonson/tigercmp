@@ -1,5 +1,5 @@
 
-Misc Bugs: 
+Misc Bugs:
 -nonexhaustive match failure in Semant.sml 532
 
 Lexer/Parser Bugs:
@@ -8,9 +8,19 @@ Lexer/Parser Bugs:
 Other: 
 throw errors when user defines functions with same name as a library function
 
-Testing: 
+Testing:
 -Arrays: Tested
--Records: Tested 
+-Records: Tested
+-Lib functions:
+    -print (x)
+		-flush ()
+		-getchar ()
+		-ord ()
+		-chr ()
+		-substring ()
+		-concat ()
+		-not ()
+		-exit	()	
 -Loops
-	-For loops working
-
+	  -For loops working
+	  -While loops working

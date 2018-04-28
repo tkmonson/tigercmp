@@ -70,6 +70,12 @@ fun simplify(igraph, mgraph) =
 	 removeTrivials(igraph, [])
   end
 
+fun pickReg [] = (print "Error, reg list empty!\n"; "SPILL")
+    | pickReg (regList) =
+        let val tList = List.filter (fn (s) => String.substring(s, 1, 1) = "t") regList
+        in if List.length(tList) > 0 then (print "t regs available\n"; List.hd(tList)) else List.hd(regList)
+        end
+
 fun colorSimpGraph(sgraph, tempMap) =
     let val nodes = Liveness.TempGraph.nodes(sgraph)
 		    fun color(temp, map) =
@@ -85,7 +91,7 @@ fun colorSimpGraph(sgraph, tempMap) =
                        in if StringSet.isEmpty(validColors)
                           then (print ("Couldn't color node " ^ Int.toString (Liveness.TempGraph.nodeInfo temp) ^ " in the simplified interference graph! Boo hoo!\n");
                                Temp.Map.insert(map, Liveness.TempGraph.nodeInfo(temp), "SPILL"))
-                          else Temp.Map.insert(map, Liveness.TempGraph.nodeInfo(temp), List.hd(StringSet.listItems(validColors)))
+                          else Temp.Map.insert(map, Liveness.TempGraph.nodeInfo(temp), pickReg(StringSet.listItems(validColors)))
                        end))
             (* handle NotFound => (print "handle function for colorSimpGraph"; map)) *)
 		in foldl color tempMap nodes
