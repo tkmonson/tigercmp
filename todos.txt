@@ -7,8 +7,9 @@ throw errors when user defines functions with same name as a library function
 
 Known Issues: 
 -Merge doesn't work (compiles without errors but when you run it it never prints anything)
--Queens compiles forever
+-Queens compiles forever, stuck in liveness phase
 -Liveness doesn't terminate for some programs
+-Register allocator doesn't implement spilling or coalescing, so we'll be unable to compile large programs
 
 Testing:
 -Arrays: Tested
