@@ -284,7 +284,7 @@ fun transExp (venv:Env.enventry S.table, tenv:T.ty S.table, level:R.level, isLoo
                                                   | NONE => {exp=R.dummy, ty=T.UNIT}
              in
               (case elsecase of
-              SOME(e) => (if isCompatible(thenty, elsety)
+              SOME(e) => (if isCompatible(thenty, elsety) andalso isCompatible(elsety, thenty)
                           then {exp = R.translateIfThenElse(testexp, thenexp, elseexp), ty = thenty}
                           else (printError("Type mismatch in then and else statements", p); {exp=R.dummy, ty=T.BOTTOM}))
 
